@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Central do DP — Comunicação interna</title>
+    <!-- Tema antes de tudo (sem defer), para não piscar claro no tema escuro -->
+    <script src="./theme.js"></script>
+    <link rel="stylesheet" href="./central.css" />
+    <script src="./central.js" defer></script>
+  </head>
+  <body>
+    <!-- Login -->
+    <section id="login-view" class="auth" hidden>
+      <button class="icon-btn auth__theme" type="button" data-theme-toggle>🌙</button>
+      <form id="login-form" class="auth__card" autocomplete="on">
+        <div class="auth__brand">
+          <span class="logo">DP</span>
+          <div class="brand-text">
+            <strong>Central do DP</strong>
+            <small>Comunicação interna</small>
+          </div>
+        </div>
+        <h1>Entrar</h1>
+        <p class="muted">Acesso restrito ao Departamento Pessoal.</p>
+        <label class="field">
+          <span>Usuário</span>
+          <input name="username" autocomplete="username" required maxlength="64" />
+        </label>
+        <label class="field">
+          <span>Senha</span>
+          <input name="password" type="password" autocomplete="current-password" required maxlength="128" />
+        </label>
+        <p id="login-error" class="feedback feedback--error" hidden></p>
+        <button class="btn btn--primary btn--lg btn--block" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <!-- Troca de senha: obrigatória no primeiro acesso, ou pelo botão "Minha senha" -->
+    <section id="password-view" class="auth" hidden>
+      <button class="icon-btn auth__theme" type="button" data-theme-toggle>🌙</button>
+      <form id="own-password-form" class="auth__card" autocomplete="off">
+        <div class="auth__brand">
+          <span class="logo">DP</span>
+          <div class="brand-text">
+            <strong>Central do DP</strong>
+            <small>Comunicação interna</small>
+          </div>
+        </div>
+        <h1 id="own-password-title">Crie sua senha</h1>
+        <p class="muted" id="own-password-subtitle">Por segurança, troque a senha inicial antes de usar a Central.</p>
+        <label class="field">
+          <span>Senha atual</span>
+          <input name="currentPassword" type="password" autocomplete="current-password" required maxlength="128" />
+        </label>
+        <label class="field">
+          <span>Nova senha <small class="counter">mínimo 8 caracteres</small></span>
+          <input name="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <label class="field">
+          <span>Confirmar nova senha</span>
+          <input name="confirm" type="password" autocomplete="new-password" required minlength="8" maxlength="128" />
+        </label>
+        <p id="own-password-error" class="feedback feedback--error" hidden></p>
+        <button class="btn btn--primary btn--lg btn--block" type="submit">Salvar nova senha</button>
+        <button class="btn btn--ghost btn--block own-password-cancel" type="button" id="own-password-cancel" hidden>Cancelar</button>
+      </form>
+    </section>
+
+    <div id="app-view" class="shell" hidden>
+      <!-- Menu lateral (em telas estreitas vira uma barra no topo) -->
+      <aside class="sidebar">
+        <div class="sidebar__brand">
+          <span class="logo logo--sidebar">DP</span>
+          <div class="sidebar__brand-text">
+            <strong>Central do DP</strong>
+            <small>Comunicação interna</small>
+          </div>
+        </div>
+        <nav class="sidebar__nav" aria-label="Seções da Central">
+          <a class="nav-link" href="#novo" data-nav="novo">
+            <span class="nav-link__icon" aria-hidden="true">📝</span><span class="nav-link__label">Novo comunicado</span>
+          </a>
+          <a class="nav-link" href="#enviados" data-nav="enviados">
+            <span class="nav-link__icon" aria-hidden="true">📤</span><span class="nav-link__label">Enviados</span>
+          </a>
+          <a class="nav-link" href="#mensagens" data-nav="mensagens">
+            <span class="nav-link__icon" aria-hidden="true">💬</span><span class="nav-link__label">Mensagens</span>
+            <span id="nav-chat-badge" class="nav-badge" hidden></span>
+          </a>
+          <a class="nav-link" href="#auto" data-nav="auto">
+            <span class="nav-link__icon" aria-hidden="true">🤖</span><span class="nav-link__label">Resposta automática</span>
+          </a>
+          <a class="nav-link" href="#funcionarios" data-nav="funcionarios">
+            <span class="nav-link__icon" aria-hidden="true">👥</span><span class="nav-link__label">Funcionários</span>
+          </a>
+          <a class="nav-link" href="#setores" data-nav="setores">
+            <span class="nav-link__icon" aria-hidden="true">🏢</span><span class="nav-link__label">Setores</span>
+          </a>
+          <a class="nav-link" href="#dispositivos" data-nav="dispositivos">
+            <span class="nav-link__icon" aria-hidden="true">🖥️</span><span class="nav-link__label">Dispositivos</span>
+          </a>
+          <!-- Só aparece para a conta do TI (ver setUser em central.js) -->
+          <a class="nav-link" href="#ti" data-nav="ti" id="nav-ti" hidden>
+            <span class="nav-link__icon" aria-hidden="true">🛠️</span><span class="nav-link__label">TI</span>
+          </a>
+        </nav>
+        <p class="sidebar__foot">Departamento Pessoal</p>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <h1 id="section-title" class="topbar__title">Novo comunicado</h1>
+          <div class="topbar__right">
+            <span id="online-summary" class="pill" hidden></span>
+            <span class="user-chip">
+              <span id="user-avatar" class="user-chip__avatar" aria-hidden="true"></span>
+              <span id="user-name" class="user-chip__name"></span>
+            </span>
+            <button id="theme-toggle" class="icon-btn" type="button" data-theme-toggle>🌙</button>
+            <button id="my-password" class="btn btn--ghost btn--sm" type="button" hidden>Minha senha</button>
+            <button id="logout" class="btn btn--ghost btn--sm" type="button" hidden>Sair</button>
+          </div>
+        </header>
+
+        <main class="content">
+          <!-- Avisos gerais (erro ao carregar dados, senha alterada) -->
+          <p id="app-feedback" class="feedback" hidden></p>
+
+
+          <!-- Novo comunicado: formulário e prévia lado a lado -->
+          <section class="section section--compose" data-section="novo" hidden>
+            <div class="card compose">
+              <h2>Nova mensagem</h2>
+              <form id="compose-form" novalidate>
+                <fieldset class="types">
+                  <legend>Tipo</legend>
+                  <label class="type type--announcement">
+                    <input type="radio" name="type" value="COMUNICADO" checked />
+                    <span class="type__icon">📢</span><span>Comunicado</span>
+                  </label>
+                  <label class="type type--warning">
+                    <input type="radio" name="type" value="AVISO" />
+                    <span class="type__icon">⚠️</span><span>Aviso</span>
+                  </label>
+                  <label class="type type--info">
+                    <input type="radio" name="type" value="INFORMATIVO" />
+                    <span class="type__icon">ℹ️</span><span>Informativo</span>
+                  </label>
+                  <label class="type type--urgent">
+                    <input type="radio" name="type" value="URGENTE" />
+                    <span class="type__icon">🚨</span><span>Urgente</span>
+                  </label>
+                </fieldset>
+
+                <label class="field">
+                  <span>Título <small class="counter" id="title-counter">0/120</small></span>
+                  <input name="title" maxlength="120" required placeholder="Ex.: Reunião Geral" />
+                </label>
+
+                <label class="field">
+                  <span>Mensagem <small class="counter" id="content-counter">0/5000</small></span>
+                  <textarea name="content" maxlength="5000" rows="6" required placeholder="Escreva o comunicado para os funcionários..."></textarea>
+                </label>
+
+                <fieldset class="attach">
+                  <legend>Anexos <small class="counter" id="attach-counter">0/5</small></legend>
+                  <div id="attach-drop" class="attach__drop">
+                    <span class="attach__icon" aria-hidden="true">📎</span>
+                    <div class="attach__drop-text">
+                      <button class="btn btn--ghost btn--sm" type="button" id="attach-pick">Escolher arquivos</button>
+                      <small class="muted">ou arraste aqui imagens e arquivos</small>
+                    </div>
+                    <input type="file" id="attach-input" multiple hidden />
+                  </div>
+                  <ul id="attach-list" class="attach__list"></ul>
+                  <small class="muted" id="attach-hint"></small>
+                </fieldset>
+
+                <fieldset class="target">
+                  <legend>Destino</legend>
+                  <div class="target__options">
+                    <label class="radio"><input type="radio" name="target" value="ALL" checked /> Todos</label>
+                    <label class="radio"><input type="radio" name="target" value="SECTOR" /> Setor</label>
+                    <label class="radio"><input type="radio" name="target" value="SHIFT" /> Turno</label>
+                    <label class="radio"><input type="radio" name="target" value="COMPUTER" /> Computador</label>
+                  </div>
+                  <select name="targetId" id="target-select" disabled></select>
+                  <small class="muted" id="target-hint">Todos os computadores recebem.</small>
+                </fieldset>
+
+                <p id="compose-feedback" class="feedback" hidden></p>
+                <button class="btn btn--primary btn--lg" type="submit" id="send-btn">Enviar mensagem</button>
+              </form>
+            </div>
+
+            <aside class="card preview">
+              <h2>Prévia do alerta</h2>
+              <p class="muted">É assim que a mensagem aparece no canto da tela dos funcionários, com som.</p>
+              <div class="screen">
+                <div id="preview-toast"></div>
+              </div>
+            </aside>
+          </section>
+
+          <!-- Enviados: histórico e leituras -->
+          <section class="section" data-section="enviados" hidden>
+            <div class="card card--table">
+              <div class="card__head">
+                <div>
+                  <h2>Mensagens enviadas</h2>
+                  <p class="muted">Clique na contagem de leituras para ver quem já leu.</p>
+                </div>
+                <button id="refresh" class="btn btn--ghost btn--sm" type="button">Atualizar</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>ID</th><th>Tipo</th><th>Título</th><th>Destino</th><th>Enviada</th><th>Leituras</th></tr>
+                  </thead>
+                  <tbody id="history-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Mensagens: chat da pessoa do DP logada com os funcionários -->
+          <section class="section" data-section="mensagens" hidden>
+            <div class="card chat-card">
+              <div class="card__head">
+                <div>
+                  <h2>Minhas conversas <span id="chat-unread" class="badge badge--urgent" hidden></span></h2>
+                  <p class="muted">Cada pessoa do DP tem as próprias conversas. O funcionário escolhe com quem falar no aplicativo.</p>
+                </div>
+              </div>
+              <div class="chat">
+                <aside class="chat__side">
+                  <button id="chat-new-toggle" class="btn btn--primary chat__new-btn" type="button">＋ Nova conversa</button>
+                  <!-- Nova conversa: primeiro o setor, depois o funcionário daquele setor -->
+                  <div id="chat-picker" class="chat__picker" hidden>
+                    <div class="chat__picker-head">
+                      <button id="chat-picker-back" class="btn chat__back" type="button">← Conversas</button>
+                      <strong id="chat-picker-title" class="chat__picker-title">Escolha o setor</strong>
+                    </div>
+                    <ul id="chat-picker-list" class="chat__conversations"></ul>
+                  </div>
+                  <ul id="chat-conversations" class="chat__conversations"></ul>
+                </aside>
+                <div class="chat__main">
+                  <div id="chat-empty" class="chat__empty">
+                    <span class="chat__empty-icon" aria-hidden="true">💬</span>
+                    Escolha uma conversa ou comece uma nova.
+                  </div>
+                  <div id="chat-panel" class="chat__panel" hidden>
+                    <header class="chat__header">
+                      <strong id="chat-name"></strong>
+                      <span class="muted" id="chat-meta"></span>
+                    </header>
+                    <div id="chat-messages" class="chat__messages" aria-live="polite"></div>
+                    <form id="chat-form" class="chat__form" autocomplete="off">
+                      <textarea name="content" maxlength="2000" rows="2" placeholder="Escreva uma mensagem... (Enter envia, Shift+Enter quebra a linha)" required></textarea>
+                      <button class="btn btn--primary" type="submit">Enviar</button>
+                    </form>
+                    <p id="chat-feedback" class="feedback feedback--error" hidden></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Resposta automática: textos por setor da pessoa do DP logada -->
+          <section class="section" data-section="auto" hidden>
+            <p class="section__intro">
+              Quando um funcionário escrever para você pelo aplicativo, o sistema responde sozinho com o texto do setor dele.
+              Se não houver texto para o setor, vale o de <strong>Todos os setores</strong>. Se você já mandou mensagem nessa
+              conversa (sua ou automática) na última hora, ele não responde de novo. A resposta automática não marca a conversa como lida.
+            </p>
+
+            <div class="auto-grid">
+              <div class="card">
+                <h2 id="auto-form-title">Nova resposta automática</h2>
+                <form id="auto-form" autocomplete="off" novalidate>
+                  <input type="hidden" name="id" />
+                  <label class="field">
+                    <span>Setor</span>
+                    <select name="sector" id="auto-sector"></select>
+                    <small class="muted auto-hint" id="auto-sector-hint"></small>
+                  </label>
+                  <label class="field">
+                    <span>Texto <small class="counter" id="auto-counter">0/1000</small></span>
+                    <textarea name="content" maxlength="1000" rows="5" required placeholder="Ex.: Olá, {primeiro_nome}! Recebi sua mensagem e respondo assim que possível."></textarea>
+                  </label>
+                  <div class="chips">
+                    <span class="chips__label">Inserir no texto:</span>
+                    <button class="chip" type="button" data-placeholder="{primeiro_nome}" title="Primeiro nome do funcionário">{primeiro_nome}</button>
+                    <button class="chip" type="button" data-placeholder="{funcionario}" title="Nome completo do funcionário">{funcionario}</button>
+                    <button class="chip" type="button" data-placeholder="{setor}" title="Setor do funcionário">{setor}</button>
+                    <button class="chip" type="button" data-placeholder="{nome_dp}" title="Seu nome, sem o (DP)">{nome_dp}</button>
+                  </div>
+                  <label class="check"><input type="checkbox" name="active" checked /> Ativa</label>
+                  <p id="auto-feedback" class="feedback" hidden></p>
+                  <div class="auto-form__actions">
+                    <button class="btn btn--primary" type="submit" id="auto-submit">Salvar</button>
+                    <button class="btn btn--ghost" type="button" id="auto-cancel" hidden>Cancelar edição</button>
+                  </div>
+                </form>
+              </div>
+
+              <aside class="card auto-preview">
+                <h2>Prévia</h2>
+                <p class="muted">Como a resposta aparece na conversa (com dados de exemplo).</p>
+                <div id="auto-preview" class="auto-preview__screen"></div>
+              </aside>
+            </div>
+
+            <p id="auto-list-feedback" class="feedback feedback--error" hidden></p>
+            <div class="card card--table">
+              <div class="card__head">
+                <div>
+                  <h2>Minhas respostas automáticas</h2>
+                  <p class="muted">Só você vê e usa estas respostas. Cada pessoa do DP configura as suas.</p>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Setor</th><th>Texto</th><th>Status</th><th></th></tr>
+                  </thead>
+                  <tbody id="auto-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Funcionários -->
+          <section class="section" data-section="funcionarios" hidden>
+            <p class="section__intro">Quem tem cadastro entra no aplicativo com a matrícula: recebe os comunicados do seu setor e do seu turno e pode conversar com o DP pelo chat.</p>
+
+            <div class="card">
+              <form id="employee-form" class="employee-form" autocomplete="off">
+                <input type="hidden" name="id" />
+                <label class="field"><span>Nome</span><input name="name" maxlength="120" required /></label>
+                <label class="field"><span>Matrícula</span><input name="registration" maxlength="32" required pattern="[A-Za-z0-9._\-]+" title="Letras, números, ponto, hífen ou sublinhado" /></label>
+                <label class="field"><span>Setor</span><select name="sector" id="employee-sector"></select></label>
+                <label class="field"><span>Turno</span><input name="shift" maxlength="60" list="shift-list" placeholder="Ex.: Manhã" /></label>
+                <label class="field"><span id="employee-password-label">Senha inicial</span><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" /></label>
+                <div class="employee-form__actions">
+                  <button class="btn btn--primary" type="submit" id="employee-submit">Cadastrar funcionário</button>
+                  <button class="btn btn--ghost" type="button" id="employee-cancel" hidden>Cancelar edição</button>
+                  <small class="muted" id="employee-hint">Senha nova na edição tira o funcionário dos PCs onde estiver logado. Trocar a senha é opcional para ele (em "Meu perfil" no app).</small>
+                </div>
+                <datalist id="shift-list"></datalist>
+              </form>
+              <p id="employee-feedback" class="feedback" hidden></p>
+            </div>
+
+            <div class="card card--table">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Nome</th><th>Matrícula</th><th>Setor</th><th>Turno</th><th>Status</th><th></th></tr>
+                  </thead>
+                  <tbody id="employees-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Setores -->
+          <section class="section" data-section="setores" hidden>
+            <p class="section__intro">Cadastre os setores da fábrica. Eles aparecem no cadastro de funcionários e no envio de mensagens por setor.</p>
+
+            <div class="card">
+              <form id="sector-form" class="sector-form" autocomplete="off">
+                <input type="hidden" name="id" />
+                <label class="field"><span id="sector-label">Novo setor</span><input name="name" maxlength="60" required placeholder="Ex.: Produção" /></label>
+                <button class="btn btn--primary" type="submit" id="sector-submit">Criar setor</button>
+                <button class="btn btn--ghost" type="button" id="sector-cancel" hidden>Cancelar</button>
+              </form>
+              <p id="sector-feedback" class="feedback" hidden></p>
+            </div>
+
+            <div class="card card--table">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Setor</th><th>Funcionários</th><th></th></tr>
+                  </thead>
+                  <tbody id="sectors-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- Dispositivos: computadores e celulares com o aplicativo instalado -->
+          <section class="section" data-section="dispositivos" hidden>
+            <p class="section__intro">Computadores (💻) e celulares (📱) com o aplicativo instalado. O status é atualizado sozinho a cada 30 segundos.</p>
+
+            <div class="card card--table">
+              <div class="card__head">
+                <div class="tabs" role="tablist" id="device-filters">
+                  <button class="tab tab--active" type="button" role="tab" data-device-filter="ALL">Todos <span class="tab__count" id="device-count-all">0</span></button>
+                  <button class="tab" type="button" role="tab" data-device-filter="PC">💻 Computadores <span class="tab__count" id="device-count-pc">0</span></button>
+                  <button class="tab" type="button" role="tab" data-device-filter="CEL">📱 Celulares <span class="tab__count" id="device-count-cel">0</span></button>
+                </div>
+                <input id="device-search" class="search" type="search" placeholder="Buscar por nome, ID ou funcionário..." />
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Status</th><th>Dispositivo</th><th>Funcionário logado</th><th>ID</th><th>Versão</th><th>Última atividade</th></tr>
+                  </thead>
+                  <tbody id="computers-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <!-- TI: limpeza do banco e logins do DP (só para a conta do TI) -->
+          <section class="section" data-section="ti" hidden>
+            <p class="section__intro">
+              Ferramentas da conta do TI. As conversas entre o DP e os funcionários aparecem aqui só em números: o conteúdo não é
+              exibido, apenas pode ser apagado.
+            </p>
+            <p id="ti-feedback" class="feedback" hidden></p>
+
+            <div class="card">
+              <div class="card__head"><h2>🧹 Apagar comunicados</h2></div>
+              <p class="muted">Apaga os comunicados e as leituras registradas. Não afeta funcionários, setores nem aparelhos.</p>
+              <div class="ti-actions">
+                <label class="field field--inline">
+                  <span>Apagar comunicados com mais de</span>
+                  <select id="ti-messages-days">
+                    <option value="90">90 dias</option>
+                    <option value="180">180 dias</option>
+                    <option value="365">1 ano</option>
+                    <option value="0">tudo (sem exceção)</option>
+                  </select>
+                </label>
+                <button id="ti-messages-purge" class="btn btn--danger" type="button">Apagar</button>
+              </div>
+              <p class="muted" id="ti-messages-count"></p>
+            </div>
+
+            <div class="card card--table">
+              <div class="card__head">
+                <h2>💬 Conversas do chat</h2>
+                <button id="ti-chat-refresh" class="btn btn--ghost btn--sm" type="button">Atualizar</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Pessoa do DP</th><th>Conversas</th><th>Mensagens</th><th>Última mensagem</th><th></th></tr>
+                  </thead>
+                  <tbody id="ti-chat-body"></tbody>
+                </table>
+              </div>
+              <div class="ti-actions">
+                <button id="ti-chat-purge-all" class="btn btn--danger" type="button">Apagar todas as conversas</button>
+              </div>
+            </div>
+
+            <!-- Redefinir a senha de um login do DP (aparece ao clicar em "Redefinir senha") -->
+            <div class="card" id="ti-password-card" hidden>
+              <div class="card__head"><h2 id="ti-password-title">Redefinir senha</h2></div>
+              <form id="ti-password-form" class="ti-user-form" autocomplete="off">
+                <input type="hidden" name="id" />
+                <label class="field"><span>Nova senha</span><input name="password" type="password" minlength="8" maxlength="128" required /></label>
+                <button class="btn btn--primary" type="submit">Salvar senha</button>
+                <button class="btn btn--ghost" type="button" id="ti-password-cancel">Cancelar</button>
+              </form>
+            </div>
+
+            <div class="card card--table">
+              <div class="card__head"><h2>🔑 Logins do DP</h2></div>
+              <form id="ti-user-form" class="ti-user-form" autocomplete="off">
+                <label class="field"><span>Usuário</span><input name="username" maxlength="64" required placeholder="Ex.: mariana" /></label>
+                <label class="field"><span>Nome na tela</span><input name="name" maxlength="120" required placeholder="Ex.: Mariana (DP)" /></label>
+                <label class="field"><span>Senha</span><input name="password" type="password" minlength="8" maxlength="128" required /></label>
+                <label class="check"><input type="checkbox" name="chatContact" checked /><span>Aparece no chat do aplicativo</span></label>
+                <button class="btn btn--primary" type="submit">Criar login</button>
+              </form>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th>Usuário</th><th>Nome</th><th>Situação</th><th>No chat</th><th></th></tr>
+                  </thead>
+                  <tbody id="ti-users-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <!-- Quem leu uma mensagem (abre ao clicar na contagem de leituras) -->
+    <dialog id="reads-dialog" class="reads-dialog">
+      <header class="reads-dialog__head">
+        <div>
+          <h2 id="reads-title">Leituras</h2>
+          <p class="muted" id="reads-subtitle"></p>
+        </div>
+        <button class="btn btn--ghost btn--sm" type="button" id="reads-close">Fechar</button>
+      </header>
+      <p id="reads-feedback" class="feedback feedback--error" hidden></p>
+
+      <section id="reads-attachments-section" hidden>
+        <h3 id="reads-attachments-title">Anexos</h3>
+        <ul id="reads-attachments" class="attach__list attach__list--sent"></ul>
+      </section>
+
+      <h3 id="reads-read-title">Leram</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Quem</th><th>Tipo</th><th>Setor</th><th>Computador</th><th>Lida em</th></tr>
+          </thead>
+          <tbody id="reads-body"></tbody>
+        </table>
+      </div>
+
+      <section id="reads-pending-section" hidden>
+        <h3 id="reads-pending-title">Ainda não leram</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Quem</th><th>Tipo</th><th>Setor</th><th>Situação</th></tr>
+            </thead>
+            <tbody id="reads-pending-body"></tbody>
+          </table>
+        </div>
+      </section>
+      <p class="muted reads-dialog__note" id="reads-note"></p>
+    </dialog>
+
+    <!-- Confirmação (excluir resposta automática) -->
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <h2 id="confirm-title">Confirmar</h2>
+      <p id="confirm-text"></p>
+      <div class="confirm-dialog__actions">
+        <button class="btn btn--ghost" type="button" id="confirm-cancel">Cancelar</button>
+        <button class="btn btn--danger-solid" type="button" id="confirm-ok">Excluir</button>
+      </div>
+    </dialog>
+  </body>
+</html>

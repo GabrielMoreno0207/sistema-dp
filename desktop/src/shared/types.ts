@@ -1,0 +1,225 @@
+/**
+ * Tipos compartilhados entre o processo main, o preload e a interface (renderer).
+ */
+
+export type ConnectionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'disconnected'
+  | 'not-configured'
+  /** Registro recusado pelo servidor (ex.: PC bloqueado) */
+  | 'unauthorized';
+
+export interface ConnectionState {
+  status: ConnectionStatus;
+  serverUrl: string | null;
+  /** Próxima tentativa de reconexão (ms epoch), quando houver */
+  nextRetryAt: number | null;
+  lastError: string | null;
+}
+
+export interface ComputerInfo {
+  computerId: string;
+  hostname: string;
+  appVersion: string;
+  platform: string;
+}
+
+export const MESSAGE_TYPES = ['COMUNICADO', 'AVISO', 'INFORMATIVO', 'URGENTE'] as const;
+export type MessageType = (typeof MESSAGE_TYPES)[number];
+
+/** Arquivo ou imagem que o DP mandou junto com o comunicado */
+export interface DpAttachment {
+  id: string;
+  /** Nome original do arquivo */
+  name: string;
+  mimeType: string;
+  /** Tamanho em bytes */
+  size: number;
+  /** IMAGE aparece como miniatura na mensagem; FILE, como arquivo para abrir ou salvar */
+  kind: 'IMAGE' | 'FILE';
+}
+
+/** Mensagem do ponto de vista deste computador */
+export interface DpMessage {
+  id: string;
+  title: string;
+  content: string;
+  type: MessageType;
+  target: string;
+  targetId: string | null;
+  sender: string;
+  createdAt: string;
+  read: boolean;
+  readAt: string | null;
+  /** Anexos do comunicado (lista vazia quando não há) */
+  attachments: DpAttachment[];
+}
+
+export interface MessagesState {
+  messages: DpMessage[];
+  unreadCount: number;
+}
+
+/** Funcionário identificado neste computador (login no app) */
+export interface EmployeeProfile {
+  id: string;
+  name: string;
+  registration: string;
+  sector: string | null;
+  shift: string | null;
+  /** Senha inicial ou redefinida pelo DP: precisa trocar antes de usar o app */
+  mustChangePassword: boolean;
+}
+
+export interface EmployeeState {
+  employee: EmployeeProfile | null;
+  /** Já perguntamos ao servidor quem está logado nesta execução (evita piscar a tela de login) */
+  checked: boolean;
+}
+
+/** Mensagem do chat: a conversa é o par (funcionário logado, pessoa do DP) */
+export interface ChatMessage {
+  id: number;
+  employeeId: string;
+  /** Pessoa do DP desta conversa */
+  dpUserId: string;
+  senderType: 'DP' | 'EMPLOYEE';
+  senderName: string;
+  content: string;
+  createdAt: string;
+  /** Quando o outro lado leu (mensagem do DP: o funcionário; do funcionário: a pessoa do DP) */
+  readAt: string | null;
+  /** Enviada pela resposta automática da pessoa do DP */
+  automatic: boolean;
+}
+
+/** Pessoa do DP na lista de contatos do chat */
+export interface ChatContact {
+  id: string;
+  name: string;
+  /** Mensagens desta pessoa ainda não lidas pelo funcionário */
+  unreadCount: number;
+  lastMessage: { content: string; senderType: 'DP' | 'EMPLOYEE'; createdAt: string } | null;
+}
+
+export interface ChatState {
+  /** Pessoas do DP (conversa mais recente primeiro) */
+  contacts: ChatContact[];
+  /** Total de mensagens do DP não lidas (soma de todos os contatos) */
+  unreadCount: number;
+  /** Há funcionário logado (o chat é da pessoa, não do computador) */
+  available: boolean;
+  /** Conversa aberta na página Mensagens */
+  openContactId: string | null;
+  /** Mensagens da conversa aberta, em ordem cronológica */
+  messages: ChatMessage[];
+  loadingConversation: boolean;
+}
+
+export const CHAT_MESSAGE_MAX = 2000;
+
+export interface AppState {
+  appVersion: string;
+  computer: ComputerInfo;
+  connection: ConnectionState;
+  /** Comunicados do DP (COMUNICADO, AVISO, INFORMATIVO, URGENTE) */
+  messages: MessagesState;
+  chat: ChatState;
+  employee: EmployeeProfile | null;
+  employeeChecked: boolean;
+}
+
+/** Configurações editáveis na tela Configurações */
+export interface DesktopSettings {
+  serverUrl: string | null;
+  autoStart: boolean;
+}
+
+export interface SettingsView extends DesktopSettings {
+  /** Início automático só é aplicado no aplicativo instalado */
+  autoStartAvailable: boolean;
+}
+
+export type SaveSettingsInput = DesktopSettings;
+
+export interface OperationResult {
+  ok: boolean;
+  message: string;
+}
+
+/** Estado do popup de alerta */
+export interface PopupState {
+  current: DpMessage | null;
+  /** Posição da mensagem atual no lote ("2 de 3") */
+  position: number;
+  total: number;
+}
+
+/** API da janela principal, exposta pelo preload em window.dp */
+export interface DesktopApi {
+  getState(): Promise<AppState>;
+  markAsRead(messageId: string): Promise<void>;
+  onConnectionChange(listener: (state: ConnectionState) => void): () => void;
+  onMessagesChange(listener: (state: MessagesState) => void): () => void;
+  /** Pedido para abrir uma mensagem na janela principal (ex.: "Visualizar" no popup) */
+  onOpenMessage(listener: (messageId: string) => void): () => void;
+
+  // Anexos dos comunicados (o download é sempre feito pelo processo main)
+  /** Abre o anexo no programa padrão do Windows (baixa para uma pasta temporária) */
+  openAttachment(attachmentId: string): Promise<OperationResult>;
+  /** Pergunta onde salvar e grava o arquivo */
+  saveAttachment(attachmentId: string): Promise<OperationResult>;
+  /** Imagem do anexo como data URL, para mostrar dentro da mensagem (null se falhar) */
+  getAttachmentImage(attachmentId: string): Promise<string | null>;
+
+  // Configurações
+  getSettings(): Promise<SettingsView>;
+  saveSettings(settings: SaveSettingsInput): Promise<OperationResult>;
+  testServer(serverUrl: string): Promise<OperationResult>;
+
+  // Login do funcionário
+  employeeLogin(registration: string, password: string): Promise<OperationResult>;
+  employeeLogout(): Promise<OperationResult>;
+  changePassword(currentPassword: string, newPassword: string): Promise<OperationResult>;
+  onEmployeeChange(listener: (state: EmployeeState) => void): () => void;
+
+  // Chat com as pessoas do DP (página Mensagens): uma conversa por pessoa
+  /** Abre (e carrega) a conversa com uma pessoa do DP; null fecha */
+  chatOpen(dpUserId: string | null): Promise<OperationResult>;
+  chatSend(dpUserId: string, content: string): Promise<OperationResult>;
+  chatMarkRead(dpUserId: string): Promise<void>;
+  onChatChange(listener: (state: ChatState) => void): () => void;
+}
+
+/** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
+export interface PopupApi {
+  getPopupState(): Promise<PopupState>;
+  onPopupChange(listener: (state: PopupState) => void): () => void;
+  popupView(messageId: string): Promise<void>;
+  popupDismiss(messageId: string): Promise<void>;
+}
+
+export const IpcChannels = {
+  GetState: 'app:get-state',
+  MarkAsRead: 'messages:mark-read',
+  ConnectionChanged: 'connection:changed',
+  MessagesChanged: 'messages:changed',
+  OpenMessage: 'ui:open-message',
+  AttachmentOpen: 'attachment:open',
+  AttachmentSave: 'attachment:save',
+  AttachmentImage: 'attachment:image',
+  GetSettings: 'settings:get',
+  SaveSettings: 'settings:save',
+  TestServer: 'settings:test-server',
+  EmployeeLogin: 'employee:login',
+  EmployeeLogout: 'employee:logout',
+  EmployeeChangePassword: 'employee:change-password',
+  EmployeeChanged: 'employee:changed',
+  ChatOpen: 'chat:open',
+  ChatSend: 'chat:send',
+  ChatMarkRead: 'chat:mark-read',
+  ChatChanged: 'chat:changed',
+} as const;
+// Canais do popup: ver popup-channels.ts

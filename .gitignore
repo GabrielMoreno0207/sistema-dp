@@ -1,0 +1,51 @@
+# Dependências
+node_modules/
+
+# Builds
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Pacotes de publicação / deploy (gerados a partir do código-fonte)
+publicar/
+*.rar
+*.zip
+*.tar.gz
+*.exe
+*.apk
+*.aab
+
+# Variáveis de ambiente (mantém apenas os exemplos)
+.env
+.env.*
+*.env.bak
+!.env.example
+!.env.exemplo
+
+# Bancos de dados, dados e backups
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+dados/
+backups/
+
+# Assinatura Android (release)
+*.keystore
+!debug.keystore
+keystore.properties
+
+# Logs
+*.log
+logs/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/

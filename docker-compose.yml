@@ -1,0 +1,73 @@
+# Comunicação DP — backend em container.
+#
+#   ./instalar.sh              prepara tudo e sobe (recomendado na primeira vez)
+#   docker compose up -d       sobe
+#   docker compose logs -f     acompanha os logs
+#   docker compose down        para
+#
+# As configurações vêm do arquivo .env desta pasta (veja .env.exemplo).
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: comunicacao-dp-backend:1.1.0
+    container_name: comunicacao-dp
+    restart: unless-stopped
+    # PID 1 de verdade: encerra e recolhe processos direito
+    init: true
+
+    ports:
+      # porta no servidor Linux : porta dentro do container
+      - "${PORTA:-3000}:3000"
+
+    environment:
+      NODE_ENV: production
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TZ: ${TZ:-America/Sao_Paulo}
+
+      # Banco e anexos: dentro do volume, nunca na imagem
+      DATABASE_PATH: /app/data/sistema-dp.db
+      UPLOADS_PATH: /app/data/uploads
+
+      # Primeiro login da Central, criado só se o banco ainda não tiver nenhum
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-ti}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-TI}
+
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
+      EMPLOYEE_SESSION_HOURS: ${EMPLOYEE_SESSION_HOURS:-12}
+
+      # Só quando houver um proxy reverso (nginx, Traefik, Caddy) com HTTPS na frente:
+      # assim o bloqueio de tentativas de login enxerga o IP real de cada pessoa
+      TRUST_PROXY: ${TRUST_PROXY:-}
+
+    volumes:
+      # Banco, anexos dos comunicados e credenciais iniciais.
+      #
+      # Fica em um volume do Docker, e NÃO em uma pasta do servidor. O SQLite grava em três
+      # arquivos que precisam de travas e memória compartilhada de verdade; em pasta compartilhada
+      # (bind mount) — principalmente no Docker Desktop do Windows, mas também em rede, NFS e SMB —
+      # essas travas não funcionam direito e o banco chega a corromper ou sumir, sem dar erro.
+      # No volume, o banco fica no sistema de arquivos do próprio Docker, onde tudo funciona.
+      #
+      # Para chegar nos arquivos:  docker compose exec backend ls -la /app/data
+      # Para tirar cópia:          ./backup.sh   (sai aqui em ./backups)
+      - dados:/app/data
+      # Saída dos backups, essa sim visível no servidor
+      - ./backups:/backups
+
+    # Logs do Docker com tamanho limitado (senão o disco enche com o tempo)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  # Banco e anexos. "docker compose down" NÃO apaga o volume;
+  # só "docker compose down -v" apaga (e aí perde tudo).
+  dados:
+    name: comunicacao-dp-dados

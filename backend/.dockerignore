@@ -1,0 +1,14 @@
+# O que NÃO entra no build da imagem (deixa o build rápido e a imagem limpa)
+node_modules
+dist
+data
+logs
+certs
+.env
+.env.local
+*.log
+test
+Dockerfile
+.dockerignore
+*.cmd
+README.md

@@ -1,0 +1,37 @@
+appId: br.com.empresa.comunicacaodp
+productName: Comunicação DP
+executableName: ComunicacaoDP
+copyright: Departamento Pessoal
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - out/**/*
+  - package.json
+
+# Ícones usados em tempo de execução (bandeja, selo de não lidas)
+extraResources:
+  - from: resources
+    to: resources
+    filter:
+      - '*.png'
+
+win:
+  icon: resources/icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ComunicacaoDP-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Comunicação DP
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
