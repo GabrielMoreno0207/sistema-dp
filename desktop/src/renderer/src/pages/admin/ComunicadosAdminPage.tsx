@@ -32,19 +32,34 @@ interface EnviadoResumo {
   recipientCount: number;
 }
 
+/** Quem leu, no formato que a API devolve */
 interface Leitura {
-  readerId: string;
+  type: string;
+  id: string;
+  name: string;
+  /** Matrícula, ou o identificador do computador */
+  detail: string | null;
+  sector: string | null;
+  /** Em qual computador a leitura aconteceu */
+  computer: string | null;
   readAt: string;
-  user: { name: string; registration: string | null; sector: string | null } | null;
-  readerHostname: string | null;
-  readOnHostname: string | null;
+}
+
+/** Quem ainda não leu (só para destinos com lista conhecida) */
+interface Pendente {
+  type: string;
+  id: string;
+  name: string;
+  detail: string | null;
+  sector: string | null;
+  situation: string;
 }
 
 /** Novo comunicado e histórico de enviados, dentro do aplicativo. */
-export function ComunicadosAdminPage() {
+export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
   const [aba, setAba] = useState<'novo' | 'enviados'>('novo');
   const [enviados, setEnviados] = useState<EnviadoResumo[]>([]);
-  const [leituras, setLeituras] = useState<{ titulo: string; lista: Leitura[] } | null>(null);
+  const [leituras, setLeituras] = useState<{ titulo: string; lista: Leitura[]; pendentes: Pendente[] } | null>(null);
   const [aviso, setAviso] = useState('');
 
   // formulário
@@ -139,7 +154,7 @@ export function ComunicadosAdminPage() {
   }
 
   async function verLeituras(comunicado: EnviadoResumo) {
-    const resultado = await window.dp.adminApi<{ reads: Leitura[] }>(
+    const resultado = await window.dp.adminApi<{ reads: Leitura[]; pending: Pendente[] | null }>(
       'GET',
       `/api/messages/${encodeURIComponent(comunicado.id)}/reads`,
     );
@@ -147,7 +162,22 @@ export function ComunicadosAdminPage() {
       setAviso(resultado.message);
       return;
     }
-    setLeituras({ titulo: comunicado.title, lista: resultado.dados.reads });
+    setLeituras({
+      titulo: comunicado.title,
+      lista: resultado.dados.reads ?? [],
+      pendentes: resultado.dados.pending ?? [],
+    });
+  }
+
+  /** Apagar comunicado é função da conta do TI. */
+  async function apagarComunicado(comunicado: EnviadoResumo) {
+    const resultado = await window.dp.adminApi('DELETE', `/api/admin/messages/${encodeURIComponent(comunicado.id)}`);
+    if (!resultado.ok) {
+      setAviso(resultado.message);
+      return;
+    }
+    setAviso(`Comunicado ${comunicado.id} apagado.`);
+    await carregarEnviados();
   }
 
   return (
@@ -170,6 +200,7 @@ export function ComunicadosAdminPage() {
       {aviso && <p className="aviso-em-breve">{aviso}</p>}
 
       {aba === 'novo' ? (
+        <div className="novo-comunicado">
         <div className="cartao formulario">
           <label htmlFor="com-titulo">Título</label>
           <input id="com-titulo" value={titulo} maxLength={120} onChange={(e) => setTitulo(e.target.value)} />
@@ -237,6 +268,33 @@ export function ComunicadosAdminPage() {
             </button>
           </div>
         </div>
+
+        <aside className="cartao previa-alerta">
+          <h2 className="formulario__titulo">Prévia do alerta</h2>
+          <p className="page__subtitle">É assim que aparece no canto da tela dos funcionários, com som.</p>
+          <div className="previa-alerta__tela">
+            <div className={`previa-toast previa-toast--${tipo.toLowerCase()}`}>
+              <div className="previa-toast__cabecalho">
+                <span className="previa-toast__tipo">
+                  {TIPOS.find((t) => t.valor === tipo)?.label.toUpperCase()} · DP
+                </span>
+                <span className="previa-toast__hora">agora</span>
+              </div>
+              <strong className="previa-toast__titulo">{titulo.trim() || 'Título da mensagem'}</strong>
+              <p className="previa-toast__texto">{texto.trim() || 'O texto da mensagem aparece aqui.'}</p>
+              {anexos.length > 0 && (
+                <span className="previa-toast__anexos">
+                  {anexos.length} {anexos.length === 1 ? 'anexo' : 'anexos'}
+                </span>
+              )}
+              <div className="previa-toast__acoes">
+                <span className="previa-toast__botao">Fechar</span>
+                <span className="previa-toast__botao previa-toast__botao--principal">Visualizar</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+        </div>
       ) : (
         <div className="tabela-caixa">
           <table className="tabela">
@@ -248,12 +306,13 @@ export function ComunicadosAdminPage() {
                 <th>Destino</th>
                 <th>Enviado</th>
                 <th>Leituras</th>
+                {ehTi && <th>Ações</th>}
               </tr>
             </thead>
             <tbody>
               {enviados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="tabela__vazia">
+                  <td colSpan={ehTi ? 7 : 6} className="tabela__vazia">
                     Nenhum comunicado enviado ainda.
                   </td>
                 </tr>
@@ -277,6 +336,13 @@ export function ComunicadosAdminPage() {
                         {comunicado.readCount} de {comunicado.recipientCount}
                       </button>
                     </td>
+                    {ehTi && (
+                      <td className="tabela__acoes">
+                        <button className="link-btn link-btn--perigo" onClick={() => void apagarComunicado(comunicado)}>
+                          apagar
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -288,22 +354,47 @@ export function ComunicadosAdminPage() {
       {leituras && (
         <div className="modal" role="dialog" aria-modal="true" onClick={() => setLeituras(null)}>
           <div className="modal__caixa" onClick={(evento) => evento.stopPropagation()}>
-            <h2 className="modal__titulo">Quem leu: {leituras.titulo}</h2>
+            <h2 className="modal__titulo">{leituras.titulo}</h2>
+
+            <h3 className="leituras__titulo">Já leram ({leituras.lista.length})</h3>
             {leituras.lista.length === 0 ? (
               <p className="page__subtitle">Ninguém leu ainda.</p>
             ) : (
               <div className="leituras">
                 {leituras.lista.map((leitura) => (
-                  <div key={leitura.readerId} className="leituras__item">
-                    <strong>{leitura.user?.name ?? leitura.readerHostname ?? leitura.readerId}</strong>
+                  <div key={leitura.id} className="leituras__item">
+                    <strong>{leitura.name}</strong>
                     <span className="page__subtitle">
-                      {leitura.user?.registration ? `mat. ${leitura.user.registration} · ` : ''}
-                      {leitura.readOnHostname ?? ''} · {quando(leitura.readAt)}
+                      {[
+                        leitura.detail,
+                        leitura.sector,
+                        leitura.computer ? `no ${leitura.computer}` : null,
+                        quando(leitura.readAt),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                   </div>
                 ))}
               </div>
             )}
+
+            {leituras.pendentes.length > 0 && (
+              <>
+                <h3 className="leituras__titulo">Ainda não leram ({leituras.pendentes.length})</h3>
+                <div className="leituras">
+                  {leituras.pendentes.map((pendente) => (
+                    <div key={pendente.id} className="leituras__item leituras__item--pendente">
+                      <strong>{pendente.name}</strong>
+                      <span className="page__subtitle">
+                        {[pendente.detail, pendente.sector, pendente.situation].filter(Boolean).join(' · ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
             <footer className="modal__rodape">
               <span className="modal__espaco" />
               <button className="botao" onClick={() => setLeituras(null)}>

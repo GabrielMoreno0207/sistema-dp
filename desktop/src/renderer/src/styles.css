@@ -18,6 +18,30 @@
   --success: #1faa59;
   --warning: #f2b01e;
   --danger: #e5484d;
+  --sombra: rgba(22, 40, 55, 0.08);
+  --sombra-forte: rgba(22, 40, 55, 0.12);
+  --balao-meu: #e7f6f4;
+  --realce: #e7f6f4;
+}
+
+/*
+ * Tema escuro: as mesmas variáveis com outros valores. O tema é escolhido na
+ * barra superior e guardado neste computador (ver tema.ts).
+ */
+:root[data-tema='escuro'] {
+  color-scheme: dark;
+  --bg: #0e151b;
+  --surface: #172129;
+  --text: #e4ecf1;
+  --text-soft: #b3c1cc;
+  --muted: #8397a4;
+  --border: #253440;
+  --primary-soft: rgba(23, 179, 163, 0.16);
+  --sidebar: #131f28;
+  --sombra: rgba(0, 0, 0, 0.35);
+  --sombra-forte: rgba(0, 0, 0, 0.5);
+  --balao-meu: rgba(23, 179, 163, 0.18);
+  --realce: rgba(23, 179, 163, 0.14);
 }
 
 html,
@@ -1573,7 +1597,7 @@ button.stat:hover {
 
 .azulejo:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(20, 45, 60, 0.22);
+  box-shadow: 0 8px 18px var(--sombra-forte);
 }
 
 .azulejo__icone {
@@ -1650,7 +1674,7 @@ button.stat:hover {
 .cartao {
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  box-shadow: 0 1px 3px var(--sombra);
 }
 
 .destaque__cartao {
@@ -1667,7 +1691,7 @@ button.stat:hover {
 }
 
 .destaque__cartao:hover {
-  box-shadow: 0 6px 16px rgba(22, 40, 55, 0.12);
+  box-shadow: 0 6px 16px var(--sombra-forte);
 }
 
 .destaque__texto {
@@ -1843,13 +1867,13 @@ button.stat:hover {
   border-left: 3px solid var(--acento);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  box-shadow: 0 1px 3px var(--sombra);
   text-align: left;
   cursor: pointer;
 }
 
 .comunicado:hover {
-  box-shadow: 0 5px 14px rgba(22, 40, 55, 0.12);
+  box-shadow: 0 5px 14px var(--sombra-forte);
 }
 
 .comunicado--urgente {
@@ -2068,13 +2092,13 @@ button.stat:hover {
   border: none;
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  box-shadow: 0 1px 3px var(--sombra);
   text-align: left;
   cursor: pointer;
 }
 
 .conversa:hover {
-  box-shadow: 0 5px 14px rgba(22, 40, 55, 0.12);
+  box-shadow: 0 5px 14px var(--sombra-forte);
 }
 
 .conversa__avatar {
@@ -2170,6 +2194,7 @@ button.stat:hover {
 
 .modal__caixa {
   width: min(560px, 100%);
+  border: 1px solid var(--border);
   padding: 20px 22px 16px;
   border-radius: 14px;
   background: var(--surface);
@@ -2297,7 +2322,7 @@ button.stat:hover {
 
 .opcao-icone--ativa {
   border-color: var(--acento);
-  background: #e7f6f4;
+  background: var(--realce);
 }
 
 .opcao-cor {
@@ -2365,13 +2390,13 @@ button.stat:hover {
   border-left: 3px solid var(--acento);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  box-shadow: 0 1px 3px var(--sombra);
   text-align: left;
   cursor: pointer;
 }
 
 .chamado-item:hover {
-  box-shadow: 0 5px 14px rgba(22, 40, 55, 0.12);
+  box-shadow: 0 5px 14px var(--sombra-forte);
 }
 
 .chamado-item--ativo {
@@ -2433,7 +2458,7 @@ button.stat:hover {
 }
 
 .etiqueta-status--resolvido {
-  background: #e7f6f4;
+  background: var(--realce);
   color: var(--acento-escuro);
 }
 
@@ -2508,12 +2533,12 @@ button.stat:hover {
   padding: 9px 12px;
   border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  box-shadow: 0 1px 3px var(--sombra);
 }
 
 .balao--meu {
   align-self: flex-end;
-  background: #e7f6f4;
+  background: var(--balao-meu);
 }
 
 .balao__autor {
@@ -2745,7 +2770,7 @@ button.stat:hover {
 
 .login-aba--ativa {
   border-color: var(--acento);
-  background: #e7f6f4;
+  background: var(--realce);
   color: var(--acento-escuro);
   font-weight: 600;
 }
@@ -2837,4 +2862,163 @@ button.stat:hover {
   padding: 8px 10px;
   border-radius: 8px;
   background: var(--bg);
+}
+
+/* Botão do tema na barra superior */
+.barra-superior__tema {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.barra-superior__tema:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------------- novo comunicado com prévia (como na Central) ---------------- */
+.novo-comunicado {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1150px) {
+  .novo-comunicado {
+    grid-template-columns: 1fr;
+  }
+}
+
+.previa-alerta {
+  padding: 18px 20px;
+}
+
+.previa-alerta__tela {
+  display: grid;
+  place-items: center;
+  margin-top: 12px;
+  padding: 24px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2b4a63, #16222c);
+}
+
+.previa-toast {
+  width: 100%;
+  max-width: 300px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--acento);
+  border-radius: 10px;
+  background: #fff;
+  color: #1c2430;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.previa-toast--urgente {
+  border-left-color: #dc2626;
+}
+
+.previa-toast--aviso {
+  border-left-color: #d97706;
+}
+
+.previa-toast--informativo {
+  border-left-color: #0891b2;
+}
+
+.previa-toast__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.previa-toast__tipo {
+  color: var(--acento-escuro);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.previa-toast--urgente .previa-toast__tipo {
+  color: #c62828;
+}
+
+.previa-toast--aviso .previa-toast__tipo {
+  color: #b26a00;
+}
+
+.previa-toast--informativo .previa-toast__tipo {
+  color: #0e7490;
+}
+
+.previa-toast__hora {
+  color: #7a8494;
+  font-size: 10.5px;
+}
+
+.previa-toast__titulo {
+  display: block;
+  margin: 6px 0 4px;
+  font-size: 13.5px;
+}
+
+.previa-toast__texto {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  margin: 0;
+  color: #4a5465;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.previa-toast__anexos {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #4a5465;
+  font-size: 11px;
+}
+
+.previa-toast__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.previa-toast__botao {
+  padding: 4px 12px;
+  border: 1px solid #e2e7ee;
+  border-radius: 6px;
+  color: #4a5465;
+  font-size: 11.5px;
+}
+
+.previa-toast__botao--principal {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #06312c;
+  font-weight: 600;
+}
+
+/* ---------------- leituras do comunicado ---------------- */
+.leituras__titulo {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.leituras__item--pendente {
+  border-left: 3px solid var(--warning);
 }

@@ -203,7 +203,7 @@ export function App() {
       content = <FilaChamadosPage />;
       break;
     case 'admin-comunicados':
-      content = <ComunicadosAdminPage />;
+      content = <ComunicadosAdminPage ehTi={state.admin?.superAdmin ?? false} />;
       break;
     case 'admin-cadastros':
       content = <CadastrosPage />;

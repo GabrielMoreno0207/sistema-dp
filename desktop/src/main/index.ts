@@ -982,6 +982,8 @@ function start(): void {
     { metodo: 'PATCH', padrao: /^\/api\/admin\/users\/[\w-]{1,64}$/ },
     { metodo: 'POST', padrao: /^\/api\/admin\/users\/[\w-]{1,64}\/password$/ },
     { metodo: 'GET', padrao: /^\/api\/admin\/chats$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/admin\/messages\/[\w-]{1,40}$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/admin\/chats\/[\w-]{1,64}\/[\w-]{1,64}$/ },
     { metodo: 'POST', padrao: /^\/api\/admin\/chats\/purge$/ },
     { metodo: 'POST', padrao: /^\/api\/admin\/messages\/purge$/ },
   ];

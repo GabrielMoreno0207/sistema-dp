@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { aplicarTema, temaGuardado, type Tema } from '../lib/tema';
 import type { AdminUser, ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
 import { ConnectionBadge } from './ConnectionBadge';
 
@@ -34,7 +35,13 @@ export function BarraSuperior({
   onSairDoDp,
 }: BarraSuperiorProps) {
   const [menuAberto, setMenuAberto] = useState(false);
+  const [tema, setTema] = useState<Tema>(temaGuardado);
   const caixa = useRef<HTMLDivElement>(null);
+
+  // O tema escolhido vale desde a abertura da janela
+  useEffect(() => {
+    aplicarTema(tema);
+  }, [tema]);
 
   // Clicar fora ou apertar Esc fecha o menu
   useEffect(() => {
@@ -71,6 +78,14 @@ export function BarraSuperior({
             {admin.superAdmin ? 'TI' : 'DP'}: {admin.name}
           </span>
         )}
+        <button
+          className="barra-superior__tema"
+          onClick={() => setTema(tema === 'claro' ? 'escuro' : 'claro')}
+          title={tema === 'claro' ? 'Mudar para o tema escuro' : 'Mudar para o tema claro'}
+          aria-label={tema === 'claro' ? 'Mudar para o tema escuro' : 'Mudar para o tema claro'}
+        >
+          {tema === 'claro' ? '🌙' : '☀'}
+        </button>
         <ConnectionBadge connection={connection} />
 
         <div className="menu-usuario" ref={caixa}>
