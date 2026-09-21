@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'" />
+    <title>Versionador — Comunicação DP</title>
+    <link rel="stylesheet" href="estilo.css" />
+  </head>
+  <body>
+    <pre class="marca" aria-hidden="true">
+ ╭──────────────────────────────────────────────╮
+ │  V E R S I O N A D O R   ·   Comunicação DP  │
+ ╰──────────────────────────────────────────────╯</pre>
+
+    <!-- ── entrada ─────────────────────────────────────────── -->
+    <section id="tela-login" class="quadro">
+      <h1 class="titulo">┌─ entrar ─────────────────────────────────┐</h1>
+      <label for="servidor">servidor</label>
+      <input id="servidor" type="text" spellcheck="false" placeholder="http://localhost:3000" />
+      <label for="usuario">usuário do TI</label>
+      <input id="usuario" type="text" spellcheck="false" autocomplete="off" />
+      <label for="senha">senha</label>
+      <input id="senha" type="password" autocomplete="off" />
+      <button id="btn-entrar" class="acao">entrar ⏎</button>
+      <p id="erro-login" class="erro" role="alert"></p>
+      <p class="rodape">└──────────────────────────────────────────┘</p>
+    </section>
+
+    <!-- ── área principal ──────────────────────────────────── -->
+    <main id="tela-principal" hidden>
+      <header class="barra">
+        <span id="quem" class="destaque"></span>
+        <span id="onde" class="apagado"></span>
+        <button id="btn-sair" class="link">sair</button>
+      </header>
+
+      <nav class="abas" role="tablist">
+        <button class="aba ativa" data-alvo="desktop" role="tab">[ desktop ]</button>
+        <button class="aba" data-alvo="mobile" role="tab">[ mobile ]</button>
+        <button class="aba" data-alvo="backend" role="tab">[ backend ]</button>
+      </nav>
+
+      <section class="quadro">
+        <h2 class="titulo">┌─ publicar nova versão ───────────────────┐</h2>
+        <div class="linha">
+          <button id="btn-arquivo" class="acao secundaria">escolher arquivo…</button>
+          <span id="arquivo-escolhido" class="apagado">nenhum arquivo escolhido</span>
+        </div>
+        <div class="linha">
+          <label for="versao">versão</label>
+          <input id="versao" type="text" spellcheck="false" placeholder="1.5.0" class="curto" />
+          <label class="caixa"><input id="obrigatoria" type="checkbox" /> atualização obrigatória</label>
+        </div>
+        <label for="notas">o que mudou nesta versão</label>
+        <textarea id="notas" rows="4" placeholder="- corrige o aviso de mensagens não lidas&#10;- melhora a busca por setor"></textarea>
+        <div class="linha">
+          <button id="btn-publicar" class="acao">publicar ▲</button>
+          <span id="progresso" class="apagado"></span>
+        </div>
+        <p id="aviso" class="aviso" role="status"></p>
+        <p class="rodape">└──────────────────────────────────────────┘</p>
+      </section>
+
+      <section class="quadro">
+        <h2 class="titulo">┌─ versões publicadas ─────────────────────┐</h2>
+        <div id="lista" class="lista"></div>
+        <p class="rodape">└──────────────────────────────────────────┘</p>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

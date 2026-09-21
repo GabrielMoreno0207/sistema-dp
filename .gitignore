@@ -43,6 +43,9 @@ keystore.properties
 *.log
 logs/
 
+# Configuração local do versionador (guarda servidor e usuário)
+versionador/config.json
+
 # Sistema / editores
 .DS_Store
 Thumbs.db

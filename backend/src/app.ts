@@ -11,6 +11,9 @@ import { AdminService } from './modules/admin/admin.service';
 import { attachmentRoutes } from './modules/attachments/attachment.routes';
 import { AttachmentService } from './modules/attachments/attachment.service';
 import { AttachmentStorage } from './modules/attachments/attachment.storage';
+import { updateRoutes } from './modules/updates/update.routes';
+import { UpdateService } from './modules/updates/update.service';
+import { UpdateStorage } from './modules/updates/update.storage';
 import { ATTACHMENT_LIMITS } from './modules/attachments/attachment.types';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
@@ -40,12 +43,19 @@ export interface BuildAppOptions {
   https?: { cert: Buffer; key: Buffer } | null;
   /** Pasta dos anexos (padrão: a do .env) */
   uploadsPath?: string;
+  /** Pasta com os instaladores publicados (padrão: a do .env) */
+  updatesPath?: string;
 }
 
 /**
  * Monta a aplicação sem iniciar o servidor (facilita testes com app.inject()).
  */
-export function buildApp({ repositories, https = null, uploadsPath = env.uploadsPath }: BuildAppOptions): FastifyInstance {
+export function buildApp({
+  repositories,
+  https = null,
+  uploadsPath = env.uploadsPath,
+  updatesPath = env.updatesPath,
+}: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     logger: loggerOptions,
     logController: new LogController({ disableRequestLogging: true }),
@@ -60,6 +70,10 @@ export function buildApp({ repositories, https = null, uploadsPath = env.uploads
     { parseAs: 'buffer', bodyLimit: ATTACHMENT_LIMITS.maxBytes },
     (_request, body, done) => done(null, body),
   );
+
+  // Instalador de nova versão: são dezenas de MB, então o corpo chega como fluxo
+  // e vai direto para o disco, sem passar inteiro pela memória.
+  app.addContentTypeParser('application/vnd.dp-atualizacao', (_request, payload, done) => done(null, payload));
 
   // Uma linha por requisição; health check só em debug para não poluir o log
   app.addHook('onResponse', async (request, reply) => {
@@ -122,6 +136,8 @@ export function buildApp({ repositories, https = null, uploadsPath = env.uploads
     app.log,
   );
 
+  const updates = new UpdateService(new UpdateStorage(updatesPath), app.log);
+
   registerAuthentication(app, auth);
 
   // Central do DP: página estática (HTML/CSS/JS) que usa a própria API REST
@@ -144,6 +160,7 @@ export function buildApp({ repositories, https = null, uploadsPath = env.uploads
       await api.register(adminRoutes, { admin });
       await api.register(messageRoutes, { messages });
       await api.register(attachmentRoutes, { attachments, messages });
+      await api.register(updateRoutes, { updates });
     },
     { prefix: '/api' },
   );

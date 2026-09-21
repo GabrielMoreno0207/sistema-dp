@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node --disable-warning=ExperimentalWarning dist/server.js",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --disable-warning=ExperimentalWarning --test test/api.test.ts",
+    "test": "tsx --disable-warning=ExperimentalWarning --test test/*.test.ts",
     "set-password": "tsx --disable-warning=ExperimentalWarning src/scripts/set-password.ts",
     "db:init": "tsx --disable-warning=ExperimentalWarning src/scripts/init-db.ts",
     "create-admin": "tsx --disable-warning=ExperimentalWarning src/scripts/create-admin.ts",
