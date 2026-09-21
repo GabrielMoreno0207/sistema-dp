@@ -3,11 +3,15 @@ import type { DpMessage } from '../../shared/types';
 import { ForcePasswordScreen } from './components/ForcePasswordScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { BarraSuperior } from './components/BarraSuperior';
+import { EntrarComoDp } from './components/EntrarComoDp';
 import { ColunaDireita } from './components/ColunaDireita';
 import { MenuLateral, type Page } from './components/MenuLateral';
 import { useDesktopState } from './hooks/useDesktopState';
 import { ChatPage } from './pages/ChatPage';
+import { ChamadosPage } from './pages/ChamadosPage';
+import { FilaChamadosPage } from './pages/FilaChamadosPage';
 import { InicioPage } from './pages/InicioPage';
+import { MuralAdminPage } from './pages/MuralAdminPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -39,6 +43,9 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [skipLogin, setSkipLogin] = useState(readSkipLogin);
   const [waitExpired, setWaitExpired] = useState(false);
+  const [entrandoComoDp, setEntrandoComoDp] = useState(false);
+  // Chamados com resposta nova (badge do menu)
+  const [chamadosNaoLidos, setChamadosNaoLidos] = useState(0);
   // Funcionário atual, lido dentro do listener (que é registrado uma vez só)
   const employeeIdRef = useRef<string | null>(null);
   employeeIdRef.current = state?.employee?.id ?? null;
@@ -61,6 +68,16 @@ export function App() {
   useEffect(() => {
     const timer = setTimeout(() => setWaitExpired(true), SESSION_WAIT_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Contador de chamados com resposta do TI ainda não lida
+  useEffect(() => {
+    async function atualizar() {
+      const resultado = await window.dp.listarChamados();
+      setChamadosNaoLidos(resultado.chamados.reduce((soma, c) => soma + c.mensagensNaoLidas, 0));
+    }
+    void atualizar();
+    return window.dp.onChamadosChange(() => void atualizar());
   }, []);
 
   // Entrou: a escolha "continuar sem identificação" deixa de valer (ao sair, a tela de login volta)
@@ -165,6 +182,15 @@ export function App() {
     case 'settings':
       content = <SettingsPage />;
       break;
+    case 'chamados':
+      content = <ChamadosPage />;
+      break;
+    case 'admin-mural':
+      content = <MuralAdminPage />;
+      break;
+    case 'admin-chamados':
+      content = <FilaChamadosPage />;
+      break;
   }
 
   return (
@@ -172,17 +198,28 @@ export function App() {
       <BarraSuperior
         employee={state.employee}
         foto={state.foto}
+        admin={state.admin}
         connection={state.connection}
         onAbrirPerfil={() => navigate('profile')}
         onAbrirConfiguracoes={() => navigate('settings')}
         onEntrar={() => chooseSkipLogin(false)}
+        onEntrarComoDp={() => setEntrandoComoDp(true)}
+        onSairDoDp={() => {
+          void window.dp.adminLogout();
+          navigate('home');
+        }}
       />
+
+      {entrandoComoDp && <EntrarComoDp onFechar={() => setEntrandoComoDp(false)} />}
 
       <div className="app__corpo">
         <MenuLateral
           page={page}
           unreadAnnouncements={messages.unreadCount}
           unreadChat={state.chat.unreadCount}
+          chamadosNaoLidos={chamadosNaoLidos}
+          adminNome={state.admin?.name ?? null}
+          adminEhTi={state.admin?.superAdmin ?? false}
           appVersion={state.appVersion}
           onNavigate={navigate}
         />

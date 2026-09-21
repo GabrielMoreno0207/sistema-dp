@@ -160,6 +160,70 @@ export interface Atalho {
 
 export type DadosAtalho = Pick<Atalho, 'rotulo' | 'icone' | 'cor' | 'destino'>;
 
+// ---- Chamados para o TI ----
+
+export type CategoriaChamado = 'COMPUTADOR' | 'IMPRESSORA' | 'SISTEMA' | 'REDE' | 'ACESSO' | 'OUTRO';
+export type PrioridadeChamado = 'BAIXA' | 'NORMAL' | 'ALTA';
+export type StatusChamado = 'ABERTO' | 'EM_ANDAMENTO' | 'RESOLVIDO' | 'FECHADO';
+
+export interface ChamadoMensagem {
+  id: number;
+  chamadoId: string;
+  autorId: string;
+  autorNome: string;
+  autorTipo: 'SOLICITANTE' | 'TI';
+  conteudo: string;
+  createdAt: string;
+  lidaEm: string | null;
+}
+
+export interface Chamado {
+  id: string;
+  numero: number;
+  titulo: string;
+  descricao: string;
+  categoria: CategoriaChamado;
+  prioridade: PrioridadeChamado;
+  status: StatusChamado;
+  solicitanteId: string;
+  solicitanteNome: string;
+  computadorId: string | null;
+  responsavelId: string | null;
+  responsavelNome: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvidoEm: string | null;
+}
+
+export interface ChamadoResumo extends Chamado {
+  mensagensNaoLidas: number;
+  totalMensagens: number;
+}
+
+export interface ChamadoCompleto extends Chamado {
+  mensagens: ChamadoMensagem[];
+  midias: { id: string; tipo: 'IMAGEM' | 'VIDEO'; nome: string; url: string }[];
+  naoLidas: number;
+}
+
+export interface NovoChamadoInput {
+  titulo: string;
+  descricao: string;
+  categoria: CategoriaChamado;
+  prioridade: PrioridadeChamado;
+  midiaIds: string[];
+}
+
+/** Pessoa do DP/TI logada no aplicativo (além do funcionário do PC) */
+export interface AdminUser {
+  id: string;
+  username: string;
+  name: string;
+  /** Conta do TI: fila de chamados e as funções administrativas extras */
+  superAdmin: boolean;
+  mustChangePassword: boolean;
+}
+
 export interface AppState {
   appVersion: string;
   computer: ComputerInfo;
@@ -175,6 +239,8 @@ export interface AppState {
   atalhos: Atalho[];
   /** Foto de perfil do funcionário logado */
   foto: MidiaPublica | null;
+  /** Conta do DP/TI logada neste aplicativo (null = ninguém) */
+  admin: AdminUser | null;
 }
 
 /** Configurações editáveis na tela Configurações */
@@ -249,6 +315,37 @@ export interface DesktopApi {
   enviarFoto(): Promise<OperationResult>;
   removerFoto(): Promise<OperationResult>;
   onFotoChange(listener: (foto: MidiaPublica | null) => void): () => void;
+
+  // ---- Chamados do funcionário ----
+  listarChamados(): Promise<{ ok: boolean; chamados: ChamadoResumo[]; message: string }>;
+  abrirChamado(dados: NovoChamadoInput): Promise<OperationResult>;
+  detalheChamado(id: string): Promise<{ ok: boolean; chamado: ChamadoCompleto | null; message: string }>;
+  responderChamado(id: string, conteudo: string): Promise<OperationResult>;
+  fecharChamado(id: string): Promise<OperationResult>;
+  marcarChamadoLido(id: string): Promise<OperationResult>;
+  /** Escolhe uma imagem no disco e envia; devolve o id da mídia */
+  enviarImagemChamado(): Promise<{ ok: boolean; midiaId: string | null; nome: string; message: string }>;
+  onChamadosChange(listener: () => void): () => void;
+
+  // ---- Conta do DP/TI ----
+  adminLogin(username: string, password: string): Promise<OperationResult>;
+  adminLogout(): Promise<OperationResult>;
+  onAdminChange(listener: (admin: AdminUser | null) => void): () => void;
+  adminFila(incluirEncerrados: boolean): Promise<{ ok: boolean; chamados: ChamadoResumo[]; message: string }>;
+  adminChamadoDetalhe(id: string): Promise<{ ok: boolean; chamado: ChamadoCompleto | null; message: string }>;
+  adminResponderChamado(id: string, conteudo: string): Promise<OperationResult>;
+  adminMudarStatus(id: string, status: StatusChamado): Promise<OperationResult>;
+  adminListarMural(): Promise<{ ok: boolean; posts: MuralPost[]; message: string }>;
+  adminSalvarMural(dados: {
+    id: string | null;
+    titulo: string;
+    texto: string;
+    midiaId: string | null;
+    ativo: boolean;
+  }): Promise<OperationResult>;
+  adminRemoverMural(id: string): Promise<OperationResult>;
+  /** Escolhe imagem ou vídeo no disco e envia para o mural */
+  adminEnviarMidia(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
 }
 
 /** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
@@ -288,5 +385,28 @@ export const IpcChannels = {
   FotoUpload: 'perfil:foto-upload',
   FotoRemove: 'perfil:foto-remove',
   FotoChanged: 'perfil:foto-changed',
+
+  // Chamados do funcionário
+  ChamadosList: 'chamados:list',
+  ChamadoAbrir: 'chamados:abrir',
+  ChamadoDetalhe: 'chamados:detalhe',
+  ChamadoResponder: 'chamados:responder',
+  ChamadoFechar: 'chamados:fechar',
+  ChamadoLidas: 'chamados:lidas',
+  ChamadosChanged: 'chamados:changed',
+  ChamadoEnviarImagem: 'chamados:enviar-imagem',
+
+  // Conta do DP/TI dentro do aplicativo
+  AdminLogin: 'admin:login',
+  AdminLogout: 'admin:logout',
+  AdminChanged: 'admin:changed',
+  AdminFila: 'admin:fila',
+  AdminChamadoDetalhe: 'admin:chamado-detalhe',
+  AdminChamadoResponder: 'admin:chamado-responder',
+  AdminChamadoStatus: 'admin:chamado-status',
+  AdminMuralList: 'admin:mural-list',
+  AdminMuralSalvar: 'admin:mural-salvar',
+  AdminMuralRemover: 'admin:mural-remover',
+  AdminMuralMidia: 'admin:mural-midia',
 } as const;
 // Canais do popup: ver popup-channels.ts

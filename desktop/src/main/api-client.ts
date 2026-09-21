@@ -10,8 +10,11 @@ import type {
   DadosAtalho,
   DpMessage,
   EmployeeProfile,
+  ChamadoCompleto,
+  ChamadoResumo,
   MidiaPublica,
   MuralPost,
+  NovoChamadoInput,
 } from '../shared/types';
 import { parseChatContact, parseChatMessage, parseEmployee, parseMessage } from './message-validation';
 
@@ -279,5 +282,32 @@ export class ApiClient {
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     if (range) headers.Range = range;
     return fetch(`${this.baseUrl}/api/midias/${encodeURIComponent(midiaId)}`, { headers });
+  }
+
+  // ---- Chamados do funcionário (token do PC) ----
+
+  async listarChamados(): Promise<ChamadoResumo[]> {
+    const data = await this.request<{ chamados?: ChamadoResumo[] }>('GET', '/api/chamados');
+    return data.chamados ?? [];
+  }
+
+  async abrirChamado(dados: NovoChamadoInput): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('POST', '/api/chamados', dados);
+  }
+
+  async detalheChamado(id: string): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('GET', `/api/chamados/${encodeURIComponent(id)}`);
+  }
+
+  async responderChamado(id: string, conteudo: string): Promise<void> {
+    await this.request('POST', `/api/chamados/${encodeURIComponent(id)}/mensagens`, { conteudo });
+  }
+
+  async fecharChamado(id: string): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('PUT', `/api/chamados/${encodeURIComponent(id)}/status`, { status: 'FECHADO' });
+  }
+
+  async marcarChamadoLido(id: string): Promise<void> {
+    await this.request('POST', `/api/chamados/${encodeURIComponent(id)}/lidas`);
   }
 }

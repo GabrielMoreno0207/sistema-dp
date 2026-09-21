@@ -46,6 +46,27 @@ const api: DesktopApi = {
   enviarFoto: () => ipcRenderer.invoke(IpcChannels.FotoUpload),
   removerFoto: () => ipcRenderer.invoke(IpcChannels.FotoRemove),
   onFotoChange: (listener) => subscribe(IpcChannels.FotoChanged, listener),
+
+  listarChamados: () => ipcRenderer.invoke(IpcChannels.ChamadosList),
+  abrirChamado: (dados) => ipcRenderer.invoke(IpcChannels.ChamadoAbrir, dados),
+  detalheChamado: (id) => ipcRenderer.invoke(IpcChannels.ChamadoDetalhe, id),
+  responderChamado: (id, conteudo) => ipcRenderer.invoke(IpcChannels.ChamadoResponder, { id, conteudo }),
+  fecharChamado: (id) => ipcRenderer.invoke(IpcChannels.ChamadoFechar, id),
+  marcarChamadoLido: (id) => ipcRenderer.invoke(IpcChannels.ChamadoLidas, id),
+  enviarImagemChamado: () => ipcRenderer.invoke(IpcChannels.ChamadoEnviarImagem),
+  onChamadosChange: (listener) => subscribe(IpcChannels.ChamadosChanged, listener),
+
+  adminLogin: (username, password) => ipcRenderer.invoke(IpcChannels.AdminLogin, { username, password }),
+  adminLogout: () => ipcRenderer.invoke(IpcChannels.AdminLogout),
+  onAdminChange: (listener) => subscribe(IpcChannels.AdminChanged, listener),
+  adminFila: (incluirEncerrados) => ipcRenderer.invoke(IpcChannels.AdminFila, incluirEncerrados),
+  adminChamadoDetalhe: (id) => ipcRenderer.invoke(IpcChannels.AdminChamadoDetalhe, id),
+  adminResponderChamado: (id, conteudo) => ipcRenderer.invoke(IpcChannels.AdminChamadoResponder, { id, conteudo }),
+  adminMudarStatus: (id, status) => ipcRenderer.invoke(IpcChannels.AdminChamadoStatus, { id, status }),
+  adminListarMural: () => ipcRenderer.invoke(IpcChannels.AdminMuralList),
+  adminSalvarMural: (dados) => ipcRenderer.invoke(IpcChannels.AdminMuralSalvar, dados),
+  adminRemoverMural: (id) => ipcRenderer.invoke(IpcChannels.AdminMuralRemover, id),
+  adminEnviarMidia: () => ipcRenderer.invoke(IpcChannels.AdminMuralMidia),
 };
 
 contextBridge.exposeInMainWorld('dp', api);

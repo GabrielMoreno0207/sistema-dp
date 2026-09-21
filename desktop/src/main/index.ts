@@ -25,11 +25,16 @@ import {
   type DpAttachment,
   type EmployeeProfile,
   type EmployeeState,
+  type CategoriaChamado,
   type MidiaPublica,
   type MuralPost,
+  type NovoChamadoInput,
+  type PrioridadeChamado,
+  type StatusChamado,
   type OperationResult,
   type SettingsView,
 } from '../shared/types';
+import { AdminClient } from './admin-client';
 import { ApiClient, ApiError } from './api-client';
 import { Atualizador } from './atualizador';
 import { ChatStore } from './chat-store';
@@ -176,6 +181,7 @@ function start(): void {
   const badge = loadIcon('badge.png');
 
   // Conteúdo da nova tela inicial: recado do mural, atalhos da pessoa e a foto dela
+  let adminClient = config.serverUrl ? new AdminClient(config.serverUrl) : null;
   let mural: MuralPost | null = null;
   let atalhos: Atalho[] = [];
   let foto: MidiaPublica | null = null;
@@ -462,6 +468,7 @@ function start(): void {
     mural,
     atalhos,
     foto,
+    admin: adminClient?.user ?? null,
   }));
 
   handle(IpcChannels.ChatOpen, async (rawId): Promise<OperationResult> => {
@@ -684,11 +691,260 @@ function start(): void {
     if (config.serverUrl !== previous.serverUrl) {
       console.log(`[config] servidor alterado para ${config.serverUrl ?? '(nenhum)'}`);
       api = config.serverUrl ? new ApiClient(config.serverUrl) : null;
+      adminClient?.esquecer();
+      adminClient = config.serverUrl ? new AdminClient(config.serverUrl) : null;
+      sendToMain(IpcChannels.AdminChanged, null);
       store.reset(config.serverUrl);
       setEmployee(null, false); // o login era do servidor anterior
       connection.reconfigure(config.serverUrl, api);
     }
     return { ok: true, message: 'Configurações salvas.' };
+  });
+
+  const TIPOS_IMAGEM: Record<string, string> = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+  };
+
+  /** Abre o seletor de arquivo e devolve a imagem lida do disco. */
+  async function escolherImagem(
+    titulo: string,
+  ): Promise<{ conteudo: Buffer; mimeType: string; nome: string; erro?: string } | null> {
+    const escolha = await dialog.showOpenDialog({
+      title: titulo,
+      properties: ['openFile'],
+      filters: [{ name: 'Imagens', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    });
+    if (escolha.canceled || escolha.filePaths.length === 0) return null;
+
+    const caminho = escolha.filePaths[0];
+    const nome = caminho.split(/[\/]/).pop() ?? 'imagem';
+    const mimeType = TIPOS_IMAGEM[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
+    if (!mimeType) {
+      return { conteudo: Buffer.alloc(0), mimeType: '', nome, erro: 'Escolha uma imagem JPG, PNG ou WEBP.' };
+    }
+    const conteudo = await readFile(caminho);
+    if (conteudo.length > 10 * 1024 * 1024) {
+      return { conteudo, mimeType, nome, erro: 'A imagem passa de 10 MB.' };
+    }
+    return { conteudo, mimeType, nome };
+  }
+
+  // ---------------------------------------------------------------- chamados para o TI
+
+  const CHAMADO_ID = /^CHM-[0-9a-f]{24}$/;
+  const CATEGORIAS: CategoriaChamado[] = ['COMPUTADOR', 'IMPRESSORA', 'SISTEMA', 'REDE', 'ACESSO', 'OUTRO'];
+  const PRIORIDADES: PrioridadeChamado[] = ['BAIXA', 'NORMAL', 'ALTA'];
+  const STATUS_CHAMADO: StatusChamado[] = ['ABERTO', 'EM_ANDAMENTO', 'RESOLVIDO', 'FECHADO'];
+
+  function textoValido(valor: unknown, maximo: number): string | null {
+    if (typeof valor !== 'string') return null;
+    const limpo = valor.trim();
+    return limpo && limpo.length <= maximo ? limpo : null;
+  }
+
+  handle(IpcChannels.ChamadosList, async () => {
+    const saida = await comApi((client) => client.listarChamados());
+    return 'dados' in saida ? { ok: true, chamados: saida.dados, message: '' } : { ok: false, chamados: [], message: saida.message };
+  });
+
+  handle(IpcChannels.ChamadoAbrir, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as Partial<NovoChamadoInput> | null;
+    const titulo = textoValido(entrada?.titulo, 120);
+    const descricao = textoValido(entrada?.descricao, 4000);
+    const categoria = CATEGORIAS.includes(entrada?.categoria as CategoriaChamado) ? (entrada?.categoria as CategoriaChamado) : null;
+    const prioridade = PRIORIDADES.includes(entrada?.prioridade as PrioridadeChamado)
+      ? (entrada?.prioridade as PrioridadeChamado)
+      : 'NORMAL';
+    const midiaIds = Array.isArray(entrada?.midiaIds) ? entrada.midiaIds.filter((id): id is string => typeof id === 'string') : [];
+    if (!titulo || !descricao || !categoria) return { ok: false, message: 'Preencha o título, a descrição e a categoria.' };
+
+    const saida = await comApi((client) => client.abrirChamado({ titulo, descricao, categoria, prioridade, midiaIds }));
+    if (!('dados' in saida)) return saida;
+    sendToMain(IpcChannels.ChamadosChanged, null);
+    return { ok: true, message: `Chamado ${saida.dados.numero} aberto.` };
+  });
+
+  handle(IpcChannels.ChamadoDetalhe, async (id) => {
+    if (typeof id !== 'string' || !CHAMADO_ID.test(id)) return { ok: false, chamado: null, message: 'Chamado inválido.' };
+    const saida = await comApi((client) => client.detalheChamado(id));
+    return 'dados' in saida ? { ok: true, chamado: saida.dados, message: '' } : { ok: false, chamado: null, message: saida.message };
+  });
+
+  handle(IpcChannels.ChamadoResponder, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; conteudo?: unknown } | null;
+    const id = typeof entrada?.id === 'string' && CHAMADO_ID.test(entrada.id) ? entrada.id : null;
+    const conteudo = textoValido(entrada?.conteudo, 2000);
+    if (!id || !conteudo) return { ok: false, message: 'Escreva a mensagem.' };
+    const saida = await comApi((client) => client.responderChamado(id, conteudo));
+    if (!('dados' in saida)) return saida;
+    sendToMain(IpcChannels.ChamadosChanged, null);
+    return { ok: true, message: '' };
+  });
+
+  handle(IpcChannels.ChamadoFechar, async (id): Promise<OperationResult> => {
+    if (typeof id !== 'string' || !CHAMADO_ID.test(id)) return { ok: false, message: 'Chamado inválido.' };
+    const saida = await comApi((client) => client.fecharChamado(id));
+    if (!('dados' in saida)) return saida;
+    sendToMain(IpcChannels.ChamadosChanged, null);
+    return { ok: true, message: 'Chamado fechado.' };
+  });
+
+  handle(IpcChannels.ChamadoLidas, async (id): Promise<OperationResult> => {
+    if (typeof id !== 'string' || !CHAMADO_ID.test(id)) return { ok: false, message: 'Chamado inválido.' };
+    const saida = await comApi((client) => client.marcarChamadoLido(id));
+    if (!('dados' in saida)) return saida;
+    sendToMain(IpcChannels.ChamadosChanged, null);
+    return { ok: true, message: '' };
+  });
+
+  /** Print para anexar ao chamado: escolhe no disco e envia com o token do PC. */
+  handle(IpcChannels.ChamadoEnviarImagem, async () => {
+    const escolhida = await escolherImagem('Escolha o print do problema');
+    if (!escolhida) return { ok: false, midiaId: null, nome: '', message: '' };
+    if (escolhida.erro) return { ok: false, midiaId: null, nome: '', message: escolhida.erro };
+
+    const envio = await comApi((client) => client.enviarMidia(escolhida.conteudo, escolhida.mimeType, escolhida.nome));
+    if (!('dados' in envio)) return { ok: false, midiaId: null, nome: '', message: envio.message };
+    return { ok: true, midiaId: envio.dados.id, nome: escolhida.nome, message: '' };
+  });
+
+  // ---------------------------------------------------------------- conta do DP/TI no aplicativo
+
+  /**
+   * Chamada com a credencial do DP. Diferente de comApi(), que usa o token do
+   * computador: aqui quem age é a pessoa do DP logada nesta máquina.
+   */
+  async function comAdmin<T>(
+    acao: (client: AdminClient) => Promise<T>,
+  ): Promise<{ ok: true; dados: T } | OperationResult> {
+    if (!adminClient || !adminClient.autenticado) {
+      return { ok: false, message: 'Entre com a conta do DP para usar esta função.' };
+    }
+    try {
+      return { ok: true, dados: await acao(adminClient) };
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) sendToMain(IpcChannels.AdminChanged, null);
+      const mensagem = err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.';
+      return { ok: false, message: mensagem };
+    }
+  }
+
+  handle(IpcChannels.AdminLogin, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { username?: unknown; password?: unknown } | null;
+    const username = textoValido(entrada?.username, 64);
+    const password = typeof entrada?.password === 'string' ? entrada.password : '';
+    if (!username || !password) return { ok: false, message: 'Informe o usuário e a senha.' };
+    if (!adminClient) return { ok: false, message: 'Configure o endereço do servidor antes de entrar.' };
+
+    try {
+      const usuario = await adminClient.login(username, password);
+      sendToMain(IpcChannels.AdminChanged, usuario);
+      console.log(`[admin] ${usuario.name} entrou${usuario.superAdmin ? ' (TI)' : ''}`);
+      return { ok: true, message: '' };
+    } catch (err) {
+      const mensagem = err instanceof ApiError ? err.message : 'Não consegui falar com o servidor.';
+      return { ok: false, message: mensagem };
+    }
+  });
+
+  handle(IpcChannels.AdminLogout, async (): Promise<OperationResult> => {
+    await adminClient?.logout();
+    sendToMain(IpcChannels.AdminChanged, null);
+    return { ok: true, message: '' };
+  });
+
+  handle(IpcChannels.AdminFila, async (incluirEncerrados) => {
+    const saida = await comAdmin((client) => client.filaChamados(incluirEncerrados === true));
+    return 'dados' in saida ? { ok: true, chamados: saida.dados, message: '' } : { ok: false, chamados: [], message: saida.message };
+  });
+
+  handle(IpcChannels.AdminChamadoDetalhe, async (id) => {
+    if (typeof id !== 'string' || !CHAMADO_ID.test(id)) return { ok: false, chamado: null, message: 'Chamado inválido.' };
+    const saida = await comAdmin((client) => client.detalheChamado(id));
+    return 'dados' in saida ? { ok: true, chamado: saida.dados, message: '' } : { ok: false, chamado: null, message: saida.message };
+  });
+
+  handle(IpcChannels.AdminChamadoResponder, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; conteudo?: unknown } | null;
+    const id = typeof entrada?.id === 'string' && CHAMADO_ID.test(entrada.id) ? entrada.id : null;
+    const conteudo = textoValido(entrada?.conteudo, 2000);
+    if (!id || !conteudo) return { ok: false, message: 'Escreva a mensagem.' };
+    const saida = await comAdmin((client) => client.responderChamado(id, conteudo));
+    return 'dados' in saida ? { ok: true, message: '' } : saida;
+  });
+
+  handle(IpcChannels.AdminChamadoStatus, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; status?: unknown } | null;
+    const id = typeof entrada?.id === 'string' && CHAMADO_ID.test(entrada.id) ? entrada.id : null;
+    const status = STATUS_CHAMADO.includes(entrada?.status as StatusChamado) ? (entrada?.status as StatusChamado) : null;
+    if (!id || !status) return { ok: false, message: 'Chamado ou situação inválida.' };
+    const saida = await comAdmin((client) => client.mudarStatusChamado(id, status));
+    return 'dados' in saida ? { ok: true, message: '' } : saida;
+  });
+
+  handle(IpcChannels.AdminMuralList, async () => {
+    const saida = await comAdmin((client) => client.listarMural());
+    return 'dados' in saida ? { ok: true, posts: saida.dados, message: '' } : { ok: false, posts: [], message: saida.message };
+  });
+
+  handle(IpcChannels.AdminMuralSalvar, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; titulo?: unknown; texto?: unknown; midiaId?: unknown; ativo?: unknown } | null;
+    const titulo = textoValido(entrada?.titulo, 120);
+    const texto = textoValido(entrada?.texto, 4000);
+    const id = typeof entrada?.id === 'string' ? entrada.id : null;
+    const midiaId = typeof entrada?.midiaId === 'string' ? entrada.midiaId : null;
+    const ativo = entrada?.ativo !== false;
+    if (!titulo || !texto) return { ok: false, message: 'Preencha o título e o texto.' };
+
+    const saida = await comAdmin((client) =>
+      id
+        ? client.atualizarMural(id, { titulo, texto, midiaId, ativo })
+        : client.publicarMural({ titulo, texto, midiaId, ativo }),
+    );
+    if (!('dados' in saida)) return saida;
+    await syncMural();
+    return { ok: true, message: id ? 'Recado alterado.' : 'Recado publicado no mural.' };
+  });
+
+  handle(IpcChannels.AdminMuralRemover, async (id): Promise<OperationResult> => {
+    if (typeof id !== 'string') return { ok: false, message: 'Recado inválido.' };
+    const saida = await comAdmin((client) => client.removerMural(id));
+    if (!('dados' in saida)) return saida;
+    await syncMural();
+    return { ok: true, message: 'Recado removido.' };
+  });
+
+  /** Imagem ou vídeo para o mural, enviado com a credencial do DP. */
+  handle(IpcChannels.AdminMuralMidia, async () => {
+    const escolha = await dialog.showOpenDialog({
+      title: 'Escolha a imagem ou o vídeo do mural',
+      properties: ['openFile'],
+      filters: [{ name: 'Imagens e vídeos', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'] }],
+    });
+    if (escolha.canceled || escolha.filePaths.length === 0) return { ok: false, midia: null, message: '' };
+
+    const caminho = escolha.filePaths[0];
+    const nome = caminho.split(/[\/]/).pop() ?? 'arquivo';
+    const tipos: Record<string, string> = {
+      ...TIPOS_IMAGEM,
+      '.gif': 'image/gif',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+    };
+    const mimeType = tipos[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
+    if (!mimeType) return { ok: false, midia: null, message: 'Formato não aceito.' };
+
+    const conteudo = await readFile(caminho);
+    const limiteMb = mimeType.startsWith('video/') ? 200 : 10;
+    if (conteudo.length > limiteMb * 1024 * 1024) {
+      return { ok: false, midia: null, message: 'O arquivo passa do limite de ' + limiteMb + ' MB.' };
+    }
+
+    const envio = await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome));
+    return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
   // ---------------------------------------------------------------- atalhos e foto de perfil
@@ -759,24 +1015,12 @@ function start(): void {
 
   /** Escolhe a imagem no disco, envia ao servidor e passa a ser a foto da pessoa. */
   handle(IpcChannels.FotoUpload, async (): Promise<OperationResult> => {
-    const escolha = await dialog.showOpenDialog({
-      title: 'Escolha a sua foto',
-      properties: ['openFile'],
-      filters: [{ name: 'Imagens', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
-    });
-    if (escolha.canceled || escolha.filePaths.length === 0) return { ok: false, message: '' };
-
-    const caminho = escolha.filePaths[0];
-    const extensao = caminho.slice(caminho.lastIndexOf('.')).toLowerCase();
-    const tipos: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
-    const mimeType = tipos[extensao];
-    if (!mimeType) return { ok: false, message: 'Escolha uma imagem JPG, PNG ou WEBP.' };
-
-    const conteudo = await readFile(caminho);
-    if (conteudo.length > 10 * 1024 * 1024) return { ok: false, message: 'A imagem passa de 10 MB.' };
+    const escolhida = await escolherImagem('Escolha a sua foto');
+    if (!escolhida) return { ok: false, message: '' };
+    if (escolhida.erro) return { ok: false, message: escolhida.erro };
 
     const envio = await comApi(async (client) => {
-      const midia = await client.enviarMidia(conteudo, mimeType, caminho.split(/[\/]/).pop() ?? 'foto');
+      const midia = await client.enviarMidia(escolhida.conteudo, escolhida.mimeType, escolhida.nome);
       return client.definirFoto(midia.id);
     });
     if (!('dados' in envio)) return envio;

@@ -2308,3 +2308,412 @@ button.stat:hover {
 .opcao-cor--ativa {
   border-color: var(--text);
 }
+
+/* ============================================================
+   Chamados para o TI e área do DP dentro do aplicativo
+   ============================================================ */
+
+.barra-superior__admin {
+  padding: 3px 10px;
+  border: 1px solid var(--acento);
+  border-radius: 999px;
+  color: var(--acento);
+  font-size: 11.5px;
+}
+
+.menu-lateral__nav--admin {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-lateral__secao {
+  display: block;
+  padding: 0 10px 6px;
+  color: #7d97a6;
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+/* ---------------- listas de chamado ---------------- */
+.chamados__lista,
+.fila__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chamados__vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 22px;
+  color: var(--muted);
+}
+
+.chamado-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: none;
+  border-left: 3px solid var(--acento);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  text-align: left;
+  cursor: pointer;
+}
+
+.chamado-item:hover {
+  box-shadow: 0 5px 14px rgba(22, 40, 55, 0.12);
+}
+
+.chamado-item--ativo {
+  outline: 2px solid var(--acento);
+}
+
+.chamado-item__numero {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chamado-item__texto {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.chamado-item__detalhe {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chamado-item__lado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chamado-item__badge {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+}
+
+.etiqueta-status {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.etiqueta-status--aberto {
+  background: #fff4e0;
+  color: #b26a00;
+}
+
+.etiqueta-status--em_andamento {
+  background: #e0f6fa;
+  color: #0e7490;
+}
+
+.etiqueta-status--resolvido {
+  background: #e7f6f4;
+  color: var(--acento-escuro);
+}
+
+.etiqueta-status--fechado {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+.etiqueta-prioridade {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.etiqueta-prioridade--alta {
+  background: #fde8e8;
+  color: #c62828;
+}
+
+.etiqueta-prioridade--baixa {
+  background: var(--bg);
+  color: var(--muted);
+}
+
+/* ---------------- detalhe do chamado ---------------- */
+.chamado__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.chamado__descricao {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.chamado__descricao p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.chamado__prints {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.chamado__prints img {
+  width: 160px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.chamado__conversa {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.chamado__sem-mensagens {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.balao {
+  max-width: 78%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+}
+
+.balao--meu {
+  align-self: flex-end;
+  background: #e7f6f4;
+}
+
+.balao__autor {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.balao__texto {
+  margin: 3px 0;
+  white-space: pre-wrap;
+}
+
+.balao__hora {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.chamado__responder {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.chamado__responder textarea {
+  flex: 1;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+}
+
+/* ---------------- fila do TI (duas colunas) ---------------- */
+.page--fila {
+  display: flex;
+  flex-direction: column;
+}
+
+.fila {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 18px;
+  min-height: 0;
+  flex: 1;
+}
+
+.fila__lista,
+.fila__detalhe {
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.fila__detalhe h2 {
+  font-size: 17px;
+}
+
+/* ---------------- formulários das telas novas ---------------- */
+.formulario {
+  padding: 18px 20px;
+}
+
+.formulario label {
+  display: block;
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.formulario input[type='text'],
+.formulario input:not([type]),
+.formulario select,
+.formulario textarea,
+.modal__caixa input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.formulario__linha {
+  display: flex;
+  gap: 14px;
+}
+
+.formulario__linha > div {
+  flex: 1;
+}
+
+.formulario__anexos {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.anexo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 12px;
+}
+
+.anexo-chip button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.formulario__acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.modal__caixa--estreita {
+  width: min(420px, 100%);
+}
+
+.erro-login {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+/* ---------------- mural pela conta do DP ---------------- */
+.mural-admin__midia {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.mural-admin__previa {
+  display: grid;
+  place-items: center;
+  width: 240px;
+  min-height: 130px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.mural-admin__previa img,
+.mural-admin__previa video {
+  width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+  background: #0d1418;
+}
+
+.mural-admin__vazia {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.mural-admin__titulo {
+  margin: 22px 0 10px;
+  font-size: 15px;
+}
+
+.mural-admin__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mural-admin__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--acento);
+}
+
+.mural-admin__item--inativo {
+  border-left-color: var(--border);
+  opacity: 0.75;
+}
+
+.mural-admin__item-texto p {
+  margin: 4px 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.mural-admin__item-acoes {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}

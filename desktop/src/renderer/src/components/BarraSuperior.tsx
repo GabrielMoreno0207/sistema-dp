@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
+import type { AdminUser, ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
 import { ConnectionBadge } from './ConnectionBadge';
 
 interface BarraSuperiorProps {
   employee: EmployeeProfile | null;
   /** Foto de perfil, quando a pessoa enviou uma */
   foto: MidiaPublica | null;
+  /** Conta do DP/TI logada neste aplicativo */
+  admin: AdminUser | null;
   connection: ConnectionState;
   onAbrirPerfil(): void;
   onAbrirConfiguracoes(): void;
   onEntrar(): void;
+  onEntrarComoDp(): void;
+  onSairDoDp(): void;
 }
 
 /** Iniciais do nome para o avatar (Maria Souza -> MS) */
@@ -18,7 +22,17 @@ function iniciais(nome: string): string {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase();
 }
 
-export function BarraSuperior({ employee, foto, connection, onAbrirPerfil, onAbrirConfiguracoes, onEntrar }: BarraSuperiorProps) {
+export function BarraSuperior({
+  employee,
+  foto,
+  admin,
+  connection,
+  onAbrirPerfil,
+  onAbrirConfiguracoes,
+  onEntrar,
+  onEntrarComoDp,
+  onSairDoDp,
+}: BarraSuperiorProps) {
   const [menuAberto, setMenuAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
 
@@ -52,12 +66,17 @@ export function BarraSuperior({ employee, foto, connection, onAbrirPerfil, onAbr
       </div>
 
       <div className="barra-superior__direita">
+        {admin && (
+          <span className="barra-superior__admin" title={`Conectado como ${admin.name}`}>
+            {admin.superAdmin ? 'TI' : 'DP'}: {admin.name}
+          </span>
+        )}
         <ConnectionBadge connection={connection} />
 
         <div className="menu-usuario" ref={caixa}>
           <button
             className="menu-usuario__gatilho"
-            onClick={() => (employee ? setMenuAberto((aberto) => !aberto) : onEntrar())}
+            onClick={() => setMenuAberto((aberto) => !aberto)}
             aria-expanded={menuAberto}
             aria-haspopup="menu"
           >
@@ -70,6 +89,23 @@ export function BarraSuperior({ employee, foto, connection, onAbrirPerfil, onAbr
             </span>
           </button>
 
+          {menuAberto && !employee && (
+            <div className="menu-usuario__lista" role="menu">
+              <button role="menuitem" onClick={() => escolher(onEntrar)}>
+                Entrar com a matrícula
+              </button>
+              {admin ? (
+                <button role="menuitem" onClick={() => escolher(onSairDoDp)}>
+                  Sair da conta do DP
+                </button>
+              ) : (
+                <button role="menuitem" onClick={() => escolher(onEntrarComoDp)}>
+                  Entrar como DP/TI
+                </button>
+              )}
+            </div>
+          )}
+
           {menuAberto && employee && (
             <div className="menu-usuario__lista" role="menu">
               <button role="menuitem" onClick={() => escolher(onAbrirPerfil)}>
@@ -81,6 +117,15 @@ export function BarraSuperior({ employee, foto, connection, onAbrirPerfil, onAbr
               <button role="menuitem" onClick={() => escolher(onAbrirConfiguracoes)}>
                 Configurações
               </button>
+              {admin ? (
+                <button role="menuitem" onClick={() => escolher(onSairDoDp)}>
+                  Sair da conta do DP
+                </button>
+              ) : (
+                <button role="menuitem" onClick={() => escolher(onEntrarComoDp)}>
+                  Entrar como DP/TI
+                </button>
+              )}
               <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(() => void window.dp.employeeLogout())}>
                 Sair
               </button>

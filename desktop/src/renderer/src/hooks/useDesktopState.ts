@@ -25,6 +25,7 @@ export function useDesktopState(): AppState | null {
       setState((current) => (current ? { ...current, atalhos } : current)),
     );
     const offFoto = window.dp.onFotoChange((foto) => setState((current) => (current ? { ...current, foto } : current)));
+    const offAdmin = window.dp.onAdminChange((admin) => setState((current) => (current ? { ...current, admin } : current)));
     return () => {
       active = false;
       offConnection();
@@ -34,6 +35,7 @@ export function useDesktopState(): AppState | null {
       offMural();
       offAtalhos();
       offFoto();
+      offAdmin();
     };
   }, []);
 
