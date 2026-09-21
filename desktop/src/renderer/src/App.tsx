@@ -11,6 +11,10 @@ import { ChatPage } from './pages/ChatPage';
 import { ChamadosPage } from './pages/ChamadosPage';
 import { FilaChamadosPage } from './pages/FilaChamadosPage';
 import { InicioPage } from './pages/InicioPage';
+import { AjustesDpPage } from './pages/admin/AjustesDpPage';
+import { CadastrosPage } from './pages/admin/CadastrosPage';
+import { ChatDpPage } from './pages/admin/ChatDpPage';
+import { ComunicadosAdminPage } from './pages/admin/ComunicadosAdminPage';
 import { MuralAdminPage } from './pages/MuralAdminPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -99,7 +103,9 @@ export function App() {
     if (skip) setPage('home');
   }
 
-  if (!state.employee && !skipLogin) {
+  // Com a conta do DP conectada, o aplicativo já abre: ela não é um funcionário
+  // deste computador, mas tem as seções administrativas para usar.
+  if (!state.employee && !skipLogin && !state.admin) {
     // Ainda não sabemos se há alguém logado (servidor conectando): evita piscar a tela de login
     const connecting = ['connecting', 'reconnecting', 'connected'].includes(state.connection.status);
     if (!state.employeeChecked && connecting && !waitExpired) {
@@ -195,6 +201,18 @@ export function App() {
       break;
     case 'admin-chamados':
       content = <FilaChamadosPage />;
+      break;
+    case 'admin-comunicados':
+      content = <ComunicadosAdminPage />;
+      break;
+    case 'admin-cadastros':
+      content = <CadastrosPage />;
+      break;
+    case 'admin-chat':
+      content = <ChatDpPage />;
+      break;
+    case 'admin-ajustes':
+      content = <AjustesDpPage ehTi={state.admin?.superAdmin ?? false} />;
       break;
   }
 

@@ -7,7 +7,11 @@ export type Page =
   | 'settings'
   // Seções da conta do DP/TI dentro do aplicativo
   | 'admin-mural'
-  | 'admin-chamados';
+  | 'admin-chamados'
+  | 'admin-comunicados'
+  | 'admin-cadastros'
+  | 'admin-chat'
+  | 'admin-ajustes';
 
 interface ItemMenu {
   page: Page;
@@ -26,7 +30,11 @@ const ITENS: ItemMenu[] = [
 
 /** Seções que aparecem só para quem entrou com a conta do DP/TI */
 const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
+  { page: 'admin-comunicados', label: 'Comunicados', icon: '✈' },
   { page: 'admin-mural', label: 'Mural', icon: '◉' },
+  { page: 'admin-chat', label: 'Mensagens do DP', icon: '✆' },
+  { page: 'admin-cadastros', label: 'Cadastros', icon: '▤' },
+  { page: 'admin-ajustes', label: 'Ajustes', icon: '⚙' },
   { page: 'admin-chamados', label: 'Fila do TI', icon: '⚒', soTi: true },
 ];
 

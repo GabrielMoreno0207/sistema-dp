@@ -346,6 +346,17 @@ export interface DesktopApi {
   adminRemoverMural(id: string): Promise<OperationResult>;
   /** Escolhe imagem ou vídeo no disco e envia para o mural */
   adminEnviarMidia(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /**
+   * Chamada às rotas administrativas com a credencial do DP. O processo
+   * principal confere a rota contra uma lista antes de enviar.
+   */
+  adminApi<T = unknown>(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+  ): Promise<{ ok: boolean; dados: T | null; message: string }>;
+  /** Escolhe arquivos no disco e anexa ao comunicado que está sendo escrito */
+  adminAnexar(): Promise<{ ok: boolean; anexos: { id: string; name: string; size: number }[]; message: string }>;
 }
 
 /** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
@@ -408,5 +419,8 @@ export const IpcChannels = {
   AdminMuralSalvar: 'admin:mural-salvar',
   AdminMuralRemover: 'admin:mural-remover',
   AdminMuralMidia: 'admin:mural-midia',
+  /** Canal único das telas administrativas; a rota é conferida por uma lista */
+  AdminApi: 'admin:api',
+  AdminAnexo: 'admin:anexo',
 } as const;
 // Canais do popup: ver popup-channels.ts

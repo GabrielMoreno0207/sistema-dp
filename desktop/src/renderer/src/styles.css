@@ -2749,3 +2749,92 @@ button.stat:hover {
   color: var(--acento-escuro);
   font-weight: 600;
 }
+
+/* ---------------- tabelas das telas administrativas ---------------- */
+.abas--linha {
+  margin-bottom: 0;
+}
+
+.formulario__titulo {
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.tabela-caixa {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabela th,
+.tabela td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.tabela th {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.tabela tr:last-child td {
+  border-bottom: none;
+}
+
+.tabela tr:hover td {
+  background: var(--bg);
+}
+
+.tabela__vazia {
+  color: var(--muted);
+  text-align: center;
+}
+
+.tabela__acoes {
+  display: flex;
+  gap: 12px;
+}
+
+.link-btn--perigo {
+  color: var(--danger);
+}
+
+.ponto {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.ponto--online {
+  background: var(--success);
+}
+
+.leituras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.leituras__item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+}

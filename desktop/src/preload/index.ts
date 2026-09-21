@@ -67,6 +67,8 @@ const api: DesktopApi = {
   adminSalvarMural: (dados) => ipcRenderer.invoke(IpcChannels.AdminMuralSalvar, dados),
   adminRemoverMural: (id) => ipcRenderer.invoke(IpcChannels.AdminMuralRemover, id),
   adminEnviarMidia: () => ipcRenderer.invoke(IpcChannels.AdminMuralMidia),
+  adminApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.AdminApi, { method, path, body }),
+  adminAnexar: () => ipcRenderer.invoke(IpcChannels.AdminAnexo),
 };
 
 contextBridge.exposeInMainWorld('dp', api);

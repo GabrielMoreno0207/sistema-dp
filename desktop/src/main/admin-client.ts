@@ -2,6 +2,30 @@ import { ApiError } from './api-client';
 import type { ChamadoCompleto, ChamadoResumo, MidiaPublica, MuralPost, StatusChamado } from '../shared/types';
 
 const TIMEOUT_MS = 15_000;
+
+/** Tipo do arquivo pelo nome: o servidor confere a extensão contra o tipo informado. */
+const TIPOS_POR_EXTENSAO: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.zip': 'application/zip',
+};
+
+function tipoPeloNome(nome: string): string {
+  return TIPOS_POR_EXTENSAO[nome.slice(nome.lastIndexOf('.')).toLowerCase()] ?? 'application/octet-stream';
+}
 const UPLOAD_TIMEOUT_MS = 10 * 60_000;
 
 /** Pessoa do DP ou do TI logada no aplicativo. */
@@ -32,6 +56,11 @@ export class AdminClient {
 
   get autenticado(): boolean {
     return this.token !== null;
+  }
+
+  /** Chamada livre para as telas administrativas (a rota é conferida antes, no processo principal). */
+  async chamar<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, path, body);
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -133,6 +162,28 @@ export class AdminClient {
 
   async removerMural(id: string): Promise<void> {
     await this.request('DELETE', `/api/mural/${encodeURIComponent(id)}`);
+  }
+
+  /** Anexo de comunicado (imagem ou documento), no formato que a API de anexos espera. */
+  async enviarAnexo(conteudo: Buffer, nome: string): Promise<{ id: string; name: string; size: number }> {
+    if (!this.token) throw new ApiError('Entre com a conta do DP para enviar arquivos', 401);
+    const response = await fetch(`${this.baseUrl}/api/attachments`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'Content-Type': 'application/octet-stream',
+        'X-File-Name': encodeURIComponent(nome),
+        'X-File-Type': tipoPeloNome(nome),
+      },
+      body: new Uint8Array(conteudo),
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+    const data = (await response.json().catch(() => ({}))) as {
+      attachment?: { id: string; name: string; size: number };
+      message?: string;
+    };
+    if (!response.ok || !data.attachment) throw new ApiError(data.message ?? `Erro HTTP ${response.status}`, response.status);
+    return data.attachment;
   }
 
   /** Envia imagem ou vídeo com a credencial do DP. */

@@ -947,6 +947,88 @@ function start(): void {
     return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
+  /**
+   * Rotas que as telas administrativas podem chamar com a credencial do DP.
+   * A lista existe para a tela não conseguir usar o token em qualquer endereço:
+   * o que não estiver aqui é recusado antes de sair do aplicativo.
+   */
+  const ROTAS_ADMIN: { metodo: string; padrao: RegExp }[] = [
+    { metodo: 'GET', padrao: /^\/api\/messages(\?limit=\d{1,4})?$/ },
+    { metodo: 'POST', padrao: /^\/api\/messages$/ },
+    { metodo: 'GET', padrao: /^\/api\/messages\/[\w-]{1,40}\/reads$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/attachments\/ATT-[0-9a-f]{24}$/ },
+    { metodo: 'GET', padrao: /^\/api\/employees$/ },
+    { metodo: 'POST', padrao: /^\/api\/employees$/ },
+    { metodo: 'PATCH', padrao: /^\/api\/employees\/[\w-]{1,64}$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/employees\/[\w-]{1,64}$/ },
+    { metodo: 'POST', padrao: /^\/api\/employees\/[\w-]{1,64}\/password$/ },
+    { metodo: 'GET', padrao: /^\/api\/sectors$/ },
+    { metodo: 'POST', padrao: /^\/api\/sectors$/ },
+    { metodo: 'PATCH', padrao: /^\/api\/sectors\/[\w-]{1,64}$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/sectors\/[\w-]{1,64}$/ },
+    { metodo: 'GET', padrao: /^\/api\/computers$/ },
+    { metodo: 'GET', padrao: /^\/api\/chats$/ },
+    { metodo: 'GET', padrao: /^\/api\/chats\/[\w-]{1,64}\/messages$/ },
+    { metodo: 'POST', padrao: /^\/api\/chats\/[\w-]{1,64}\/messages$/ },
+    { metodo: 'POST', padrao: /^\/api\/chats\/[\w-]{1,64}\/read$/ },
+    { metodo: 'GET', padrao: /^\/api\/auto-replies$/ },
+    { metodo: 'POST', padrao: /^\/api\/auto-replies$/ },
+    { metodo: 'PUT', padrao: /^\/api\/auto-replies\/[\w-]{1,64}$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/auto-replies\/[\w-]{1,64}$/ },
+    { metodo: 'GET', padrao: /^\/api\/auth\/me$/ },
+    { metodo: 'POST', padrao: /^\/api\/auth\/password$/ },
+    { metodo: 'GET', padrao: /^\/api\/admin\/users$/ },
+    { metodo: 'POST', padrao: /^\/api\/admin\/users$/ },
+    { metodo: 'PATCH', padrao: /^\/api\/admin\/users\/[\w-]{1,64}$/ },
+    { metodo: 'POST', padrao: /^\/api\/admin\/users\/[\w-]{1,64}\/password$/ },
+    { metodo: 'GET', padrao: /^\/api\/admin\/chats$/ },
+    { metodo: 'POST', padrao: /^\/api\/admin\/chats\/purge$/ },
+    { metodo: 'POST', padrao: /^\/api\/admin\/messages\/purge$/ },
+  ];
+
+  handle(IpcChannels.AdminApi, async (bruto) => {
+    const entrada = bruto as { method?: unknown; path?: unknown; body?: unknown } | null;
+    const metodo = typeof entrada?.method === 'string' ? entrada.method.toUpperCase() : '';
+    const caminho = typeof entrada?.path === 'string' ? entrada.path : '';
+    const permitida = ROTAS_ADMIN.some((rota) => rota.metodo === metodo && rota.padrao.test(caminho));
+    if (!permitida) {
+      console.warn('[admin] rota recusada: ' + metodo + ' ' + caminho);
+      return { ok: false, dados: null, message: 'Operação não permitida.' };
+    }
+
+    const saida = await comAdmin((client) => client.chamar(metodo, caminho, entrada?.body));
+    return 'dados' in saida ? { ok: true, dados: saida.dados, message: '' } : { ok: false, dados: null, message: saida.message };
+  });
+
+  /** Anexos do comunicado: escolhe no disco e envia com a credencial do DP. */
+  handle(IpcChannels.AdminAnexo, async () => {
+    const escolha = await dialog.showOpenDialog({
+      title: 'Escolha os arquivos do comunicado',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Imagens e documentos',
+          extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip'],
+        },
+      ],
+    });
+    if (escolha.canceled || escolha.filePaths.length === 0) return { ok: false, anexos: [], message: '' };
+    if (escolha.filePaths.length > 5) return { ok: false, anexos: [], message: 'No máximo 5 arquivos por comunicado.' };
+
+    const anexos: { id: string; name: string; size: number }[] = [];
+    for (const caminho of escolha.filePaths) {
+      const nome = caminho.split(/[\/]/).pop() ?? 'arquivo';
+      const conteudo = await readFile(caminho);
+      if (conteudo.length > 10 * 1024 * 1024) {
+        return { ok: false, anexos, message: nome + ' passa de 10 MB.' };
+      }
+      const envio = await comAdmin((client) => client.enviarAnexo(conteudo, nome));
+      if (!('dados' in envio)) return { ok: false, anexos, message: envio.message };
+      anexos.push({ id: envio.dados.id, name: envio.dados.name, size: envio.dados.size });
+    }
+    return { ok: true, anexos, message: '' };
+  });
+
   // ---------------------------------------------------------------- atalhos e foto de perfil
 
   const DESTINOS_VALIDOS: DestinoAtalho[] = ['COMUNICADOS', 'CHAT', 'PERFIL', 'CONFIGURACOES', 'MURAL'];
