@@ -7,6 +7,10 @@
 #
 # As configurações vêm do arquivo .env desta pasta (veja .env.exemplo).
 
+# Nome do projeto: mantém o mesmo container e a mesma rede de antes,
+# independentemente da pasta de onde o comando for executado.
+name: comunicacao-dp
+
 services:
   backend:
     build:
@@ -28,7 +32,12 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
 
-      # Banco e anexos: dentro do volume, nunca na imagem
+      # Banco: com DATABASE_URL preenchida (veja .env) usa o PostgreSQL do
+      # docker-compose.postgres.yml; vazia, cai no SQLite do volume.
+      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_SCHEMA: ${DATABASE_SCHEMA:-dp}
+
+      # Banco SQLite e anexos: dentro do volume, nunca na imagem
       DATABASE_PATH: /app/data/sistema-dp.db
       UPLOADS_PATH: /app/data/uploads
 
@@ -59,6 +68,12 @@ services:
       # Saída dos backups, essa sim visível no servidor
       - ./backups:/backups
 
+    networks:
+      # rede própria + a rede do banco (docker-compose.postgres.yml),
+      # onde o PostgreSQL atende pelo nome sistema-dp-postgres
+      - default
+      - banco
+
     # Logs do Docker com tamanho limitado (senão o disco enche com o tempo)
     logging:
       driver: json-file
@@ -66,8 +81,16 @@ services:
         max-size: "10m"
         max-file: "5"
 
+networks:
+  banco:
+    # criada pelo docker-compose.postgres.yml; suba o banco antes do backend
+    name: sistema-dp-db_default
+    external: true
+
 volumes:
   # Banco e anexos. "docker compose down" NÃO apaga o volume;
   # só "docker compose down -v" apaga (e aí perde tudo).
   dados:
     name: comunicacao-dp-dados
+    # criado antes do compose atual; não deve ser recriado nem apagado
+    external: true
