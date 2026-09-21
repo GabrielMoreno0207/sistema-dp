@@ -147,4 +147,52 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       CREATE INDEX idx_attachments_pending ON attachments (created_at) WHERE message_seq IS NULL;
     `,
   },
+  {
+    version: 2,
+    name: 'mural, mídias, atalhos e foto de perfil',
+    sql: `
+      -- Imagens e vídeos do mural e fotos de perfil. O arquivo fica em data/midias;
+      -- aqui ficam só os dados (nome original, tipo, tamanho, hash).
+      CREATE TABLE midias (
+        id          TEXT PRIMARY KEY,
+        tipo        TEXT NOT NULL CHECK (tipo IN ('IMAGEM', 'VIDEO')),
+        nome        TEXT NOT NULL,
+        mime_type   TEXT NOT NULL,
+        tamanho     BIGINT NOT NULL,
+        sha256      TEXT NOT NULL,
+        stored_name TEXT NOT NULL,
+        enviado_por TEXT NOT NULL,
+        created_at  TEXT NOT NULL
+      );
+
+      -- Mural: o recado que a Central do DP deixa fixado na tela inicial
+      CREATE TABLE mural_posts (
+        id         TEXT PRIMARY KEY,
+        titulo     TEXT NOT NULL,
+        texto      TEXT NOT NULL,
+        midia_id   TEXT REFERENCES midias (id) ON DELETE SET NULL,
+        ativo      INTEGER NOT NULL DEFAULT 1,
+        criado_por TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_mural_ativo ON mural_posts (ativo, created_at);
+
+      -- Atalhos que cada colaborador monta na tela inicial
+      CREATE TABLE atalhos (
+        id         TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        ordem      INTEGER NOT NULL,
+        rotulo     TEXT NOT NULL,
+        icone      TEXT NOT NULL,
+        cor        TEXT NOT NULL,
+        destino    TEXT NOT NULL CHECK (destino IN ('COMUNICADOS', 'CHAT', 'PERFIL', 'CONFIGURACOES', 'MURAL')),
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX idx_atalhos_user ON atalhos (user_id, ordem);
+
+      -- Foto de perfil do colaborador
+      ALTER TABLE users ADD COLUMN foto_midia_id TEXT REFERENCES midias (id);
+    `,
+  },
 ];

@@ -22,6 +22,17 @@ import { PostgresComputerRepository } from '../modules/computers/computer.postgr
 import { PostgresMessageRepository } from '../modules/messages/message.postgres-repository';
 import { PostgresSectorRepository } from '../modules/sectors/sector.postgres-repository';
 import { PostgresUserRepository } from '../modules/users/user.postgres-repository';
+import {
+  PostgresAtalhoRepository,
+  PostgresMidiaRepository,
+  PostgresMuralRepository,
+} from '../modules/content/content.postgres-repository';
+import type { AtalhoRepository, MidiaRepository, MuralRepository } from '../modules/content/content.repository';
+import {
+  SqliteAtalhoRepository,
+  SqliteMidiaRepository,
+  SqliteMuralRepository,
+} from '../modules/content/content.sqlite-repository';
 import type { PostgresDatabase } from './postgres';
 import type { SqliteDatabase } from './sqlite';
 
@@ -35,6 +46,12 @@ export interface Repositories {
   sectors: SectorRepository;
   chat: ChatRepository;
   autoReplies: AutoReplyRepository;
+  /** Imagens e vídeos do mural e fotos de perfil */
+  midias: MidiaRepository;
+  /** Recado fixado na tela inicial */
+  mural: MuralRepository;
+  /** Atalhos que cada colaborador monta */
+  atalhos: AtalhoRepository;
 }
 
 /**
@@ -50,6 +67,9 @@ export function createSqliteRepositories(db: SqliteDatabase): Repositories {
     sectors: new SqliteSectorRepository(db),
     chat: new SqliteChatRepository(db),
     autoReplies: new SqliteAutoReplyRepository(db),
+    midias: new SqliteMidiaRepository(db),
+    mural: new SqliteMuralRepository(db),
+    atalhos: new SqliteAtalhoRepository(db),
   };
 }
 
@@ -67,5 +87,8 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     sectors: new PostgresSectorRepository(db),
     chat: new PostgresChatRepository(db),
     autoReplies: new PostgresAutoReplyRepository(db),
+    midias: new PostgresMidiaRepository(db),
+    mural: new PostgresMuralRepository(db),
+    atalhos: new PostgresAtalhoRepository(db),
   };
 }

@@ -11,6 +11,9 @@ import { AdminService } from './modules/admin/admin.service';
 import { attachmentRoutes } from './modules/attachments/attachment.routes';
 import { AttachmentService } from './modules/attachments/attachment.service';
 import { AttachmentStorage } from './modules/attachments/attachment.storage';
+import { contentRoutes } from './modules/content/content.routes';
+import { ContentService } from './modules/content/content.service';
+import { MidiaStorage } from './modules/content/content.storage';
 import { updateRoutes } from './modules/updates/update.routes';
 import { UpdateService } from './modules/updates/update.service';
 import { UpdateStorage } from './modules/updates/update.storage';
@@ -45,6 +48,8 @@ export interface BuildAppOptions {
   uploadsPath?: string;
   /** Pasta com os instaladores publicados (padrão: a do .env) */
   updatesPath?: string;
+  /** Pasta com as imagens e vídeos (padrão: a do .env) */
+  midiasPath?: string;
 }
 
 /**
@@ -55,6 +60,7 @@ export function buildApp({
   https = null,
   uploadsPath = env.uploadsPath,
   updatesPath = env.updatesPath,
+  midiasPath = env.midiasPath,
 }: BuildAppOptions): FastifyInstance {
   const app = Fastify({
     logger: loggerOptions,
@@ -74,6 +80,9 @@ export function buildApp({
   // Instalador de nova versão: são dezenas de MB, então o corpo chega como fluxo
   // e vai direto para o disco, sem passar inteiro pela memória.
   app.addContentTypeParser('application/vnd.dp-atualizacao', (_request, payload, done) => done(null, payload));
+
+  // Imagens e vídeos do mural e fotos de perfil: mesmo caminho, pelo tipo real do arquivo
+  app.addContentTypeParser(/^(image|video)\//, (_request, payload, done) => done(null, payload));
 
   // Uma linha por requisição; health check só em debug para não poluir o log
   app.addHook('onResponse', async (request, reply) => {
@@ -137,6 +146,15 @@ export function buildApp({
   );
 
   const updates = new UpdateService(new UpdateStorage(updatesPath), app.log);
+  const content = new ContentService(
+    repositories.midias,
+    repositories.mural,
+    repositories.atalhos,
+    repositories.users,
+    employees,
+    new MidiaStorage(midiasPath),
+    app.log,
+  );
 
   registerAuthentication(app, auth);
 
@@ -161,6 +179,7 @@ export function buildApp({
       await api.register(messageRoutes, { messages });
       await api.register(attachmentRoutes, { attachments, messages });
       await api.register(updateRoutes, { updates });
+      await api.register(contentRoutes, { content });
     },
     { prefix: '/api' },
   );

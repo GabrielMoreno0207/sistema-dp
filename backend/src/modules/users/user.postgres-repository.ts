@@ -16,6 +16,7 @@ function toUser(row: Row): UserWithPassword {
     mustChangePassword: Number(row.must_change_password) === 1,
     chatContact: Number(row.chat_contact ?? 1) === 1,
     superAdmin: Number(row.super_admin ?? 0) === 1,
+    fotoMidiaId: nullableText(row, 'foto_midia_id'),
     passwordHash: text(row, 'password_hash'),
     createdAt: text(row, 'created_at'),
   };
@@ -90,7 +91,7 @@ export class PostgresUserRepository implements UserRepository {
         now.toISOString(),
       ],
     );
-    return withoutPassword({ ...data, id, createdAt: now.toISOString() });
+    return withoutPassword({ ...data, fotoMidiaId: data.fotoMidiaId ?? null, id, createdAt: now.toISOString() });
   }
 
   async updateStatus(id: string, status: UserStatus): Promise<void> {
@@ -121,6 +122,10 @@ export class PostgresUserRepository implements UserRepository {
       mustChangePassword ? 1 : 0,
       id,
     ]);
+  }
+
+  async updateFotoMidia(id: string, midiaId: string | null): Promise<void> {
+    await this.db.run('UPDATE users SET foto_midia_id = $1 WHERE id = $2', [midiaId, id]);
   }
 
   async distinctGroups(field: 'sector' | 'shift'): Promise<string[]> {

@@ -20,6 +20,8 @@ export interface User {
   chatContact: boolean;
   /** Conta do TI: poderes extras na Central (apagar comunicados e conversas, gerenciar logins) */
   superAdmin: boolean;
+  /** Foto de perfil enviada pela pessoa (id da mídia) */
+  fotoMidiaId: string | null;
   createdAt: string;
 }
 
@@ -27,7 +29,7 @@ export interface UserWithPassword extends User {
   passwordHash: string;
 }
 
-export type NewUser = Omit<UserWithPassword, 'id' | 'createdAt'>;
+export type NewUser = Omit<UserWithPassword, 'id' | 'createdAt' | 'fotoMidiaId'> & { fotoMidiaId?: string | null };
 
 /** Dados do usuário do DP que podem ir para o cliente */
 export interface PublicUser {

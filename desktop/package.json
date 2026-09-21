@@ -1,7 +1,7 @@
 {
   "name": "sistema-dp-desktop",
   "productName": "Comunicação DP",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "Aplicativo desktop de comunicação interna do Departamento Pessoal",
   "author": "Departamento Pessoal",
   "private": true,

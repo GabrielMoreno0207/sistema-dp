@@ -18,6 +18,8 @@ export interface UserRepository {
   delete(id: string): Promise<void>;
   /** mustChangePassword = true obriga a troca no próximo acesso */
   updatePassword(id: string, passwordHash: string, mustChangePassword?: boolean): Promise<void>;
+  /** Troca (ou remove, com null) a foto de perfil */
+  updateFotoMidia(id: string, midiaId: string | null): Promise<void>;
   /** Setores ou turnos já usados (para reaproveitar a grafia existente) */
   distinctGroups(field: 'sector' | 'shift'): Promise<string[]>;
 }

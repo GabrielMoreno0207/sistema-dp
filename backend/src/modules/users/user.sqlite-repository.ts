@@ -16,6 +16,7 @@ function toUser(row: Record<string, unknown>): UserWithPassword {
     mustChangePassword: Number(row.must_change_password) === 1,
     chatContact: Number(row.chat_contact ?? 1) === 1,
     superAdmin: Number(row.super_admin ?? 0) === 1,
+    fotoMidiaId: nullableText(row, 'foto_midia_id'),
     passwordHash: text(row, 'password_hash'),
     createdAt: text(row, 'created_at'),
   };
@@ -50,6 +51,7 @@ export class SqliteUserRepository implements UserRepository {
       updateRegistration: db.prepare('UPDATE users SET registration = ?, username = ? WHERE id = ?'),
       delete: db.prepare('DELETE FROM users WHERE id = ?'),
       updatePassword: db.prepare('UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?'),
+      updateFoto: db.prepare('UPDATE users SET foto_midia_id = ? WHERE id = ?'),
       distinctSectors: db.prepare(`SELECT DISTINCT sector AS value FROM users WHERE role = 'EMPLOYEE' AND sector IS NOT NULL`),
       distinctShifts: db.prepare(`SELECT DISTINCT shift AS value FROM users WHERE role = 'EMPLOYEE' AND shift IS NOT NULL`),
     };
@@ -105,7 +107,7 @@ export class SqliteUserRepository implements UserRepository {
       data.passwordHash,
       now.toISOString(),
     );
-    return withoutPassword({ ...data, id, createdAt: now.toISOString() });
+    return withoutPassword({ ...data, fotoMidiaId: data.fotoMidiaId ?? null, id, createdAt: now.toISOString() });
   }
 
   async updateStatus(id: string, status: UserStatus): Promise<void> {
@@ -126,6 +128,10 @@ export class SqliteUserRepository implements UserRepository {
 
   async updatePassword(id: string, passwordHash: string, mustChangePassword = false): Promise<void> {
     this.sql.updatePassword.run(passwordHash, mustChangePassword ? 1 : 0, id);
+  }
+
+  async updateFotoMidia(id: string, midiaId: string | null): Promise<void> {
+    this.sql.updateFoto.run(midiaId, id);
   }
 
   async distinctGroups(field: 'sector' | 'shift'): Promise<string[]> {

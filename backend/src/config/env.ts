@@ -25,6 +25,8 @@ export interface Env {
   uploadsPath: string;
   /** Pasta com os instaladores das versões publicadas (desktop, mobile, backend) */
   updatesPath: string;
+  /** Pasta com as imagens e vídeos do mural e as fotos de perfil */
+  midiasPath: string;
   /** Primeiro usuário do DP, criado na inicialização se ainda não existir nenhum */
   admin: { username: string; password: string | null; name: string };
   sessionTtlHours: number;
@@ -103,6 +105,11 @@ function readUpdatesPath(): string {
   return projectPath(process.env.UPDATES_PATH ?? './data/atualizacoes');
 }
 
+/** Pasta das mídias: dentro de data/, junto com os anexos */
+function readMidiasPath(): string {
+  return projectPath(process.env.MIDIAS_PATH ?? './data/midias');
+}
+
 function readAdmin(): Env['admin'] {
   const password = process.env.ADMIN_PASSWORD || null;
   if (password && password.length < 8) throw new Error('ADMIN_PASSWORD precisa ter pelo menos 8 caracteres.');
@@ -140,6 +147,7 @@ export const env: Env = Object.freeze({
   databaseSchema: readDatabaseSchema(),
   uploadsPath: readUploadsPath(),
   updatesPath: readUpdatesPath(),
+  midiasPath: readMidiasPath(),
   admin: readAdmin(),
   sessionTtlHours: readInteger('SESSION_TTL_HOURS', 12, 1, 720),
   employeeSessionHours: readInteger('EMPLOYEE_SESSION_HOURS', 12, 1, 168),
