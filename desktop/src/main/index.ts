@@ -221,24 +221,45 @@ function start(): void {
   }
 
   function showMainWindow(): void {
-    // Mídias do mural e fotos de perfil: a tela pede por dpmidia://m/<id> e o
-  // servidor responde aqui, com o token do PC. O Range do vídeo passa junto,
-  // então arrastar a barra funciona sem baixar o arquivo inteiro.
-  protocol.handle('dpmidia', async (request) => {
-    const id = decodeURIComponent(new URL(request.url).pathname.replace(/^\//, ''));
-    if (!api || !/^MID-[0-9a-f]{24}$/.test(id)) return new Response('', { status: 404 });
-    try {
-      return await api.buscarMidia(id, request.headers.get('Range') ?? undefined);
-    } catch (err) {
-      console.error('[mídia] falha ao buscar do servidor:', err);
-      return new Response('', { status: 502 });
-    }
-  });
-
-  const win = ensureMainWindow();
+    const win = ensureMainWindow();
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+  }
+
+  /**
+   * Mídias do mural e fotos de perfil: a tela pede por dpmidia://m/<id> e o
+   * servidor responde aqui, com o token do PC. O Range do vídeo passa junto,
+   * então arrastar a barra funciona sem baixar o arquivo inteiro.
+   *
+   * Registrado uma única vez na inicialização: registrar de novo derruba o
+   * processo principal (foi o que aconteceu na 1.7.0).
+   */
+  function registrarProtocoloDeMidia(): void {
+    try {
+      protocol.handle('dpmidia', async (request) => {
+        const id = decodeURIComponent(new URL(request.url).pathname.replace(/^\//, ''));
+        if (!api || !/^MID-[0-9a-f]{24}$/.test(id)) return new Response('', { status: 404 });
+        try {
+          const resposta = await api.buscarMidia(id, request.headers.get('Range') ?? undefined);
+          // Repassa só o que o <img>/<video> precisa: qualquer cabeçalho estranho
+          // vindo do servidor não derruba a exibição.
+          const cabecalhos = new Headers();
+          for (const nome of ['content-type', 'content-length', 'content-range', 'accept-ranges']) {
+            const valor = resposta.headers.get(nome);
+            if (valor) cabecalhos.set(nome, valor);
+          }
+          return new Response(resposta.body, { status: resposta.status, headers: cabecalhos });
+        } catch (err) {
+          console.error('[mídia] falha ao buscar do servidor:', err);
+          return new Response('', { status: 502 });
+        }
+      });
+    } catch (err) {
+      // Nunca derruba o aplicativo por causa da mídia: sem o protocolo, a tela
+      // segue funcionando e só as imagens/vídeos deixam de aparecer.
+      console.error('[mídia] não consegui registrar o protocolo dpmidia:', err);
+    }
   }
 
   const tray = new AppTray({
@@ -840,6 +861,8 @@ function start(): void {
 
   app.on('second-instance', showMainWindow);
 
+  registrarProtocoloDeMidia();
+
   const win = ensureMainWindow();
   if (!startHidden) win.once('ready-to-show', () => win.show());
   connection.start();
@@ -869,6 +892,11 @@ function start(): void {
 // Esquema próprio para as mídias do servidor. Declarado antes do app ficar pronto,
 // como o Electron exige. A tela usa dpmidia://m/<id> em <img> e <video>; o processo
 // principal busca no servidor com o token do PC e repassa (inclusive o Range do vídeo).
+// O User-Agent padrão do Electron leva o nome do produto ("Comunicação DP"), e os
+// acentos quebram a montagem dos cabeçalhos do protocolo dpmidia:// — a imagem
+// nem chegava a ser pedida ao servidor. Com um nome sem acentos, funciona.
+app.userAgentFallback = `ComunicacaoDP/${app.getVersion()} (Windows)`;
+
 protocol.registerSchemesAsPrivileged([
   { scheme: 'dpmidia', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
