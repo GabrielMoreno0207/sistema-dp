@@ -176,6 +176,36 @@ describe('mídias', () => {
   });
 });
 
+describe('link temporário para o navegador', () => {
+  test('a Central pede o link e a mídia abre sem token', async () => {
+    const midia = (await enviarMidia(IMAGEM, 'image/png', tokenDp, 'cartaz.png')).json();
+
+    const link = await app.inject({ method: 'POST', url: `/api/midias/${midia.id}/link`, headers: comToken(tokenDp) });
+    assert.equal(link.statusCode, 200);
+    const { url } = link.json();
+
+    const semToken = await app.inject({ method: 'GET', url });
+    assert.equal(semToken.statusCode, 200);
+    assert.equal(semToken.rawPayload.length, IMAGEM.length);
+  });
+
+  test('link de uma mídia não serve para outra', async () => {
+    const primeira = (await enviarMidia(IMAGEM, 'image/png', tokenDp, 'a.png')).json();
+    const segunda = (await enviarMidia(IMAGEM, 'image/jpeg', tokenDp, 'b.jpg')).json();
+    const { url } = (await app.inject({ method: 'POST', url: `/api/midias/${primeira.id}/link`, headers: comToken(tokenDp) })).json();
+    const ticket = url.split('t=')[1];
+
+    const trocada = await app.inject({ method: 'GET', url: `/api/midias/${segunda.id}?t=${ticket}` });
+    assert.equal(trocada.statusCode, 401);
+  });
+
+  test('sem link e sem token, a mídia não abre', async () => {
+    const midia = (await enviarMidia(IMAGEM, 'image/png', tokenDp, 'c.png')).json();
+    const semNada = await app.inject({ method: 'GET', url: `/api/midias/${midia.id}` });
+    assert.equal(semNada.statusCode, 401);
+  });
+});
+
 describe('mural', () => {
   let midiaId: string;
 

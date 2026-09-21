@@ -52,7 +52,18 @@ function textoObrigatorio(valor: string, campo: string, maximo: number): string 
   return limpo;
 }
 
+/** Link de curta duração: a Central exibe a mídia em <img>/<video>, que não mandam cabeçalho. */
+interface Ticket {
+  midiaId: string;
+  expiraEm: number;
+}
+
+/** Cinco minutos: tempo de sobra para carregar a página e começar o vídeo */
+const TICKET_TTL_MS = 5 * 60 * 1000;
+
 export class ContentService {
+  private readonly tickets = new Map<string, Ticket>();
+
   constructor(
     private readonly midias: MidiaRepository,
     private readonly mural: MuralRepository,
@@ -118,6 +129,37 @@ export class ContentService {
 
   fluxoDaMidia(midia: Midia, inicio?: number, fim?: number): Readable {
     return this.storage.ler(midia.storedName, inicio, fim);
+  }
+
+  /**
+   * Cria um link temporário para a mídia. Quem chama já conferiu quem é a pessoa;
+   * o link serve para o navegador exibir a imagem ou tocar o vídeo, já que
+   * <img> e <video> não têm como enviar o token.
+   */
+  criarTicket(midiaId: string): { url: string; expiraEmSegundos: number } {
+    this.limparTickets();
+    const ticket = randomBytes(24).toString('hex');
+    this.tickets.set(ticket, { midiaId, expiraEm: Date.now() + TICKET_TTL_MS });
+    return {
+      url: `/api/midias/${encodeURIComponent(midiaId)}?t=${ticket}`,
+      expiraEmSegundos: Math.floor(TICKET_TTL_MS / 1000),
+    };
+  }
+
+  /** O link vale para esta mídia e ainda está no prazo? */
+  conferirTicket(midiaId: string, ticket: string): boolean {
+    const achado = this.tickets.get(ticket);
+    if (!achado) return false;
+    if (achado.expiraEm < Date.now()) {
+      this.tickets.delete(ticket);
+      return false;
+    }
+    return achado.midiaId === midiaId;
+  }
+
+  private limparTickets(): void {
+    const agora = Date.now();
+    for (const [ticket, dados] of this.tickets) if (dados.expiraEm < agora) this.tickets.delete(ticket);
   }
 
   // ---------------------------------------------------------------- mural

@@ -16,7 +16,7 @@
 /* ---------- Tema claro ---------- */
 :root {
   color-scheme: light;
-  --bg: #f3f5f9;
+  --bg: #f0f2f5;
   --surface: #ffffff;
   --surface-2: #f7f9fc;
   --surface-3: #eef2f7;
@@ -26,10 +26,10 @@
   --border-strong: #cdd5e0;
   --input-bg: #ffffff;
   --row-hover: #eef2f8;
-  --primary: #1d4ed8;
-  --primary-soft: #e9eefb;
-  --primary-text: #1a3fa8;
-  --on-primary: #ffffff;
+  --primary: #17b3a3;
+  --primary-soft: #e3f5f2;
+  --primary-text: #0d7a6f;
+  --on-primary: #06312c;
   --success: #16a34a;
   --danger: #dc2626;
   --danger-soft: #fdecec;
@@ -40,12 +40,12 @@
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
   --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.05);
   --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.2);
-  --focus-ring: rgba(37, 99, 235, 0.3);
-  --sidebar-bg: #0f1729;
-  --sidebar-border: #1b2540;
-  --sidebar-text: #aab5c8;
+  --focus-ring: rgba(23, 179, 163, 0.35);
+  --sidebar-bg: #20374a;
+  --sidebar-border: #2b4759;
+  --sidebar-text: #cfdbe4;
   --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --sidebar-active: rgba(29, 78, 216, 0.28);
+  --sidebar-active: rgba(23, 179, 163, 0.22);
   --chat-bg: #f6f8fb;
   --bubble-bg: #ffffff;
   --bubble-mine-bg: #e6eeff;
@@ -58,8 +58,8 @@
   --radius-sm: 9px;
   --radius-lg: 14px;
   /* Marca: usada no monograma "DP" e nos realces azuis */
-  --brand-grad: linear-gradient(145deg, #4f8bf7 0%, #1d4ed8 58%, #1a3fa8 100%);
-  --brand-ring: rgba(37, 99, 235, 0.3);
+  --brand-grad: linear-gradient(145deg, #3fd8c6 0%, #17b3a3 58%, #0d7a6f 100%);
+  --brand-ring: rgba(23, 179, 163, 0.3);
   --hairline: rgba(15, 23, 42, 0.07);
 }
 
@@ -76,9 +76,9 @@
   --border-strong: #37445a;
   --input-bg: #0f151f;
   --row-hover: #202b3d;
-  --primary: #2563eb;
-  --primary-soft: rgba(59, 130, 246, 0.16);
-  --primary-text: #93b8ff;
+  --primary: #17b3a3;
+  --primary-soft: rgba(23, 179, 163, 0.18);
+  --primary-text: #6fd3a8;
   --on-primary: #ffffff;
   --success: #22c55e;
   --danger: #ef4444;
@@ -90,9 +90,9 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55);
-  --focus-ring: rgba(96, 150, 255, 0.4);
-  --sidebar-bg: #0a0e15;
-  --sidebar-border: #1a2130;
+  --focus-ring: rgba(23, 179, 163, 0.45);
+  --sidebar-bg: #15242f;
+  --sidebar-border: #213743;
   --sidebar-text: #9ba7b9;
   --chat-bg: #111822;
   --bubble-bg: #1d2634;
@@ -102,8 +102,8 @@
   --auth-bg: radial-gradient(circle at 20% 0%, #16233b 0, transparent 45%),
     radial-gradient(circle at 100% 100%, #131d30 0, transparent 40%), #0e131b;
   --backdrop: rgba(0, 0, 0, 0.62);
-  --brand-grad: linear-gradient(145deg, #5b93f7 0%, #2563eb 58%, #1b3f8f 100%);
-  --brand-ring: rgba(59, 130, 246, 0.28);
+  --brand-grad: linear-gradient(145deg, #3fd8c6 0%, #17b3a3 58%, #0d7a6f 100%);
+  --brand-ring: rgba(23, 179, 163, 0.28);
   --hairline: rgba(255, 255, 255, 0.06);
 }
 
@@ -236,7 +236,7 @@ a {
 .nav-link[aria-current='page'] {
   background: linear-gradient(90deg, var(--sidebar-active), color-mix(in srgb, var(--sidebar-active) 35%, transparent));
   color: #fff;
-  box-shadow: inset 3px 0 0 #3b82f6;
+  box-shadow: inset 3px 0 0 #17b3a3;
 }
 
 /* O ícone da seção aberta acompanha o azul do realce */
@@ -1814,7 +1814,7 @@ td.auto-text {
   }
 
   .nav-link[aria-current='page'] {
-    box-shadow: inset 0 -3px 0 #3b82f6;
+    box-shadow: inset 0 -3px 0 #17b3a3;
   }
 
   .topbar {
@@ -1855,4 +1855,103 @@ td.auto-text {
   .bubble {
     max-width: 88%;
   }
+}
+
+
+/* ============================================================
+   Mural (mesmo estilo da tela inicial do desktop)
+   ============================================================ */
+
+.mural-form__midia {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.mural-previa {
+  width: 260px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.mural-previa img,
+.mural-previa video {
+  display: block;
+  width: 100%;
+  max-height: 170px;
+  object-fit: contain;
+  background: #0d1418;
+}
+
+.mural-previa__vazia {
+  display: grid;
+  place-items: center;
+  height: 120px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mural-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mural-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.mural-item--inativo {
+  border-left-color: var(--border-strong);
+  opacity: 0.7;
+}
+
+.mural-item__miniatura {
+  width: 84px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-3);
+  flex-shrink: 0;
+}
+
+.mural-item__texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.mural-item__texto h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.mural-item__texto p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.mural-item__acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mural-form__acoes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
 }

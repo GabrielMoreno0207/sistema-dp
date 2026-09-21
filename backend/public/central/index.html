@@ -84,6 +84,9 @@
           <a class="nav-link" href="#enviados" data-nav="enviados">
             <span class="nav-link__icon" aria-hidden="true">📤</span><span class="nav-link__label">Enviados</span>
           </a>
+          <a class="nav-link" href="#mural" data-nav="mural">
+            <span class="nav-link__icon" aria-hidden="true">📌</span><span class="nav-link__label">Mural</span>
+          </a>
           <a class="nav-link" href="#mensagens" data-nav="mensagens">
             <span class="nav-link__icon" aria-hidden="true">💬</span><span class="nav-link__label">Mensagens</span>
             <span id="nav-chat-badge" class="nav-badge" hidden></span>
@@ -221,6 +224,67 @@
                   <tbody id="history-body"></tbody>
                 </table>
               </div>
+            </div>
+          </section>
+
+          <!-- Mural: o recado fixado na tela inicial do aplicativo -->
+          <section class="section" data-section="mural" hidden>
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <h2>Recado do mural</h2>
+                  <p class="muted">Fica fixado na tela inicial do aplicativo, com imagem ou vídeo.</p>
+                </div>
+              </div>
+
+              <form id="mural-form" novalidate>
+                <input type="hidden" id="mural-id" />
+                <label class="field">
+                  <span>Título <small class="counter" id="mural-titulo-contador">0/120</small></span>
+                  <input type="text" id="mural-titulo" maxlength="120" required />
+                </label>
+
+                <label class="field">
+                  <span>Texto <small class="counter" id="mural-texto-contador">0/4000</small></span>
+                  <textarea id="mural-texto" rows="5" maxlength="4000" required></textarea>
+                </label>
+
+                <fieldset class="field">
+                  <legend>Imagem ou vídeo <small class="muted">opcional — imagem até 10 MB, vídeo até 200 MB</small></legend>
+                  <div class="mural-form__midia">
+                    <div class="mural-previa" id="mural-previa">
+                      <div class="mural-previa__vazia">sem imagem ou vídeo</div>
+                    </div>
+                    <div>
+                      <input type="file" id="mural-arquivo" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm" hidden />
+                      <button class="btn btn--ghost btn--sm" type="button" id="mural-escolher">Escolher arquivo</button>
+                      <button class="btn btn--ghost btn--sm" type="button" id="mural-tirar" hidden>Tirar a mídia</button>
+                      <p class="muted" id="mural-arquivo-nome"></p>
+                    </div>
+                  </div>
+                </fieldset>
+
+                <label class="field field--inline">
+                  <input type="checkbox" id="mural-ativo" checked />
+                  <span>Em exibição no aplicativo</span>
+                </label>
+
+                <p id="mural-feedback" class="feedback" hidden></p>
+                <div class="mural-form__acoes">
+                  <button class="btn btn--primary btn--lg" type="submit" id="mural-salvar">Publicar no mural</button>
+                  <button class="btn btn--ghost" type="button" id="mural-limpar" hidden>Cancelar edição</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card__head">
+                <div>
+                  <h2>Recados anteriores</h2>
+                  <p class="muted">O mais recente que estiver em exibição é o que aparece no aplicativo.</p>
+                </div>
+              </div>
+              <div class="mural-lista" id="mural-lista"></div>
             </div>
           </section>
 

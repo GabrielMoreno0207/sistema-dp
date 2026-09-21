@@ -182,6 +182,7 @@ const SECTIONS = {
   enviados: 'Enviados',
   mensagens: 'Mensagens',
   auto: 'Resposta automática',
+  mural: 'Mural',
   funcionarios: 'Funcionários',
   setores: 'Setores',
   dispositivos: 'Dispositivos',
@@ -202,6 +203,7 @@ function showSection(name) {
     else link.removeAttribute('aria-current');
   }
   $('#section-title').textContent = SECTIONS[section];
+  if (section === 'mural') void carregarMural();
   localSet(SECTION_KEY, section);
   if (location.hash !== `#${section}`) history.replaceState(null, '', `#${section}`);
   // Menu em barra (tela estreita): mantém o item ativo à vista
@@ -2021,3 +2023,248 @@ async function tiAction(run, message) {
 showSection(location.hash.slice(1) || localGet(SECTION_KEY) || DEFAULT_SECTION);
 renderAttachments(); // escreve o aviso dos limites e chama renderPreview()
 void start();
+
+// ---------------------------------------------------------------- Mural
+
+/** Recado em edição e mídia escolhida (ainda não salva no recado). */
+const mural = { editandoId: null, midia: null };
+
+function muralFeedback(texto, erro) {
+  const alvo = $('#mural-feedback');
+  if (!texto) {
+    alvo.hidden = true;
+    return;
+  }
+  showFeedback(alvo, texto, erro);
+}
+
+/** Mostra a imagem/vídeo escolhido, usando link temporário (o navegador não manda token). */
+async function desenharPreviaMural() {
+  const previa = $('#mural-previa');
+  const nome = $('#mural-arquivo-nome');
+  previa.innerHTML = '';
+  $('#mural-tirar').hidden = !mural.midia;
+
+  if (!mural.midia) {
+    previa.innerHTML = '<div class="mural-previa__vazia">sem imagem ou vídeo</div>';
+    nome.textContent = '';
+    return;
+  }
+
+  nome.textContent = mural.midia.nome;
+  try {
+    const { url } = await api('POST', `/api/midias/${encodeURIComponent(mural.midia.id)}/link`);
+    const elemento = document.createElement(mural.midia.tipo === 'VIDEO' ? 'video' : 'img');
+    elemento.src = url;
+    if (mural.midia.tipo === 'VIDEO') {
+      elemento.controls = true;
+      elemento.preload = 'metadata';
+    } else {
+      elemento.alt = mural.midia.nome;
+    }
+    previa.append(elemento);
+  } catch (err) {
+    previa.innerHTML = '<div class="mural-previa__vazia">não consegui carregar a prévia</div>';
+    console.error('[mural] prévia:', err);
+  }
+}
+
+/** Envia o arquivo escolhido e guarda a mídia para o recado. */
+async function enviarMidiaMural(file) {
+  const limite = file.type.startsWith('video/') ? 200 : 10;
+  if (file.size > limite * 1024 * 1024) {
+    muralFeedback(`O arquivo passa do limite de ${limite} MB.`, true);
+    return;
+  }
+
+  muralFeedback('Enviando o arquivo…', false);
+  try {
+    const response = await fetch('/api/midias', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${state.token}`,
+        'Content-Type': file.type,
+        'X-Nome': encodeURIComponent(file.name),
+      },
+      body: file,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) throw new UnauthorizedError(data.message || 'Faça login para continuar.');
+    if (!response.ok) throw new Error(data.message || `Erro ${response.status}`);
+
+    mural.midia = data;
+    await desenharPreviaMural();
+    muralFeedback('', false);
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      showLogin('Sessão expirada. Entre novamente.');
+      return;
+    }
+    muralFeedback(err.message, true);
+  }
+}
+
+/** Lista os recados já publicados, o mais recente primeiro. */
+async function carregarMural() {
+  const lista = $('#mural-lista');
+  lista.textContent = 'Carregando…';
+  try {
+    const { posts } = await api('GET', '/api/mural/todos');
+    lista.innerHTML = '';
+    if (posts.length === 0) {
+      lista.innerHTML = '<p class="muted">Nenhum recado publicado ainda.</p>';
+      return;
+    }
+
+    const emExibicao = posts.find((post) => post.ativo);
+    for (const post of posts) {
+      const item = document.createElement('div');
+      item.className = `mural-item ${post.ativo ? '' : 'mural-item--inativo'}`;
+
+      const texto = document.createElement('div');
+      texto.className = 'mural-item__texto';
+      const titulo = document.createElement('h4');
+      titulo.textContent = post.titulo + (post === emExibicao ? ' · em exibição' : '');
+      const corpo = document.createElement('p');
+      corpo.textContent = post.texto;
+      const rodape = document.createElement('p');
+      rodape.className = 'muted';
+      rodape.textContent = `${formatDate(post.createdAt)} · ${post.criadoPor}${post.midia ? ` · ${post.midia.tipo === 'VIDEO' ? 'vídeo' : 'imagem'}` : ''}`;
+      texto.append(titulo, corpo, rodape);
+
+      const acoes = document.createElement('div');
+      acoes.className = 'mural-item__acoes';
+
+      const editar = document.createElement('button');
+      editar.className = 'btn btn--ghost btn--sm';
+      editar.type = 'button';
+      editar.textContent = 'Editar';
+      editar.addEventListener('click', () => void abrirEdicaoMural(post));
+
+      const alternar = document.createElement('button');
+      alternar.className = 'btn btn--ghost btn--sm';
+      alternar.type = 'button';
+      alternar.textContent = post.ativo ? 'Tirar de exibição' : 'Exibir';
+      alternar.addEventListener('click', async () => {
+        try {
+          await api('PUT', `/api/mural/${encodeURIComponent(post.id)}`, {
+            titulo: post.titulo,
+            texto: post.texto,
+            midiaId: post.midia?.id ?? null,
+            ativo: !post.ativo,
+          });
+          await carregarMural();
+        } catch (err) {
+          muralFeedback(err.message, true);
+        }
+      });
+
+      const apagar = document.createElement('button');
+      apagar.className = 'btn btn--ghost btn--sm btn--danger';
+      apagar.type = 'button';
+      apagar.textContent = 'Apagar';
+      apagar.addEventListener('click', async () => {
+        const confirmado = await askConfirm({
+          title: 'Apagar recado do mural?',
+          text: `"${post.titulo}" sai do mural e não aparece mais no aplicativo.`,
+          okLabel: 'Apagar',
+        });
+        if (!confirmado) return;
+        try {
+          await api('DELETE', `/api/mural/${encodeURIComponent(post.id)}`);
+          if (mural.editandoId === post.id) limparFormularioMural();
+          await carregarMural();
+        } catch (err) {
+          muralFeedback(err.message, true);
+        }
+      });
+
+      acoes.append(editar, alternar, apagar);
+      item.append(texto, acoes);
+      lista.append(item);
+    }
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      showLogin('Sessão expirada. Entre novamente.');
+      return;
+    }
+    lista.innerHTML = '';
+    muralFeedback(err.message, true);
+  }
+}
+
+async function abrirEdicaoMural(post) {
+  mural.editandoId = post.id;
+  mural.midia = post.midia;
+  $('#mural-id').value = post.id;
+  $('#mural-titulo').value = post.titulo;
+  $('#mural-texto').value = post.texto;
+  $('#mural-ativo').checked = post.ativo;
+  $('#mural-salvar').textContent = 'Salvar alterações';
+  $('#mural-limpar').hidden = false;
+  atualizarContadoresMural();
+  await desenharPreviaMural();
+  $('#mural-titulo').focus();
+}
+
+function limparFormularioMural() {
+  mural.editandoId = null;
+  mural.midia = null;
+  $('#mural-form').reset();
+  $('#mural-ativo').checked = true;
+  $('#mural-salvar').textContent = 'Publicar no mural';
+  $('#mural-limpar').hidden = true;
+  atualizarContadoresMural();
+  void desenharPreviaMural();
+  muralFeedback('', false);
+}
+
+function atualizarContadoresMural() {
+  $('#mural-titulo-contador').textContent = `${$('#mural-titulo').value.length}/120`;
+  $('#mural-texto-contador').textContent = `${$('#mural-texto').value.length}/4000`;
+}
+
+$('#mural-escolher').addEventListener('click', () => $('#mural-arquivo').click());
+$('#mural-arquivo').addEventListener('change', (evento) => {
+  const file = evento.target.files?.[0];
+  if (file) void enviarMidiaMural(file);
+  evento.target.value = '';
+});
+$('#mural-tirar').addEventListener('click', () => {
+  mural.midia = null;
+  void desenharPreviaMural();
+});
+$('#mural-limpar').addEventListener('click', limparFormularioMural);
+$('#mural-titulo').addEventListener('input', atualizarContadoresMural);
+$('#mural-texto').addEventListener('input', atualizarContadoresMural);
+
+$('#mural-form').addEventListener('submit', async (evento) => {
+  evento.preventDefault();
+  const corpo = {
+    titulo: $('#mural-titulo').value.trim(),
+    texto: $('#mural-texto').value.trim(),
+    midiaId: mural.midia?.id ?? null,
+    ativo: $('#mural-ativo').checked,
+  };
+  if (!corpo.titulo || !corpo.texto) {
+    muralFeedback('Preencha o título e o texto.', true);
+    return;
+  }
+
+  $('#mural-salvar').disabled = true;
+  try {
+    if (mural.editandoId) await api('PUT', `/api/mural/${encodeURIComponent(mural.editandoId)}`, corpo);
+    else await api('POST', '/api/mural', corpo);
+    limparFormularioMural();
+    muralFeedback('Mural atualizado. Os aplicativos mostram na próxima sincronização.', false);
+    await carregarMural();
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      showLogin('Sessão expirada. Entre novamente.');
+      return;
+    }
+    muralFeedback(err.message, true);
+  } finally {
+    $('#mural-salvar').disabled = false;
+  }
+});

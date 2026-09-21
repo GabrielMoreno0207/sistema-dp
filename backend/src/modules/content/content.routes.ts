@@ -8,6 +8,12 @@ import { ATALHO_ID_PATTERN, DESTINOS, LIMITES_CONTEUDO, MIDIA_ID_PATTERN, MURAL_
 const adminOnly = { onRequest: async (request: FastifyRequest) => void requireAdmin(request) };
 const computerOnly = { onRequest: async (request: FastifyRequest) => void requireComputer(request) };
 
+const ticketQuery = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { t: { type: 'string', minLength: 32, maxLength: 64 } },
+} as const;
+
 const midiaParams = {
   type: 'object',
   required: ['id'],
@@ -126,9 +132,13 @@ export const contentRoutes: FastifyPluginAsync<{ content: ContentService }> = as
    * Entrega a imagem ou o vídeo. Aceita Range: sem isso o vídeo só tocaria do
    * começo, sem a pessoa conseguir arrastar a barra.
    */
-  app.get('/midias/:id', { schema: { params: midiaParams } }, async (request, reply) => {
-    if (!request.principal) throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
+  app.get('/midias/:id', { schema: { params: midiaParams, querystring: ticketQuery } }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const { t } = request.query as { t?: string };
+    // Sem token no cabeçalho, aceita o link temporário criado para o navegador
+    if (!request.principal && !(t && content.conferirTicket(id, t))) {
+      throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
+    }
     const { midia, tamanho } = await content.abrirMidia(id);
 
     reply.header('Content-Type', midia.mimeType);
@@ -153,6 +163,13 @@ export const contentRoutes: FastifyPluginAsync<{ content: ContentService }> = as
   app.get('/mural', async (request) => {
     if (!request.principal) throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
     return { post: await content.muralAtivo() };
+  });
+
+  /** Link temporário para a Central exibir a mídia no navegador. */
+  app.post('/midias/:id/link', { ...adminOnly, schema: { params: midiaParams } }, async (request) => {
+    const { id } = request.params as { id: string };
+    await content.abrirMidia(id); // 404 se a mídia não existir mais
+    return content.criarTicket(id);
   });
 
   /** Histórico de recados (só o DP). */
