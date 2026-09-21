@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { DpMessage } from '../../shared/types';
 import { ForcePasswordScreen } from './components/ForcePasswordScreen';
 import { LoginScreen } from './components/LoginScreen';
-import { Sidebar, type Page } from './components/Sidebar';
+import { BarraSuperior } from './components/BarraSuperior';
+import { ColunaDireita } from './components/ColunaDireita';
+import { MenuLateral, type Page } from './components/MenuLateral';
 import { useDesktopState } from './hooks/useDesktopState';
 import { ChatPage } from './pages/ChatPage';
-import { HomePage } from './pages/HomePage';
+import { InicioPage } from './pages/InicioPage';
 import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -117,12 +119,12 @@ export function App() {
   switch (page) {
     case 'home':
       content = (
-        <HomePage
-          inbox={messages}
+        <InicioPage
+          employee={state.employee}
+          messages={messages}
           chat={state.chat}
-          onOpen={openMessage}
-          onSeeAll={() => navigate('announcements')}
-          onOpenChat={() => navigate('messages')}
+          onAbrirMensagem={openMessage}
+          onNavegar={navigate}
         />
       );
       break;
@@ -158,15 +160,36 @@ export function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        page={page}
-        unreadAnnouncements={messages.unreadCount}
-        unreadChat={state.chat.unreadCount}
+      <BarraSuperior
+        employee={state.employee}
         connection={state.connection}
-        employeeName={state.employee?.name ?? null}
-        onNavigate={navigate}
+        onAbrirPerfil={() => navigate('profile')}
+        onAbrirConfiguracoes={() => navigate('settings')}
+        onEntrar={() => chooseSkipLogin(false)}
       />
-      <main className="main">{content}</main>
+
+      <div className="app__corpo">
+        <MenuLateral
+          page={page}
+          unreadAnnouncements={messages.unreadCount}
+          unreadChat={state.chat.unreadCount}
+          appVersion={state.appVersion}
+          onNavigate={navigate}
+        />
+
+        <main className="app__conteudo">{content}</main>
+
+        {/* A coluna da direita acompanha a tela inicial; nas demais, o conteúdo ocupa a largura toda */}
+        {page === 'home' && (
+          <ColunaDireita
+            employee={state.employee}
+            messages={messages}
+            onAbrir={openMessage}
+            onVerTodos={() => navigate('announcements')}
+            onEntrar={() => chooseSkipLogin(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }
