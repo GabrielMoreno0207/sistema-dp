@@ -5,14 +5,13 @@
  */
 import Fastify from 'fastify';
 import { env } from '../config/env';
-import { createSqliteRepositories } from '../database/repositories';
-import { openSqliteDatabase } from '../database/sqlite';
+import { openDatabase } from '../database/open';
 import { AuthService } from '../modules/auth/auth.service';
 import { ComputerService } from '../modules/computers/computer.service';
 
 async function main(): Promise<void> {
-  const db = openSqliteDatabase(env.databasePath);
-  const repositories = createSqliteRepositories(db);
+  const db = await openDatabase();
+  const repositories = db.repositories;
   const log = Fastify({ logger: { level: 'info' } }).log;
   const auth = new AuthService(
     repositories.users,
@@ -24,11 +23,15 @@ async function main(): Promise<void> {
 
   try {
     await auth.ensureInitialAdmin(env.admin);
-    const count = (table: string) => Number((db.prepare(`SELECT COUNT(*) AS total FROM ${table}`).get() as { total: number }).total);
-    console.log(`Banco pronto: ${env.databasePath}`);
-    console.log(`  usuários do DP: ${count('users')} | computadores: ${count('computers')} | mensagens: ${count('messages')}`);
+    const [admins, employees, computers] = await Promise.all([
+      repositories.users.countByRole('ADMIN'),
+      repositories.users.countByRole('EMPLOYEE'),
+      repositories.computers.findAll(),
+    ]);
+    console.log(`Banco pronto -> ${db.description}`);
+    console.log(`  usuários do DP: ${admins} | funcionários: ${employees} | computadores: ${computers.length}`);
   } finally {
-    db.close();
+    await db.close();
   }
 }
 

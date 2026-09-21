@@ -15,8 +15,12 @@ export interface Env {
   host: string;
   port: number;
   logLevel: string;
-  /** Caminho absoluto do banco (ou :memory:) */
+  /** Caminho absoluto do banco SQLite (ou :memory:), usado quando não há DATABASE_URL */
   databasePath: string;
+  /** Conexão PostgreSQL (postgresql://usuario:senha@servidor:5432/banco). Definida = usa PostgreSQL */
+  databaseUrl: string | null;
+  /** Schema onde ficam as tabelas no PostgreSQL */
+  databaseSchema: string;
   /** Pasta onde ficam os arquivos e imagens anexados aos comunicados */
   uploadsPath: string;
   /** Primeiro usuário do DP, criado na inicialização se ainda não existir nenhum */
@@ -69,6 +73,24 @@ function readDatabasePath(): string {
   return value === ':memory:' ? value : projectPath(value);
 }
 
+function readDatabaseUrl(): string | null {
+  const value = process.env.DATABASE_URL?.trim();
+  if (!value) return null;
+  if (!/^postgres(ql)?:\/\//i.test(value)) {
+    throw new Error(`DATABASE_URL inválida: "${value}". Use postgresql://usuario:senha@servidor:5432/banco.`);
+  }
+  if (PLACEHOLDER.test(value)) throw new Error('DATABASE_URL ainda é o valor de exemplo. Use a conexão real.');
+  return value;
+}
+
+function readDatabaseSchema(): string {
+  const value = process.env.DATABASE_SCHEMA?.trim() || 'dp';
+  if (!/^[a-z_][a-z0-9_]*$/i.test(value)) {
+    throw new Error(`DATABASE_SCHEMA inválido: "${value}". Use letras, números e _ (começando por letra).`);
+  }
+  return value;
+}
+
 /** Pasta dos anexos: ao lado do banco por padrão (entra no mesmo backup) */
 function readUploadsPath(): string {
   return projectPath(process.env.UPLOADS_PATH ?? './data/uploads');
@@ -107,6 +129,8 @@ export const env: Env = Object.freeze({
   port: readInteger('SERVER_PORT', 3000, 1, 65535),
   logLevel: readLogLevel(),
   databasePath: readDatabasePath(),
+  databaseUrl: readDatabaseUrl(),
+  databaseSchema: readDatabaseSchema(),
   uploadsPath: readUploadsPath(),
   admin: readAdmin(),
   sessionTtlHours: readInteger('SESSION_TTL_HOURS', 12, 1, 720),

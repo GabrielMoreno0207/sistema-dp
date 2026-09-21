@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { MIGRATIONS } from './migrations';
 
+export { nullableText, text, type Row } from './rows';
+
 export type SqliteDatabase = DatabaseSync;
 
 /**
@@ -56,12 +58,3 @@ function migrate(db: SqliteDatabase): void {
   }
 }
 
-/** Lê uma coluna de texto de uma linha retornada pelo SQLite. */
-export function text(row: Record<string, unknown>, column: string): string {
-  return String(row[column]);
-}
-
-export function nullableText(row: Record<string, unknown>, column: string): string | null {
-  const value = row[column];
-  return value === null || value === undefined ? null : String(value);
-}

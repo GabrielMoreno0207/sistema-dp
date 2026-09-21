@@ -20,8 +20,8 @@ publicar/
 .env
 .env.*
 *.env.bak
-!.env.example
-!.env.exemplo
+!*.example
+!*.exemplo
 
 # Bancos de dados, dados e backups
 *.db

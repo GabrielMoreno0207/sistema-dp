@@ -14,6 +14,15 @@ import type { SectorRepository } from '../modules/sectors/sector.repository';
 import { SqliteSectorRepository } from '../modules/sectors/sector.sqlite-repository';
 import type { UserRepository } from '../modules/users/user.repository';
 import { SqliteUserRepository } from '../modules/users/user.sqlite-repository';
+import { PostgresAttachmentRepository } from '../modules/attachments/attachment.postgres-repository';
+import { PostgresAutoReplyRepository } from '../modules/auto-replies/auto-reply.postgres-repository';
+import { PostgresTokenRepository } from '../modules/auth/token.postgres-repository';
+import { PostgresChatRepository } from '../modules/chat/chat.postgres-repository';
+import { PostgresComputerRepository } from '../modules/computers/computer.postgres-repository';
+import { PostgresMessageRepository } from '../modules/messages/message.postgres-repository';
+import { PostgresSectorRepository } from '../modules/sectors/sector.postgres-repository';
+import { PostgresUserRepository } from '../modules/users/user.postgres-repository';
+import type { PostgresDatabase } from './postgres';
 import type { SqliteDatabase } from './sqlite';
 
 /** Tudo que a aplicação precisa da camada de dados (só interfaces). */
@@ -29,8 +38,7 @@ export interface Repositories {
 }
 
 /**
- * Implementações SQLite. Trocar de banco (PostgreSQL, Oracle) = criar classes
- * que implementam as mesmas interfaces e uma fábrica como esta.
+ * Implementações SQLite (banco padrão quando DATABASE_URL não está definida).
  */
 export function createSqliteRepositories(db: SqliteDatabase): Repositories {
   return {
@@ -42,5 +50,22 @@ export function createSqliteRepositories(db: SqliteDatabase): Repositories {
     sectors: new SqliteSectorRepository(db),
     chat: new SqliteChatRepository(db),
     autoReplies: new SqliteAutoReplyRepository(db),
+  };
+}
+
+/**
+ * Implementações PostgreSQL. As mesmas interfaces de cima, então nada muda
+ * para os serviços e rotas: só a fábrica usada na inicialização.
+ */
+export function createPostgresRepositories(db: PostgresDatabase): Repositories {
+  return {
+    computers: new PostgresComputerRepository(db),
+    messages: new PostgresMessageRepository(db),
+    attachments: new PostgresAttachmentRepository(db),
+    users: new PostgresUserRepository(db),
+    tokens: new PostgresTokenRepository(db),
+    sectors: new PostgresSectorRepository(db),
+    chat: new PostgresChatRepository(db),
+    autoReplies: new PostgresAutoReplyRepository(db),
   };
 }

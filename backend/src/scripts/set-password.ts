@@ -5,8 +5,7 @@
  */
 import Fastify from 'fastify';
 import { env } from '../config/env';
-import { createSqliteRepositories } from '../database/repositories';
-import { openSqliteDatabase } from '../database/sqlite';
+import { openDatabase } from '../database/open';
 import { AuthService } from '../modules/auth/auth.service';
 import { ComputerService } from '../modules/computers/computer.service';
 import { askHidden } from './prompt';
@@ -25,9 +24,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const db = openSqliteDatabase(env.databasePath);
+  const db = await openDatabase();
   const log = Fastify({ logger: false }).log; // logger silencioso: o script só imprime o resultado
-  const repositories = createSqliteRepositories(db);
+  const repositories = db.repositories;
   const auth = new AuthService(
     repositories.users,
     repositories.tokens,
@@ -44,7 +43,7 @@ async function main(): Promise<void> {
     console.error((err as Error).message);
     process.exitCode = 1;
   } finally {
-    db.close();
+    await db.close();
   }
 }
 

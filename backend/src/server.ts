@@ -1,28 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { env } from './config/env';
 import { buildApp } from './app';
-import { createSqliteRepositories } from './database/repositories';
-import { openSqliteDatabase, type SqliteDatabase } from './database/sqlite';
+import { openDatabase, type OpenedDatabase } from './database/open';
 
 async function main(): Promise<void> {
-  let database: SqliteDatabase;
+  let database: OpenedDatabase;
   let https: { cert: Buffer; key: Buffer } | null = null;
   try {
-    database = openSqliteDatabase(env.databasePath);
+    // PostgreSQL quando há DATABASE_URL; SQLite caso contrário
+    database = await openDatabase();
     if (env.tls) https = { cert: readFileSync(env.tls.certFile), key: readFileSync(env.tls.keyFile) };
   } catch (err) {
     console.error('Falha ao iniciar:', err);
     process.exit(1);
   }
 
-  const app = buildApp({ repositories: createSqliteRepositories(database), https });
-  app.log.info(`Banco de dados SQLite: ${env.databasePath}`);
+  const app = buildApp({ repositories: database.repositories, https });
+  app.log.info(`Banco de dados -> ${database.description}`);
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Sinal ${signal} recebido. Encerrando backend...`);
     try {
       await app.close();
-      database.close();
+      await database.close();
       app.log.info('Backend encerrado');
       process.exit(0);
     } catch (err) {

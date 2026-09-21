@@ -1,0 +1,80 @@
+# Banco PostgreSQL para o Sistema DP (migração do SQLite).
+#
+#   docker compose -f docker-compose.postgres.yml --env-file .env.postgres up -d     sobe
+#   docker compose -f docker-compose.postgres.yml --env-file .env.postgres logs -f   acompanha
+#   docker compose -f docker-compose.postgres.yml --env-file .env.postgres down      para
+#
+# As configurações vêm do arquivo .env.postgres (veja .env.postgres.exemplo).
+# O compose principal (docker-compose.yml) continua com SQLite e não é afetado.
+
+name: sistema-dp-db
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: sistema-dp-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sistema_dp}
+      POSTGRES_USER: ${POSTGRES_USER:-sistema_dp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env.postgres}
+      TZ: ${TZ:-America/Sao_Paulo}
+      PGTZ: ${TZ:-America/Sao_Paulo}
+      # Ordenação de texto pelas regras do português (ICU): acentos e maiúsculas
+      # ordenam como as pessoas esperam ("Álvaro" antes de "Bruno").
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=pt-BR"
+
+    ports:
+      # porta no Windows : porta dentro do container
+      # 5433 por padrão porque a 5432 já está em uso nesta máquina
+      - "${POSTGRES_PORT:-5433}:5432"
+
+    volumes:
+      # Dados do banco em volume do Docker (não em pasta do Windows: o Postgres
+      # precisa de permissões e travas que bind mount no Windows não entrega).
+      - pgdados:/var/lib/postgresql/data
+      # Scripts executados APENAS na primeira criação do banco (volume vazio)
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+      # Saída de dumps: docker compose exec postgres pg_dump ... > /backups/arquivo.sql
+      - ./backups:/backups
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sistema_dp} -d ${POSTGRES_DB:-sistema_dp}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    # Evita que o banco seja derrubado por falta de memória compartilhada
+    shm_size: 256mb
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # Interface web para ver e consultar as tabelas: http://localhost:8081
+  adminer:
+    image: adminer:5
+    container_name: sistema-dp-adminer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: dracula
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  # "down" NÃO apaga o volume; só "down -v" apaga (e aí perde os dados).
+  pgdados:
+    name: sistema-dp-pgdados

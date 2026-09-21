@@ -1,6 +1,9 @@
 /**
- * Testes da API com banco SQLite em memória e app.inject() (sem abrir porta).
- * Uso: npm test
+ * Testes da API com app.inject() (sem abrir porta).
+ *
+ * Por padrão usa SQLite em memória:            npm test
+ * Para rodar os mesmos testes no PostgreSQL:   npm run test:postgres
+ * (nesse caso o schema de teste é apagado e recriado a cada execução)
  */
 import assert from 'node:assert/strict';
 import { rm } from 'node:fs/promises';
@@ -24,23 +27,44 @@ process.env.UPLOADS_PATH = UPLOADS_PATH;
 delete process.env.TLS_CERT_FILE;
 delete process.env.TLS_KEY_FILE;
 
+// Mesmo conjunto de testes rodando no PostgreSQL quando TEST_DATABASE_URL é informada
+const POSTGRES_URL = process.env.TEST_DATABASE_URL?.trim() || null;
+const TEST_SCHEMA = 'teste_automatizado';
+
 let app: FastifyInstance;
+let fecharBanco: () => Promise<void>;
 let adminToken: string;
 let repos: import('../src/database/repositories').Repositories;
 
 const secret = (c: string) => c.repeat(40);
 
 before(async () => {
+  if (POSTGRES_URL) {
+    // Schema só de teste, recriado do zero: nunca encosta nos dados reais
+    const { Client } = await import('pg');
+    const limpeza = new Client({ connectionString: POSTGRES_URL });
+    await limpeza.connect();
+    await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
+    await limpeza.end();
+    process.env.DATABASE_URL = POSTGRES_URL;
+    process.env.DATABASE_SCHEMA = TEST_SCHEMA;
+  } else {
+    delete process.env.DATABASE_URL;
+    process.env.DATABASE_PATH = ':memory:';
+  }
+
   const { buildApp } = await import('../src/app');
-  const { createSqliteRepositories } = await import('../src/database/repositories');
-  const { openSqliteDatabase } = await import('../src/database/sqlite');
-  repos = createSqliteRepositories(openSqliteDatabase(':memory:'));
+  const { openDatabase } = await import('../src/database/open');
+  const banco = await openDatabase();
+  repos = banco.repositories;
+  fecharBanco = banco.close;
   app = buildApp({ repositories: repos });
   await app.ready();
 });
 
 after(async () => {
   await app.close();
+  await fecharBanco();
   await rm(UPLOADS_PATH, { recursive: true, force: true });
 });
 

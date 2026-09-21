@@ -393,6 +393,55 @@ Observações:
 - Para o servidor definitivo, prefira **Windows Server** (ou Linux): o Windows 10/11 limita a fila de conexões pendentes e pode recusar parte de centenas de conexões abertas no mesmo milissegundo (o app tenta de novo sozinho).
 - Deixe o arquivo do banco (`data/sistema-dp.db`) em disco local (de preferência SSD), nunca em pasta de rede.
 
+## Banco de dados: SQLite ou PostgreSQL
+
+O sistema roda nos dois bancos, e quem decide é o `.env`:
+
+| `.env` | Banco usado |
+| --- | --- |
+| sem `DATABASE_URL` | SQLite, no arquivo de `DATABASE_PATH` (padrão) |
+| com `DATABASE_URL` | PostgreSQL, no schema de `DATABASE_SCHEMA` (padrão `dp`) |
+
+```env
+DATABASE_URL=postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp
+DATABASE_SCHEMA=dp
+```
+
+As tabelas são criadas sozinhas na primeira execução, nos dois casos.
+
+### Subir o PostgreSQL
+
+Na pasta do projeto (uma pasta acima desta):
+
+```bash
+docker compose -f docker-compose.postgres.yml --env-file .env.postgres up -d
+```
+
+Sobe o banco em `localhost:5433` e o Adminer (consulta pelo navegador) em `http://localhost:8081`.
+
+### Levar os dados do SQLite para o PostgreSQL
+
+```bash
+npm run migrar-postgres -- --sqlite ./data/sistema-dp.db
+```
+
+O SQLite é aberto somente para leitura. O script copia as tabelas em uma única
+transação, mantém os IDs e as numerações automáticas, e no fim compara a contagem
+de linhas de cada tabela. Se o PostgreSQL já tiver dados, ele para e avisa; para
+apagar e importar do zero, use `--sobrescrever`.
+
+Para copiar o banco que está rodando em um container, gere antes uma cópia
+consistente (sem parar o serviço):
+
+```bash
+docker exec comunicacao-dp node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('/app/data/sistema-dp.db',{readOnly:true});db.exec(\"VACUUM INTO '/tmp/copia.db'\");db.close()"
+docker cp comunicacao-dp:/tmp/copia.db ./copia.db
+npm run migrar-postgres -- --sqlite ./copia.db
+```
+
+Os anexos dos comunicados **não** ficam no banco: continuam na pasta de
+`UPLOADS_PATH` e devem ser copiados junto.
+
 ## Testes automatizados
 
 ```powershell
@@ -405,11 +454,27 @@ Os testes usam um banco temporário em memória, então não mexem no seu banco.
 - registro de PCs (chave, credencial por PC, `npm run liberar-pc` para PC formatado);
 - regra de destinatários, leitura idempotente e validação das entradas.
 
+Os mesmos testes rodam no PostgreSQL, em um schema separado (`teste_automatizado`)
+que é apagado e recriado a cada execução, sem encostar nos dados reais:
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp"
+npm run test:postgres
+```
+
 ## Segurança
 
 - O acesso exige identificação em tudo, exceto `/api/health`, o login e a página da Central. As regras:
   - **DP:** faz login com usuário e senha (hash scrypt) e recebe um token com validade. Depois de 5 tentativas erradas em 15 minutos, o login fica bloqueado por 5 minutos.
-  - **Computadores e celulares:** o registro é **aberto** a qualquer aparelho que alcance o servidor — não há chave de registro. Na primeira vez, cada instalação guarda um segredo próprio; sem esse segredo ninguém consegue se passar por um aparelho já registrado. O token do aparelho vale para a API e para o WebSocket. Como não há chave, **o servidor só deve ser alcançável pela rede interna da empresa**.
+  - **Computadores e celulares:** o reg
+
+Os mesmos testes também rodam no PostgreSQL (em um schema separado, `teste_automatizado`,
+que é apagado e recriado a cada execução):
+
+```bash
+TEST_DATABASE_URL=postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp npm run test:postgres
+```
+istro é **aberto** a qualquer aparelho que alcance o servidor — não há chave de registro. Na primeira vez, cada instalação guarda um segredo próprio; sem esse segredo ninguém consegue se passar por um aparelho já registrado. O token do aparelho vale para a API e para o WebSocket. Como não há chave, **o servidor só deve ser alcançável pela rede interna da empresa**.
   - **Funcionários:** entram no app com matrícula e senha (hash scrypt). Regras:
     - no primeiro acesso, e depois de uma redefinição pelo DP, a troca de senha é obrigatória;
     - erros de login são limitados por matrícula+PC, por PC (várias matrículas) e por matrícula (vários PCs), e a troca de senha também tem limite;
