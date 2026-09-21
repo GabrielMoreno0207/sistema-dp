@@ -14,6 +14,8 @@ import { AttachmentStorage } from './modules/attachments/attachment.storage';
 import { contentRoutes } from './modules/content/content.routes';
 import { ContentService } from './modules/content/content.service';
 import { MidiaStorage } from './modules/content/content.storage';
+import { ticketRoutes } from './modules/tickets/ticket.routes';
+import { TicketService } from './modules/tickets/ticket.service';
 import { updateRoutes } from './modules/updates/update.routes';
 import { UpdateService } from './modules/updates/update.service';
 import { UpdateStorage } from './modules/updates/update.storage';
@@ -157,6 +159,8 @@ export function buildApp({
     app.log,
   );
 
+  const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);
+
   registerAuthentication(app, auth);
 
   // Central do DP: página estática (HTML/CSS/JS) que usa a própria API REST
@@ -181,6 +185,7 @@ export function buildApp({
       await api.register(attachmentRoutes, { attachments, messages });
       await api.register(updateRoutes, { updates });
       await api.register(contentRoutes, { content });
+      await api.register(ticketRoutes, { tickets });
     },
     { prefix: '/api' },
   );

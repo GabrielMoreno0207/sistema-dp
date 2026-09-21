@@ -33,6 +33,9 @@ import {
   SqliteMidiaRepository,
   SqliteMuralRepository,
 } from '../modules/content/content.sqlite-repository';
+import { PostgresChamadoRepository } from '../modules/tickets/ticket.postgres-repository';
+import type { ChamadoRepository } from '../modules/tickets/ticket.repository';
+import { SqliteChamadoRepository } from '../modules/tickets/ticket.sqlite-repository';
 import type { PostgresDatabase } from './postgres';
 import type { SqliteDatabase } from './sqlite';
 
@@ -52,6 +55,8 @@ export interface Repositories {
   mural: MuralRepository;
   /** Atalhos que cada colaborador monta */
   atalhos: AtalhoRepository;
+  /** Chamados abertos para o TI */
+  chamados: ChamadoRepository;
 }
 
 /**
@@ -70,6 +75,7 @@ export function createSqliteRepositories(db: SqliteDatabase): Repositories {
     midias: new SqliteMidiaRepository(db),
     mural: new SqliteMuralRepository(db),
     atalhos: new SqliteAtalhoRepository(db),
+    chamados: new SqliteChamadoRepository(db),
   };
 }
 
@@ -90,5 +96,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     midias: new PostgresMidiaRepository(db),
     mural: new PostgresMuralRepository(db),
     atalhos: new PostgresAtalhoRepository(db),
+    chamados: new PostgresChamadoRepository(db),
   };
 }

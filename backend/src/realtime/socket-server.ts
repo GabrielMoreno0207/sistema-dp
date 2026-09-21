@@ -19,6 +19,8 @@ export interface ServerToClientEvents {
   'chat:message': (message: ChatMessage) => void;
   /** O recado do mural mudou: o app busca o novo (o conteúdo não vai no evento) */
   'mural:atualizado': () => void;
+  /** Um chamado de quem está logado neste PC mudou (resposta do TI, status novo) */
+  'chamado:atualizado': (payload: { chamadoId: string }) => void;
 }
 
 // O cliente não envia eventos por enquanto; tudo que ele faz passa pela API REST.
@@ -66,7 +68,7 @@ function roomFor(message: Message): string | null {
   }
 }
 
-export interface RealtimeGateway extends MessageNotifier, ChatNotifier, MuralNotifier {
+export interface RealtimeGateway extends MessageNotifier, ChatNotifier, MuralNotifier, ChamadoNotifier {
   /** Derruba as conexões de um PC (ex.: credencial liberada pelo DP) */
   disconnectComputer(computerId: string): void;
 }
@@ -74,6 +76,11 @@ export interface RealtimeGateway extends MessageNotifier, ChatNotifier, MuralNot
 /** Avisa os PCs conectados de que o mural mudou. */
 export interface MuralNotifier {
   muralAtualizado(): void;
+}
+
+/** Avisa quem abriu o chamado de que houve resposta ou mudança de status. */
+export interface ChamadoNotifier {
+  chamadoAtualizado(solicitanteId: string, chamadoId: string): void;
 }
 
 export function createSocketServer(
@@ -186,6 +193,13 @@ export function createSocketServer(
      */
     muralAtualizado(): void {
       io.to(Rooms.all).emit('mural:atualizado');
+    },
+    /**
+     * Chamado mexido pelo TI: vai para a sala de quem abriu, onde quer que ele
+     * esteja logado. Quem está na Central não usa socket; lá a tela recarrega.
+     */
+    chamadoAtualizado(solicitanteId: string, chamadoId: string): void {
+      io.to(Rooms.employee(solicitanteId)).emit('chamado:atualizado', { chamadoId });
     },
     /** Envia a mensagem aos PCs destinatários conectados. Retorna quantos sockets receberam. */
     async publish(message: Message): Promise<number> {

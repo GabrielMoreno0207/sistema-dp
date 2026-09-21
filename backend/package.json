@@ -15,7 +15,7 @@
     "create-admin": "tsx --disable-warning=ExperimentalWarning src/scripts/create-admin.ts",
     "liberar-pc": "tsx --disable-warning=ExperimentalWarning src/scripts/liberar-pc.ts",
     "migrar-postgres": "tsx --disable-warning=ExperimentalWarning src/scripts/migrar-para-postgres.ts",
-    "test:postgres": "tsx --disable-warning=ExperimentalWarning --test test/api.test.ts test/conteudo.test.ts"
+    "test:postgres": "tsx --disable-warning=ExperimentalWarning --test test/api.test.ts test/conteudo.test.ts test/chamados.test.ts"
   },
   "engines": {
     "node": ">=22.13"
