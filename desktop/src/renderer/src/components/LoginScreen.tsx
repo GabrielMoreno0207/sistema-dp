@@ -1,9 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import type { ConnectionState } from '../../../shared/types';
 
+type Modo = 'FUNCIONARIO' | 'DP';
+
 interface LoginScreenProps {
   connection: ConnectionState;
   onSkip(): void;
+  /** Conta do DP/TI entrou: o aplicativo segue sem funcionário identificado */
+  onAdminEntrou(): void;
   /** Entra sem identificação e abre a tela Configurações (servidor/chave) */
   onOpenSettings(): void;
 }
@@ -32,10 +36,14 @@ function connectionNotice(connection: ConnectionState): { text: string; showSett
 }
 
 /**
- * Identificação do funcionário (matrícula + senha cadastradas pelo DP).
- * É opcional: sem login o computador continua recebendo os comunicados gerais.
+ * Entrada no aplicativo, nos dois tipos de conta:
+ * - funcionário, com a matrícula e a senha cadastradas pelo DP (opcional: sem
+ *   login o computador continua recebendo os comunicados gerais);
+ * - Departamento Pessoal e TI, com o mesmo usuário e senha da Central, que
+ *   liberam as seções administrativas.
  */
-export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenProps) {
+export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings }: LoginScreenProps) {
+  const [modo, setModo] = useState<Modo>('FUNCIONARIO');
   const [registration, setRegistration] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +56,18 @@ export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenP
     setError(null);
     setBusy(true);
     try {
-      const result = await window.dp.employeeLogin(registration.trim(), password);
+      const result =
+        modo === 'FUNCIONARIO'
+          ? await window.dp.employeeLogin(registration.trim(), password)
+          : await window.dp.adminLogin(registration.trim(), password);
       if (!result.ok) {
         setError(result.message);
         setPassword('');
+        return;
       }
+      // A conta do DP não é um funcionário do PC: o aplicativo entra sem
+      // identificação de funcionário, já com as seções administrativas.
+      if (modo === 'DP') onAdminEntrou();
     } finally {
       setBusy(false);
     }
@@ -65,8 +80,39 @@ export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenP
           <span className="sidebar__logo">DP</span>
           <div>
             <h1>Entrar no Comunicação DP</h1>
-            <p>Use a matrícula e a senha fornecidas pelo Departamento Pessoal.</p>
+            <p>
+              {modo === 'FUNCIONARIO'
+                ? 'Use a matrícula e a senha fornecidas pelo Departamento Pessoal.'
+                : 'Use o mesmo usuário e senha da Central do DP.'}
+            </p>
           </div>
+        </div>
+
+        <div className="login-card__abas" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={modo === 'FUNCIONARIO'}
+            className={`login-aba ${modo === 'FUNCIONARIO' ? 'login-aba--ativa' : ''}`}
+            onClick={() => {
+              setModo('FUNCIONARIO');
+              setError(null);
+            }}
+          >
+            Sou funcionário
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={modo === 'DP'}
+            className={`login-aba ${modo === 'DP' ? 'login-aba--ativa' : ''}`}
+            onClick={() => {
+              setModo('DP');
+              setError(null);
+            }}
+          >
+            Sou do DP / TI
+          </button>
         </div>
 
         {notice && (
@@ -81,14 +127,14 @@ export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenP
         )}
 
         <label className="field">
-          <span>Matrícula</span>
+          <span>{modo === 'FUNCIONARIO' ? 'Matrícula' : 'Usuário'}</span>
           <input
             value={registration}
             onChange={(e) => setRegistration(e.target.value)}
-            maxLength={32}
+            maxLength={64}
             autoFocus
             autoComplete="username"
-            inputMode="numeric"
+            inputMode={modo === 'FUNCIONARIO' ? 'numeric' : 'text'}
           />
         </label>
 

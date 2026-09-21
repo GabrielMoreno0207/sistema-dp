@@ -109,6 +109,11 @@ export function App() {
       <LoginScreen
         connection={state.connection}
         onSkip={() => chooseSkipLogin(true)}
+        onAdminEntrou={() => {
+          // Entrou como DP/TI: segue sem funcionário identificado neste PC
+          chooseSkipLogin(true);
+          setPage('home');
+        }}
         onOpenSettings={() => {
           chooseSkipLogin(true);
           setPage('settings');

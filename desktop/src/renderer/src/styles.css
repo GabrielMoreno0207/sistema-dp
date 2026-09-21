@@ -6,11 +6,12 @@
   --bg: #f0f2f5;
   --surface: #ffffff;
   --text: #1c2430;
+  --primary-escuro: #0d7a6f;
   --text-soft: #4a5465;
   --muted: #7a8494;
   --border: #e2e7ee;
-  --primary: #1d4ed8;
-  --primary-soft: #e8efff;
+  --primary: #17b3a3;
+  --primary-soft: #e3f5f2;
   --sidebar: #20374a;
   --acento: #17b3a3;
   --acento-escuro: #12968a;
@@ -119,7 +120,7 @@ h2 {
   height: 36px;
   border-radius: 9px;
   background: var(--primary);
-  color: #fff;
+  color: #06312c;
   font-weight: 800;
 }
 
@@ -1126,11 +1127,13 @@ button.stat:hover {
 
 .btn--primary {
   background: var(--primary);
-  color: #fff;
+  color: #06312c;
+  font-weight: 600;
 }
 
 .btn--primary:hover:not(:disabled) {
-  filter: brightness(1.1);
+  background: var(--primary-escuro);
+  color: #fff;
 }
 
 .btn--ghost {
@@ -1145,7 +1148,7 @@ button.stat:hover {
 .link-btn {
   border: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-escuro);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2716,4 +2719,33 @@ button.stat:hover {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* Abas da tela de entrada: funcionário ou Departamento Pessoal */
+.login-card__abas {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.login-aba {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.login-aba:hover {
+  background: var(--bg);
+}
+
+.login-aba--ativa {
+  border-color: var(--acento);
+  background: #e7f6f4;
+  color: var(--acento-escuro);
+  font-weight: 600;
 }
