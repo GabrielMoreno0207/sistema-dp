@@ -29,10 +29,10 @@ async function gravarConfig(config) {
 
 function criarJanela() {
   janela = new BrowserWindow({
-    width: 940,
-    height: 700,
-    minWidth: 780,
-    minHeight: 560,
+    width: 720,
+    height: 600,
+    minWidth: 640,
+    minHeight: 520,
     title: 'Versionador — Comunicação DP',
     backgroundColor: '#0b0e11',
     autoHideMenuBar: true,

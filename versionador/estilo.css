@@ -16,23 +16,23 @@
 
 body {
   margin: 0;
-  padding: 18px 22px 32px;
+  padding: 14px 18px 22px;
   background: var(--fundo);
   color: var(--texto);
   font-family: 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.45;
 }
 
 .marca {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   color: var(--destaque);
   font-size: 12px;
   white-space: pre;
 }
 
 .quadro {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .titulo,
@@ -50,7 +50,7 @@ body {
 
 label {
   display: block;
-  margin: 8px 0 4px;
+  margin: 6px 0 3px;
   color: var(--apagado);
 }
 
@@ -58,7 +58,7 @@ input[type='text'],
 input[type='password'],
 textarea {
   width: 100%;
-  padding: 7px 9px;
+  padding: 5px 8px;
   border: 1px solid var(--borda);
   border-radius: 3px;
   background: var(--painel);
@@ -81,8 +81,8 @@ textarea {
 }
 
 .acao {
-  margin-top: 12px;
-  padding: 8px 16px;
+  margin-top: 10px;
+  padding: 6px 14px;
   border: 1px solid var(--destaque);
   border-radius: 3px;
   background: transparent;
@@ -204,8 +204,8 @@ textarea {
 .item {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 9px 12px;
+  gap: 12px;
+  padding: 7px 10px;
   border-bottom: 1px solid var(--borda);
 }
 
@@ -240,4 +240,17 @@ textarea {
   border-radius: 2px;
   color: var(--atencao);
   font-size: 11px;
+}
+
+/* Barra de progresso do envio: fica alinhada porque a fonte é monoespaçada */
+#progresso {
+  color: var(--destaque);
+  white-space: pre;
+  letter-spacing: -0.5px;
+}
+
+/* A lista de versões rola sozinha, para a janela menor não esticar */
+.lista {
+  max-height: 190px;
+  overflow-y: auto;
 }

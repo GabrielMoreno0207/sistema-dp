@@ -176,6 +176,7 @@ async function publicar() {
   }
 
   el('btn-publicar').disabled = true;
+  el('progresso').textContent = barraProgresso(0);
   mostrarAviso('enviando…');
   try {
     const resultado = await api.publicar({
@@ -223,8 +224,16 @@ document.querySelectorAll('.aba').forEach((aba) => {
   });
 });
 
+/** Barra de progresso em ASCII: [████░░░░]  62% */
+function barraProgresso(porcentagem) {
+  const largura = 22;
+  const preenchido = Math.round((porcentagem / 100) * largura);
+  return `[${'█'.repeat(preenchido)}${'░'.repeat(largura - preenchido)}] ${String(porcentagem).padStart(3)}%`;
+}
+
 api.aoProgredir((porcentagem) => {
-  el('progresso').textContent = porcentagem >= 100 ? 'processando no servidor…' : `enviando ${porcentagem}%`;
+  el('progresso').textContent =
+    porcentagem >= 100 ? `${barraProgresso(100)}  processando no servidor…` : barraProgresso(porcentagem);
 });
 
 iniciar();
