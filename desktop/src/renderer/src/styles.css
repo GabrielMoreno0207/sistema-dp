@@ -1899,3 +1899,412 @@ button.stat:hover {
     display: none;
   }
 }
+
+/* ============================================================
+   Atalhos do colaborador, mural e conversas recentes
+   ============================================================ */
+
+.grade__cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.grade__titulo {
+  font-size: 15px;
+}
+
+.grade__acoes {
+  display: flex;
+  gap: 14px;
+}
+
+.grade__vazia {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 22px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.grade__vazia p {
+  margin: 0;
+}
+
+.azulejo-caixa {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.azulejo__editar {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.azulejo-mover {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.azulejo-mover button {
+  width: 26px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.azulejo-mover button:disabled {
+  color: var(--border);
+  cursor: default;
+}
+
+/* ---------------- Mural ---------------- */
+.mural {
+  margin-top: 22px;
+}
+
+.mural__titulo-secao,
+.historico__titulo {
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.mural__cartao {
+  display: flex;
+  gap: 18px;
+  padding: 16px 18px;
+  border-left: 4px solid var(--acento);
+}
+
+.mural__midia {
+  flex-shrink: 0;
+  width: 320px;
+  max-width: 45%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0d1418;
+}
+
+.mural__midia img,
+.mural__midia video {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+}
+
+.mural__texto {
+  min-width: 0;
+}
+
+.mural__texto h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.mural__texto p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.mural__rodape {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.mural__vazio {
+  padding: 18px;
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ---------------- Conversas recentes ---------------- */
+.historico {
+  margin-top: 22px;
+}
+
+.historico__vazio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.historico__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.conversa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(22, 40, 55, 0.08);
+  text-align: left;
+  cursor: pointer;
+}
+
+.conversa:hover {
+  box-shadow: 0 5px 14px rgba(22, 40, 55, 0.12);
+}
+
+.conversa__avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: #06312c;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.conversa__texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.conversa__previa {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversa__lado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.conversa__quando {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.conversa__badge {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  text-align: center;
+}
+
+/* ---------------- Foto de perfil ---------------- */
+.menu-usuario__avatar img,
+.cartao-perfil__foto img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.cartao-perfil__foto--editavel {
+  position: relative;
+  padding: 0;
+  border: 2px solid var(--acento);
+  cursor: pointer;
+  overflow: visible;
+}
+
+.cartao-perfil__camera {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: #06312c;
+  font-size: 12px;
+}
+
+/* ---------------- Janela de edição (atalho) ---------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 20, 28, 0.55);
+}
+
+.modal__caixa {
+  width: min(560px, 100%);
+  padding: 20px 22px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 20px 50px rgba(10, 25, 35, 0.35);
+}
+
+.modal__titulo {
+  margin-bottom: 16px;
+  font-size: 17px;
+}
+
+.modal__rodape {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.modal__espaco {
+  flex: 1;
+}
+
+.botao {
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.botao:hover {
+  background: var(--bg);
+}
+
+.botao--primario {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #06312c;
+  font-weight: 600;
+}
+
+.botao--primario:hover {
+  background: var(--acento-escuro);
+  border-color: var(--acento-escuro);
+  color: #fff;
+}
+
+.botao--primario:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.botao--perigo {
+  border-color: #f0c2c2;
+  color: var(--danger);
+}
+
+.botao--perigo:hover {
+  background: #fdeaea;
+}
+
+.editor-atalho {
+  display: flex;
+  gap: 20px;
+}
+
+.editor-atalho__previa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 132px;
+  height: 132px;
+  padding: 10px;
+  border-radius: 16px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.editor-atalho__campos {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-atalho__campos input,
+.editor-atalho__campos select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.editor-atalho__campos input:focus,
+.editor-atalho__campos select:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+
+.editor-atalho__rotulo-grupo {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-atalho__opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.opcao-icone {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.opcao-icone--ativa {
+  border-color: var(--acento);
+  background: #e7f6f4;
+}
+
+.opcao-cor {
+  width: 28px;
+  height: 28px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.opcao-cor--ativa {
+  border-color: var(--text);
+}

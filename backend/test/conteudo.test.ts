@@ -356,8 +356,17 @@ describe('foto de perfil', () => {
     assert.equal(nova.statusCode, 200);
   });
 
+  test('o app lê a foto atual ao entrar', async () => {
+    const resposta = await app.inject({ method: 'GET', url: '/api/perfil/foto', headers: comToken(tokenPc) });
+    assert.equal(resposta.statusCode, 200);
+    assert.equal(resposta.json().foto.tipo, 'IMAGEM');
+  });
+
   test('remover a foto volta ao avatar padrão', async () => {
     const removida = await app.inject({ method: 'DELETE', url: '/api/perfil/foto', headers: comToken(tokenPc) });
     assert.equal(removida.statusCode, 204);
+
+    const depois = await app.inject({ method: 'GET', url: '/api/perfil/foto', headers: comToken(tokenPc) });
+    assert.equal(depois.json().foto, null);
   });
 });

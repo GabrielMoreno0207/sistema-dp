@@ -2,12 +2,24 @@ import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import type { ChatContact, ChatMessage, ComputerInfo, DpMessage, EmployeeProfile } from '../shared/types';
+import type {
+  Atalho,
+  ChatContact,
+  ChatMessage,
+  ComputerInfo,
+  DadosAtalho,
+  DpMessage,
+  EmployeeProfile,
+  MidiaPublica,
+  MuralPost,
+} from '../shared/types';
 import { parseChatContact, parseChatMessage, parseEmployee, parseMessage } from './message-validation';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 /** Anexo pode ter alguns MB: mais folga que uma chamada comum */
 const ATTACHMENT_TIMEOUT_MS = 60_000;
+/** Foto de perfil e mídia do mural: alguns MB, mais folga que uma chamada comum */
+const UPLOAD_TIMEOUT_MS = 5 * 60_000;
 /** Instalador passa de 80 MB e pode vir por rede lenta */
 const DOWNLOAD_TIMEOUT_MS = 20 * 60_000;
 
@@ -200,5 +212,72 @@ export class ApiClient {
     await pipeline(leitura, arquivo);
 
     return hash.digest('hex') === versao.sha256;
+  }
+
+  // ---- Mural, atalhos e foto de perfil ----
+
+  async obterMural(): Promise<MuralPost | null> {
+    const data = await this.request<{ post?: MuralPost | null }>('GET', '/api/mural');
+    return data.post ?? null;
+  }
+
+  async listarAtalhos(): Promise<Atalho[]> {
+    const data = await this.request<{ atalhos?: Atalho[] }>('GET', '/api/atalhos');
+    return data.atalhos ?? [];
+  }
+
+  async criarAtalho(dados: DadosAtalho): Promise<Atalho> {
+    return this.request<Atalho>('POST', '/api/atalhos', dados);
+  }
+
+  async atualizarAtalho(id: string, dados: DadosAtalho): Promise<Atalho> {
+    return this.request<Atalho>('PUT', `/api/atalhos/${encodeURIComponent(id)}`, dados);
+  }
+
+  async removerAtalho(id: string): Promise<void> {
+    await this.request('DELETE', `/api/atalhos/${encodeURIComponent(id)}`);
+  }
+
+  async reordenarAtalhos(ids: string[]): Promise<Atalho[]> {
+    const data = await this.request<{ atalhos?: Atalho[] }>('PUT', '/api/atalhos/ordem', { ids });
+    return data.atalhos ?? [];
+  }
+
+  /** Envia uma imagem ou vídeo; o arquivo vai como corpo binário, com o tipo real. */
+  async enviarMidia(conteudo: Buffer, mimeType: string, nome: string): Promise<MidiaPublica> {
+    const headers: Record<string, string> = { 'Content-Type': mimeType, 'X-Nome': encodeURIComponent(nome) };
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+
+    const response = await fetch(`${this.baseUrl}/api/midias`, {
+      method: 'POST',
+      headers,
+      body: new Uint8Array(conteudo),
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+    const data = (await response.json().catch(() => ({}))) as MidiaPublica & { message?: string };
+    if (!response.ok) throw new ApiError(data.message ?? `Erro HTTP ${response.status}`, response.status);
+    return data;
+  }
+
+  async obterFoto(): Promise<MidiaPublica | null> {
+    const data = await this.request<{ foto?: MidiaPublica | null }>('GET', '/api/perfil/foto');
+    return data.foto ?? null;
+  }
+
+  async definirFoto(midiaId: string): Promise<MidiaPublica> {
+    const data = await this.request<{ foto: MidiaPublica }>('PUT', '/api/perfil/foto', { midiaId });
+    return data.foto;
+  }
+
+  async removerFoto(): Promise<void> {
+    await this.request('DELETE', '/api/perfil/foto');
+  }
+
+  /** Busca a mídia no servidor repassando o cabeçalho Range (usado pelo protocolo dpmidia://). */
+  async buscarMidia(midiaId: string, range?: string): Promise<Response> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (range) headers.Range = range;
+    return fetch(`${this.baseUrl}/api/midias/${encodeURIComponent(midiaId)}`, { headers });
   }
 }

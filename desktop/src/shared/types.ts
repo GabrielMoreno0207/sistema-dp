@@ -120,6 +120,46 @@ export interface ChatState {
 
 export const CHAT_MESSAGE_MAX = 2000;
 
+/** Imagem ou vídeo guardado no servidor */
+export interface MidiaPublica {
+  id: string;
+  tipo: 'IMAGEM' | 'VIDEO';
+  nome: string;
+  mimeType: string;
+  tamanho: number;
+  /** Caminho no servidor; a tela usa dpmidia://<id> para exibir */
+  url: string;
+}
+
+/** Recado que a Central do DP deixa fixado na tela inicial */
+export interface MuralPost {
+  id: string;
+  titulo: string;
+  texto: string;
+  midia: MidiaPublica | null;
+  ativo: boolean;
+  criadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Para onde um atalho leva (só telas do próprio aplicativo) */
+export type DestinoAtalho = 'COMUNICADOS' | 'CHAT' | 'PERFIL' | 'CONFIGURACOES' | 'MURAL';
+
+/** Azulejo que o colaborador monta na tela inicial */
+export interface Atalho {
+  id: string;
+  userId: string;
+  ordem: number;
+  rotulo: string;
+  icone: string;
+  cor: string;
+  destino: DestinoAtalho;
+  createdAt: string;
+}
+
+export type DadosAtalho = Pick<Atalho, 'rotulo' | 'icone' | 'cor' | 'destino'>;
+
 export interface AppState {
   appVersion: string;
   computer: ComputerInfo;
@@ -129,6 +169,12 @@ export interface AppState {
   chat: ChatState;
   employee: EmployeeProfile | null;
   employeeChecked: boolean;
+  /** Recado em exibição no mural (null = nenhum) */
+  mural: MuralPost | null;
+  /** Atalhos do funcionário logado */
+  atalhos: Atalho[];
+  /** Foto de perfil do funcionário logado */
+  foto: MidiaPublica | null;
 }
 
 /** Configurações editáveis na tela Configurações */
@@ -191,6 +237,18 @@ export interface DesktopApi {
   chatSend(dpUserId: string, content: string): Promise<OperationResult>;
   chatMarkRead(dpUserId: string): Promise<void>;
   onChatChange(listener: (state: ChatState) => void): () => void;
+
+  // ---- Tela inicial: atalhos, mural e foto de perfil ----
+  criarAtalho(dados: DadosAtalho): Promise<OperationResult>;
+  atualizarAtalho(id: string, dados: DadosAtalho): Promise<OperationResult>;
+  removerAtalho(id: string): Promise<OperationResult>;
+  reordenarAtalhos(ids: string[]): Promise<OperationResult>;
+  onAtalhosChange(listener: (atalhos: Atalho[]) => void): () => void;
+  onMuralChange(listener: (mural: MuralPost | null) => void): () => void;
+  /** Abre o seletor de arquivo, envia e passa a ser a foto da pessoa */
+  enviarFoto(): Promise<OperationResult>;
+  removerFoto(): Promise<OperationResult>;
+  onFotoChange(listener: (foto: MidiaPublica | null) => void): () => void;
 }
 
 /** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
@@ -221,5 +279,14 @@ export const IpcChannels = {
   ChatSend: 'chat:send',
   ChatMarkRead: 'chat:mark-read',
   ChatChanged: 'chat:changed',
+  MuralChanged: 'mural:changed',
+  AtalhosChanged: 'atalhos:changed',
+  AtalhoCreate: 'atalhos:create',
+  AtalhoUpdate: 'atalhos:update',
+  AtalhoDelete: 'atalhos:delete',
+  AtalhoReorder: 'atalhos:reorder',
+  FotoUpload: 'perfil:foto-upload',
+  FotoRemove: 'perfil:foto-remove',
+  FotoChanged: 'perfil:foto-changed',
 } as const;
 // Canais do popup: ver popup-channels.ts

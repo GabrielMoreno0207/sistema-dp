@@ -115,6 +115,12 @@ export function App() {
     setSelectedId(null);
   }
 
+  /** Abre a conversa com aquela pessoa do DP já na tela de mensagens */
+  function abrirConversa(contatoId: string) {
+    void window.dp.chatOpen(contatoId);
+    navigate('messages');
+  }
+
   let content;
   switch (page) {
     case 'home':
@@ -123,8 +129,11 @@ export function App() {
           employee={state.employee}
           messages={messages}
           chat={state.chat}
-          onAbrirMensagem={openMessage}
+          mural={state.mural}
+          atalhos={state.atalhos}
           onNavegar={navigate}
+          onAbrirConversa={abrirConversa}
+          onEntrar={() => chooseSkipLogin(false)}
         />
       );
       break;
@@ -162,6 +171,7 @@ export function App() {
     <div className="app">
       <BarraSuperior
         employee={state.employee}
+        foto={state.foto}
         connection={state.connection}
         onAbrirPerfil={() => navigate('profile')}
         onAbrirConfiguracoes={() => navigate('settings')}
@@ -183,6 +193,7 @@ export function App() {
         {page === 'home' && (
           <ColunaDireita
             employee={state.employee}
+            foto={state.foto}
             messages={messages}
             onAbrir={openMessage}
             onVerTodos={() => navigate('announcements')}

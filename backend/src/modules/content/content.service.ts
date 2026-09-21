@@ -278,6 +278,12 @@ export class ContentService {
     if (atual?.fotoMidiaId) await this.apagarMidia(atual.fotoMidiaId);
   }
 
+  /** Foto de quem está logado no computador. */
+  async fotoDoFuncionario(computerId: string): Promise<MidiaPublica | null> {
+    const employee = await this.employeeDoPc(computerId);
+    return this.fotoDoUsuario(employee.id);
+  }
+
   async fotoDoUsuario(userId: string): Promise<MidiaPublica | null> {
     const user = await this.users.findById(userId);
     if (!user?.fotoMidiaId) return null;

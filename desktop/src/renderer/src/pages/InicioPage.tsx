@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
-import type { ChatState, DpMessage, EmployeeProfile, MessagesState } from '../../../shared/types';
-import { CartaoDestaque } from '../components/CartaoDestaque';
-import { GradeModulos } from '../components/GradeModulos';
+import type { Atalho, ChatState, EmployeeProfile, MessagesState, MuralPost } from '../../../shared/types';
+import { GradeAtalhos } from '../components/GradeAtalhos';
+import { HistoricoConversas } from '../components/HistoricoConversas';
 import type { Page } from '../components/MenuLateral';
+import { Mural } from '../components/Mural';
 
 interface InicioPageProps {
   employee: EmployeeProfile | null;
   messages: MessagesState;
   chat: ChatState;
-  onAbrirMensagem(message: DpMessage): void;
+  mural: MuralPost | null;
+  atalhos: Atalho[];
   onNavegar(page: Page): void;
+  onAbrirConversa(contatoId: string): void;
+  onEntrar(): void;
 }
 
 function saudacao(): string {
@@ -19,19 +23,24 @@ function saudacao(): string {
   return 'Boa noite';
 }
 
-export function InicioPage({ employee, messages, chat, onAbrirMensagem, onNavegar }: InicioPageProps) {
-  const [emBreve, setEmBreve] = useState<string | null>(null);
+export function InicioPage({
+  employee,
+  messages,
+  chat,
+  mural,
+  atalhos,
+  onNavegar,
+  onAbrirConversa,
+  onEntrar,
+}: InicioPageProps) {
+  const [aviso, setAviso] = useState<string | null>(null);
 
-  // O aviso de "em breve" some sozinho
+  // O aviso some sozinho
   useEffect(() => {
-    if (!emBreve) return;
-    const timer = setTimeout(() => setEmBreve(null), 4000);
+    if (!aviso) return;
+    const timer = setTimeout(() => setAviso(null), 4000);
     return () => clearTimeout(timer);
-  }, [emBreve]);
-
-  // O destaque é o comunicado urgente não lido mais recente; sem urgente, o mais recente
-  const destaque =
-    messages.messages.find((m) => m.type === 'URGENTE' && !m.read) ?? messages.messages[0] ?? null;
+  }, [aviso]);
 
   const primeiroNome = employee?.name.trim().split(/\s+/)[0] ?? null;
 
@@ -50,19 +59,28 @@ export function InicioPage({ employee, messages, chat, onAbrirMensagem, onNavega
         </p>
       </header>
 
-      <GradeModulos
-        badges={{ comunicados: messages.unreadCount, chamados: chat.unreadCount }}
+      <GradeAtalhos
+        atalhos={atalhos}
+        podeEditar={Boolean(employee)}
+        badges={{ COMUNICADOS: messages.unreadCount, CHAT: chat.unreadCount }}
         onAbrir={onNavegar}
-        onIndisponivel={setEmBreve}
+        onAviso={setAviso}
       />
 
-      {emBreve && (
+      {aviso && (
         <p className="aviso-em-breve" role="status">
-          <strong>{emBreve}</strong> ainda não está disponível neste aplicativo.
+          {aviso}
         </p>
       )}
 
-      <CartaoDestaque message={destaque} onAbrir={onAbrirMensagem} />
+      <Mural post={mural} />
+
+      <HistoricoConversas
+        contatos={chat.contacts}
+        disponivel={chat.available}
+        onAbrir={onAbrirConversa}
+        onEntrar={onEntrar}
+      />
     </div>
   );
 }

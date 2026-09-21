@@ -210,6 +210,11 @@ export const contentRoutes: FastifyPluginAsync<{ content: ContentService }> = as
 
   // ---------------------------------------------------------------- foto de perfil
 
+  /** Foto atual de quem está logado no PC (o app mostra na barra e no perfil) */
+  app.get('/perfil/foto', computerOnly, async (request) => ({
+    foto: await content.fotoDoFuncionario(requireComputer(request)),
+  }));
+
   app.put('/perfil/foto', { ...computerOnly, schema: { body: fotoBody } }, async (request) => ({
     foto: await content.definirFotoDoFuncionario(requireComputer(request), (request.body as { midiaId: string }).midiaId),
   }));

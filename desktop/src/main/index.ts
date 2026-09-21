@@ -1,4 +1,15 @@
-import { app, dialog, ipcMain, Menu, powerMonitor, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  dialog,
+  ipcMain,
+  Menu,
+  powerMonitor,
+  protocol,
+  shell,
+  type BrowserWindow,
+  type IpcMainInvokeEvent,
+} from 'electron';
+import { readFile } from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as tls from 'node:tls';
@@ -7,10 +18,15 @@ import {
   CHAT_MESSAGE_MAX,
   IpcChannels,
   type AppState,
+  type Atalho,
   type ConnectionState,
+  type DadosAtalho,
+  type DestinoAtalho,
   type DpAttachment,
   type EmployeeProfile,
   type EmployeeState,
+  type MidiaPublica,
+  type MuralPost,
   type OperationResult,
   type SettingsView,
 } from '../shared/types';
@@ -159,6 +175,11 @@ function start(): void {
   const popup = new PopupManager(createPopupWindow);
   const badge = loadIcon('badge.png');
 
+  // Conteúdo da nova tela inicial: recado do mural, atalhos da pessoa e a foto dela
+  let mural: MuralPost | null = null;
+  let atalhos: Atalho[] = [];
+  let foto: MidiaPublica | null = null;
+
   // No desligamento/logoff do Windows o 'before-quit' não é garantido: o 'session-end' da janela
   // (ver ensureMainWindow) grava o cache. (powerMonitor 'shutdown' só existe no Linux/macOS.)
   app.on('before-quit', () => store.flush());
@@ -200,7 +221,21 @@ function start(): void {
   }
 
   function showMainWindow(): void {
-    const win = ensureMainWindow();
+    // Mídias do mural e fotos de perfil: a tela pede por dpmidia://m/<id> e o
+  // servidor responde aqui, com o token do PC. O Range do vídeo passa junto,
+  // então arrastar a barra funciona sem baixar o arquivo inteiro.
+  protocol.handle('dpmidia', async (request) => {
+    const id = decodeURIComponent(new URL(request.url).pathname.replace(/^\//, ''));
+    if (!api || !/^MID-[0-9a-f]{24}$/.test(id)) return new Response('', { status: 404 });
+    try {
+      return await api.buscarMidia(id, request.headers.get('Range') ?? undefined);
+    } catch (err) {
+      console.error('[mídia] falha ao buscar do servidor:', err);
+      return new Response('', { status: 502 });
+    }
+  });
+
+  const win = ensureMainWindow();
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
@@ -360,6 +395,35 @@ function start(): void {
     }
   }
 
+  /** Recado do mural: vale para qualquer pessoa, mesmo sem ninguém logado no PC */
+  async function syncMural(): Promise<void> {
+    if (!api || connection.getState().status !== 'connected') return;
+    try {
+      mural = await api.obterMural();
+      sendToMain(IpcChannels.MuralChanged, mural);
+    } catch (err) {
+      console.error('[mural] falha ao buscar o recado:', err);
+    }
+  }
+
+  /** Atalhos e foto são de quem está logado; sem funcionário, a tela fica sem eles */
+  async function syncPerfil(): Promise<void> {
+    if (!api || connection.getState().status !== 'connected' || !employee) {
+      atalhos = [];
+      foto = null;
+      sendToMain(IpcChannels.AtalhosChanged, atalhos);
+      sendToMain(IpcChannels.FotoChanged, foto);
+      return;
+    }
+    try {
+      [atalhos, foto] = await Promise.all([api.listarAtalhos(), api.obterFoto()]);
+      sendToMain(IpcChannels.AtalhosChanged, atalhos);
+      sendToMain(IpcChannels.FotoChanged, foto);
+    } catch (err) {
+      console.error('[perfil] falha ao buscar atalhos/foto:', err);
+    }
+  }
+
   // ---------------------------------------------------------------- IPC (origem e entradas sempre validadas)
 
   handle(IpcChannels.GetState, (): AppState => ({
@@ -370,6 +434,9 @@ function start(): void {
     chat: chat.getState(),
     employee,
     employeeChecked,
+    mural,
+    atalhos,
+    foto,
   }));
 
   handle(IpcChannels.ChatOpen, async (rawId): Promise<OperationResult> => {
@@ -599,6 +666,106 @@ function start(): void {
     return { ok: true, message: 'Configurações salvas.' };
   });
 
+  // ---------------------------------------------------------------- atalhos e foto de perfil
+
+  const DESTINOS_VALIDOS: DestinoAtalho[] = ['COMUNICADOS', 'CHAT', 'PERFIL', 'CONFIGURACOES', 'MURAL'];
+  const COR_VALIDA = /^#[0-9a-fA-F]{6}$/;
+
+  /** Confere o que veio da tela antes de mandar para o servidor. */
+  function lerDadosAtalho(bruto: unknown): DadosAtalho | null {
+    if (!bruto || typeof bruto !== 'object') return null;
+    const { rotulo, icone, cor, destino } = bruto as Record<string, unknown>;
+    if (typeof rotulo !== 'string' || !rotulo.trim() || rotulo.length > 24) return null;
+    if (typeof icone !== 'string' || !icone.trim() || icone.length > 8) return null;
+    if (typeof cor !== 'string' || !COR_VALIDA.test(cor)) return null;
+    if (typeof destino !== 'string' || !DESTINOS_VALIDOS.includes(destino as DestinoAtalho)) return null;
+    return { rotulo: rotulo.trim(), icone: icone.trim(), cor, destino: destino as DestinoAtalho };
+  }
+
+  async function comApi<T>(acao: (client: ApiClient) => Promise<T>): Promise<{ ok: true; dados: T } | OperationResult> {
+    if (!api || connection.getState().status !== 'connected') {
+      return { ok: false, message: 'Sem conexão com o servidor.' };
+    }
+    try {
+      return { ok: true, dados: await acao(api) };
+    } catch (err) {
+      const mensagem = err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.';
+      return { ok: false, message: mensagem };
+    }
+  }
+
+  handle(IpcChannels.AtalhoCreate, async (bruto): Promise<OperationResult> => {
+    const dados = lerDadosAtalho(bruto);
+    if (!dados) return { ok: false, message: 'Preencha nome, ícone, cor e destino do atalho.' };
+    const saida = await comApi((client) => client.criarAtalho(dados));
+    if (!('dados' in saida)) return saida;
+    await syncPerfil();
+    return { ok: true, message: 'Atalho criado.' };
+  });
+
+  handle(IpcChannels.AtalhoUpdate, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; dados?: unknown } | null;
+    const id = typeof entrada?.id === 'string' ? entrada.id : null;
+    const dados = lerDadosAtalho(entrada?.dados);
+    if (!id || !dados) return { ok: false, message: 'Atalho inválido.' };
+    const saida = await comApi((client) => client.atualizarAtalho(id, dados));
+    if (!('dados' in saida)) return saida;
+    await syncPerfil();
+    return { ok: true, message: 'Atalho alterado.' };
+  });
+
+  handle(IpcChannels.AtalhoDelete, async (bruto): Promise<OperationResult> => {
+    if (typeof bruto !== 'string') return { ok: false, message: 'Atalho inválido.' };
+    const saida = await comApi((client) => client.removerAtalho(bruto));
+    if (!('dados' in saida)) return saida;
+    await syncPerfil();
+    return { ok: true, message: 'Atalho removido.' };
+  });
+
+  handle(IpcChannels.AtalhoReorder, async (bruto): Promise<OperationResult> => {
+    if (!Array.isArray(bruto) || bruto.some((id) => typeof id !== 'string')) {
+      return { ok: false, message: 'Ordem inválida.' };
+    }
+    const saida = await comApi((client) => client.reordenarAtalhos(bruto as string[]));
+    if (!('dados' in saida)) return saida;
+    await syncPerfil();
+    return { ok: true, message: '' };
+  });
+
+  /** Escolhe a imagem no disco, envia ao servidor e passa a ser a foto da pessoa. */
+  handle(IpcChannels.FotoUpload, async (): Promise<OperationResult> => {
+    const escolha = await dialog.showOpenDialog({
+      title: 'Escolha a sua foto',
+      properties: ['openFile'],
+      filters: [{ name: 'Imagens', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    });
+    if (escolha.canceled || escolha.filePaths.length === 0) return { ok: false, message: '' };
+
+    const caminho = escolha.filePaths[0];
+    const extensao = caminho.slice(caminho.lastIndexOf('.')).toLowerCase();
+    const tipos: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+    const mimeType = tipos[extensao];
+    if (!mimeType) return { ok: false, message: 'Escolha uma imagem JPG, PNG ou WEBP.' };
+
+    const conteudo = await readFile(caminho);
+    if (conteudo.length > 10 * 1024 * 1024) return { ok: false, message: 'A imagem passa de 10 MB.' };
+
+    const envio = await comApi(async (client) => {
+      const midia = await client.enviarMidia(conteudo, mimeType, caminho.split(/[\/]/).pop() ?? 'foto');
+      return client.definirFoto(midia.id);
+    });
+    if (!('dados' in envio)) return envio;
+    await syncPerfil();
+    return { ok: true, message: 'Foto atualizada.' };
+  });
+
+  handle(IpcChannels.FotoRemove, async (): Promise<OperationResult> => {
+    const saida = await comApi((client) => client.removerFoto());
+    if (!('dados' in saida)) return saida;
+    await syncPerfil();
+    return { ok: true, message: 'Foto removida.' };
+  });
+
   // ---------------------------------------------------------------- eventos
 
   popup.on('view', (messageId) => {
@@ -617,7 +784,7 @@ function start(): void {
   connection.on('connected', () => {
     const client = api;
     if (!client) return;
-    void refreshSession(client).then(() => Promise.all([syncWithServer(), syncChat()]));
+    void refreshSession(client).then(() => Promise.all([syncWithServer(), syncChat(), syncMural(), syncPerfil()]));
   });
 
   // O servidor mudou a sessão (expirou, funcionário desativado, senha redefinida pelo DP, setor/turno alterado)
@@ -683,6 +850,13 @@ function start(): void {
     app.on('before-quit', () => atualizador.parar());
   }
 }
+
+// Esquema próprio para as mídias do servidor. Declarado antes do app ficar pronto,
+// como o Electron exige. A tela usa dpmidia://m/<id> em <img> e <video>; o processo
+// principal busca no servidor com o token do PC e repassa (inclusive o Range do vídeo).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'dpmidia', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
+]);
 
 // Em desenvolvimento, dados separados do app instalado ("Comunicação DP-dev"): os dois podem rodar
 // juntos, e o teste não mexe na configuração, identidade nem cache da instalação real.

@@ -20,12 +20,20 @@ export function useDesktopState(): AppState | null {
       setState((current) => (current ? { ...current, employee, employeeChecked: checked } : current)),
     );
     const offChat = window.dp.onChatChange((chat) => setState((current) => (current ? { ...current, chat } : current)));
+    const offMural = window.dp.onMuralChange((mural) => setState((current) => (current ? { ...current, mural } : current)));
+    const offAtalhos = window.dp.onAtalhosChange((atalhos) =>
+      setState((current) => (current ? { ...current, atalhos } : current)),
+    );
+    const offFoto = window.dp.onFotoChange((foto) => setState((current) => (current ? { ...current, foto } : current)));
     return () => {
       active = false;
       offConnection();
       offMessages();
       offEmployee();
       offChat();
+      offMural();
+      offAtalhos();
+      offFoto();
     };
   }, []);
 

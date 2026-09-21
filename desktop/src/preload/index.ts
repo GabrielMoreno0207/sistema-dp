@@ -36,6 +36,16 @@ const api: DesktopApi = {
   chatSend: (dpUserId, content) => ipcRenderer.invoke(IpcChannels.ChatSend, dpUserId, content),
   chatMarkRead: (dpUserId) => ipcRenderer.invoke(IpcChannels.ChatMarkRead, dpUserId),
   onChatChange: (listener) => subscribe(IpcChannels.ChatChanged, listener),
+
+  criarAtalho: (dados) => ipcRenderer.invoke(IpcChannels.AtalhoCreate, dados),
+  atualizarAtalho: (id, dados) => ipcRenderer.invoke(IpcChannels.AtalhoUpdate, { id, dados }),
+  removerAtalho: (id) => ipcRenderer.invoke(IpcChannels.AtalhoDelete, id),
+  reordenarAtalhos: (ids) => ipcRenderer.invoke(IpcChannels.AtalhoReorder, ids),
+  onAtalhosChange: (listener) => subscribe(IpcChannels.AtalhosChanged, listener),
+  onMuralChange: (listener) => subscribe(IpcChannels.MuralChanged, listener),
+  enviarFoto: () => ipcRenderer.invoke(IpcChannels.FotoUpload),
+  removerFoto: () => ipcRenderer.invoke(IpcChannels.FotoRemove),
+  onFotoChange: (listener) => subscribe(IpcChannels.FotoChanged, listener),
 };
 
 contextBridge.exposeInMainWorld('dp', api);

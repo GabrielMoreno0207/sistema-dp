@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ConnectionState, EmployeeProfile } from '../../../shared/types';
+import type { ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
 import { ConnectionBadge } from './ConnectionBadge';
 
 interface BarraSuperiorProps {
   employee: EmployeeProfile | null;
+  /** Foto de perfil, quando a pessoa enviou uma */
+  foto: MidiaPublica | null;
   connection: ConnectionState;
   onAbrirPerfil(): void;
   onAbrirConfiguracoes(): void;
@@ -16,7 +18,7 @@ function iniciais(nome: string): string {
   return ((partes[0]?.[0] ?? '') + (partes.length > 1 ? partes[partes.length - 1][0] : '')).toUpperCase();
 }
 
-export function BarraSuperior({ employee, connection, onAbrirPerfil, onAbrirConfiguracoes, onEntrar }: BarraSuperiorProps) {
+export function BarraSuperior({ employee, foto, connection, onAbrirPerfil, onAbrirConfiguracoes, onEntrar }: BarraSuperiorProps) {
   const [menuAberto, setMenuAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export function BarraSuperior({ employee, connection, onAbrirPerfil, onAbrirConf
             aria-haspopup="menu"
           >
             <span className="menu-usuario__avatar" aria-hidden>
-              {employee ? iniciais(employee.name) : '👤'}
+              {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee ? iniciais(employee.name) : '👤'}
             </span>
             <span className="menu-usuario__nome">{employee?.name ?? 'Entrar'}</span>
             <span className="menu-usuario__seta" aria-hidden>
