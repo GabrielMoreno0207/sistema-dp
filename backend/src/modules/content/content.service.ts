@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import type { Readable } from 'node:stream';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import type { EmployeeService } from '../employees/employee.service';
+import type { MuralNotifier } from '../../realtime/socket-server';
 import type { UserRepository } from '../users/user.repository';
 import type { AtalhoRepository, MidiaRepository, MuralRepository } from './content.repository';
 import { ERRO_TAMANHO, type MidiaStorage } from './content.storage';
@@ -71,6 +72,7 @@ export class ContentService {
     private readonly users: UserRepository,
     private readonly employees: EmployeeService,
     private readonly storage: MidiaStorage,
+    private readonly realtime: MuralNotifier,
     private readonly log: FastifyBaseLogger,
   ) {}
 
@@ -195,6 +197,7 @@ export class ContentService {
       updatedAt: agora,
     };
     await this.mural.create(post);
+    this.realtime.muralAtualizado();
     this.log.info(`Mural publicado por ${criadoPor}: ${post.titulo}`);
     return this.completar(post);
   }
@@ -212,12 +215,14 @@ export class ContentService {
       },
       new Date().toISOString(),
     );
+    this.realtime.muralAtualizado();
     return this.completar(atualizado);
   }
 
   async removerMural(id: string): Promise<void> {
     const removido = await this.mural.delete(id);
     if (!removido) throw new NotFoundError('Recado do mural não encontrado');
+    this.realtime.muralAtualizado();
   }
 
   private async midiaExistente(midiaId: string | null): Promise<string | null> {

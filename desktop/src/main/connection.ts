@@ -18,6 +18,8 @@ export interface ServerConnectionEvents {
   sessionChanged: [EmployeeProfile | null];
   /** Mensagem nova no chat do funcionário logado (do DP, ou dele mesmo enviada de outro PC) */
   chat: [ChatMessage];
+  /** O DP mudou o recado do mural: o app busca o novo */
+  mural: [];
 }
 
 export interface ConnectionCredentials {
@@ -166,6 +168,12 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
       const message = parseChatMessage(payload);
       if (message) this.emit('chat', message);
       else console.warn('[conexão] mensagem de chat com formato inválido ignorada');
+    });
+
+    // Só o aviso: o conteúdo vem pela API, com o token do PC
+    socket.on('mural:atualizado', () => {
+      if (this.isStale(generation)) return;
+      this.emit('mural');
     });
 
     socket.on('message:new', (payload: unknown) => {

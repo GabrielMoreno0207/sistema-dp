@@ -153,6 +153,7 @@ export function buildApp({
     repositories.users,
     employees,
     new MidiaStorage(midiasPath),
+    realtime,
     app.log,
   );
 

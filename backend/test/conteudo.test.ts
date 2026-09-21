@@ -30,6 +30,9 @@ if (!POSTGRES_URL) delete process.env.DATABASE_URL;
 
 let app: FastifyInstance;
 let fecharBanco: () => Promise<void>;
+/** Serviço com um avisador de mentira, para conferir que os PCs são avisados */
+let servicoComEspiao: import('../src/modules/content/content.service').ContentService;
+let avisosDeMural = 0;
 let tokenDp: string;
 let tokenPc: string;
 
@@ -70,6 +73,20 @@ before(async () => {
   fecharBanco = banco.close;
   app = buildApp({ repositories: banco.repositories });
   await app.ready();
+
+  const { ContentService } = await import('../src/modules/content/content.service');
+  const { MidiaStorage } = await import('../src/modules/content/content.storage');
+  const { EmployeeService } = await import('../src/modules/employees/employee.service');
+  servicoComEspiao = new ContentService(
+    banco.repositories.midias,
+    banco.repositories.mural,
+    banco.repositories.atalhos,
+    banco.repositories.users,
+    {} as EmployeeService, // o teste do aviso não passa pelo funcionário
+    new MidiaStorage(join(BASE, 'midias')),
+    { muralAtualizado: () => (avisosDeMural += 1) },
+    app.log,
+  );
 
   const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'admin', password: SENHA } });
   tokenDp = login.json().token;
@@ -226,6 +243,23 @@ describe('mural', () => {
     assert.equal(resposta.statusCode, 200);
     assert.equal(resposta.json().post.titulo, 'Folha de setembro');
     assert.equal(resposta.json().post.midia.tipo, 'IMAGEM');
+  });
+
+  test('publicar, editar e apagar avisam os PCs conectados', async () => {
+    // O app escuta 'mural:atualizado' e busca o recado novo; sem esse aviso,
+    // o mural só apareceria na próxima vez que o aplicativo conectasse.
+    avisosDeMural = 0;
+    const post = await servicoComEspiao.criarMural(
+      { titulo: 'Aviso rápido', texto: 'Teste de aviso.', midiaId: null, ativo: false },
+      'TI',
+    );
+    assert.equal(avisosDeMural, 1);
+
+    await servicoComEspiao.atualizarMural(post.id, { titulo: 'Aviso rápido', texto: 'Editado.', midiaId: null, ativo: false });
+    assert.equal(avisosDeMural, 2);
+
+    await servicoComEspiao.removerMural(post.id);
+    assert.equal(avisosDeMural, 3);
   });
 
   test('o recado mais novo substitui o anterior na tela', async () => {

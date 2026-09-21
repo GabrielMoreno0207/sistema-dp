@@ -399,8 +399,12 @@ function start(): void {
   async function syncMural(): Promise<void> {
     if (!api || connection.getState().status !== 'connected') return;
     try {
+      const anterior = mural?.id ?? null;
       mural = await api.obterMural();
       sendToMain(IpcChannels.MuralChanged, mural);
+      if ((mural?.id ?? null) !== anterior) {
+        console.log(`[mural] ${mural ? `recado em exibição: ${mural.titulo}` : 'nenhum recado em exibição'}`);
+      }
     } catch (err) {
       console.error('[mural] falha ao buscar o recado:', err);
     }
@@ -800,6 +804,11 @@ function start(): void {
     void syncChat();
   });
 
+  // O DP trocou o recado do mural: busca na hora, sem esperar reconectar
+  connection.on('mural', () => {
+    void syncMural();
+  });
+
   // Chat: só atualiza o contador e a conversa (sem popup nem som)
   connection.on('chat', (message) => {
     if (!employee || message.employeeId !== employee.id) return;
@@ -834,6 +843,12 @@ function start(): void {
   const win = ensureMainWindow();
   if (!startHidden) win.once('ready-to-show', () => win.show());
   connection.start();
+
+  // Rede de segurança para o mural: se o aviso do servidor se perder (socket caído,
+  // rede instável), uma busca periódica mantém o recado em dia mesmo assim.
+  const RECARGA_MURAL_MS = 15 * 60_000;
+  const timerMural = setInterval(() => void syncMural(), RECARGA_MURAL_MS);
+  app.on('before-quit', () => clearInterval(timerMural));
 
   // Atualização automática: todo dia de madrugada o app pergunta ao servidor se
   // há versão nova, baixa, confere o hash e instala sem ninguém precisar mexer.

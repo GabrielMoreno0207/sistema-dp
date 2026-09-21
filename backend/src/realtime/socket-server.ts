@@ -17,6 +17,8 @@ export interface ServerToClientEvents {
   'session:changed': (payload: { employee: EmployeeProfile | null }) => void;
   /** Mensagem do chat (do DP ou do próprio funcionário, enviada de outro PC) */
   'chat:message': (message: ChatMessage) => void;
+  /** O recado do mural mudou: o app busca o novo (o conteúdo não vai no evento) */
+  'mural:atualizado': () => void;
 }
 
 // O cliente não envia eventos por enquanto; tudo que ele faz passa pela API REST.
@@ -64,9 +66,14 @@ function roomFor(message: Message): string | null {
   }
 }
 
-export interface RealtimeGateway extends MessageNotifier, ChatNotifier {
+export interface RealtimeGateway extends MessageNotifier, ChatNotifier, MuralNotifier {
   /** Derruba as conexões de um PC (ex.: credencial liberada pelo DP) */
   disconnectComputer(computerId: string): void;
+}
+
+/** Avisa os PCs conectados de que o mural mudou. */
+export interface MuralNotifier {
+  muralAtualizado(): void;
 }
 
 export function createSocketServer(
@@ -171,6 +178,14 @@ export function createSocketServer(
       const room = Rooms.employee(message.employeeId);
       io.to(room).emit('chat:message', message);
       return roomSize(room);
+    },
+    /**
+     * Mural trocado pelo DP: todos os PCs conectados buscam o novo recado.
+     * Vai só o aviso, sem o conteúdo: assim o app usa a mesma rota de sempre
+     * e não existe uma segunda versão do recado circulando.
+     */
+    muralAtualizado(): void {
+      io.to(Rooms.all).emit('mural:atualizado');
     },
     /** Envia a mensagem aos PCs destinatários conectados. Retorna quantos sockets receberam. */
     async publish(message: Message): Promise<number> {
