@@ -190,6 +190,35 @@ src/
         └── lib/            # tipos de mensagem, som
 ```
 
+## Atualização automática
+
+O aplicativo instalado se atualiza sozinho, sem ninguém precisar trocar o executável.
+
+**Como funciona:** todo dia às **03:00** o app pergunta ao servidor se existe
+versão mais nova que a instalada (`GET /api/atualizacoes/desktop/verificar`).
+Havendo, ele baixa o instalador pela API autenticada, confere o SHA-256 que o
+servidor informou e roda o instalador em modo silencioso (`/S`), que troca os
+arquivos e abre o aplicativo de novo.
+
+**Quando o PC fica desligado de madrugada:** três minutos depois de abrir, o app
+verifica de novo. Assim quem só liga o computador de manhã também atualiza.
+
+**Sem atrapalhar quem está usando:** antes de instalar, o app olha há quanto
+tempo o computador está ocioso. Se alguém estiver mexendo, ele espera 30 minutos
+e tenta de novo — a menos que a versão tenha sido publicada como *obrigatória*,
+que instala na hora.
+
+**Se o download vier corrompido,** o hash não bate, o arquivo é descartado e nada
+é instalado; fica para a próxima verificação.
+
+**Mudar o horário:** `HORARIO_ATUALIZACAO=04:30` no `.env` ao lado do executável.
+Valor inválido cai no padrão de 03:00.
+
+Rodando pelo código-fonte (`npm run dev`) a atualização automática fica desligada,
+porque não existe instalador nesse caso.
+
+Quem publica as versões é o **versionador** (`versionador.cmd`, na raiz do projeto).
+
 ## Problemas comuns
 
 | Sintoma | O que fazer |

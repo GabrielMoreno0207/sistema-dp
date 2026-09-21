@@ -15,6 +15,7 @@ import {
   type SettingsView,
 } from '../shared/types';
 import { ApiClient, ApiError } from './api-client';
+import { Atualizador } from './atualizador';
 import { ChatStore } from './chat-store';
 import { getComputerIdentity } from './computer-identity';
 import { loadConfig, normalizeServerUrl, saveConfig } from './config';
@@ -666,6 +667,21 @@ function start(): void {
   const win = ensureMainWindow();
   if (!startHidden) win.once('ready-to-show', () => win.show());
   connection.start();
+
+  // Atualização automática: todo dia de madrugada o app pergunta ao servidor se
+  // há versão nova, baixa, confere o hash e instala sem ninguém precisar mexer.
+  // Só no aplicativo instalado: rodando pelo código-fonte não existe instalador.
+  if (app.isPackaged) {
+    const atualizador = new Atualizador({
+      obterApi: () => api,
+      estaConectado: () => connection.getState().status === 'connected',
+      versaoAtual: app.getVersion(),
+      horario: process.env.HORARIO_ATUALIZACAO,
+      log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
+    });
+    atualizador.iniciar();
+    app.on('before-quit', () => atualizador.parar());
+  }
 }
 
 // Em desenvolvimento, dados separados do app instalado ("Comunicação DP-dev"): os dois podem rodar

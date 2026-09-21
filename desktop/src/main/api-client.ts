@@ -1,9 +1,25 @@
+import { createHash } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { ChatContact, ChatMessage, ComputerInfo, DpMessage, EmployeeProfile } from '../shared/types';
 import { parseChatContact, parseChatMessage, parseEmployee, parseMessage } from './message-validation';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 /** Anexo pode ter alguns MB: mais folga que uma chamada comum */
 const ATTACHMENT_TIMEOUT_MS = 60_000;
+/** Instalador passa de 80 MB e pode vir por rede lenta */
+const DOWNLOAD_TIMEOUT_MS = 20 * 60_000;
+
+/** Versão nova anunciada pelo servidor. */
+export interface VersaoDisponivel {
+  versao: string;
+  url: string;
+  sha256: string;
+  tamanho: number;
+  notas: string;
+  obrigatoria: boolean;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -136,5 +152,53 @@ export class ApiClient {
 
   async markChatRead(dpUserId: string): Promise<void> {
     await this.request('POST', '/api/chat/read', { dpUserId });
+  }
+
+  // ---- Atualização do aplicativo ----
+
+  /** Pergunta ao servidor se existe versão mais nova que a instalada. */
+  async verificarAtualizacao(versaoAtual: string): Promise<VersaoDisponivel | null> {
+    const data = await this.request<{ temAtualizacao?: boolean; release?: unknown }>(
+      'GET',
+      `/api/atualizacoes/desktop/verificar?versao=${encodeURIComponent(versaoAtual)}`,
+    );
+    if (!data.temAtualizacao || !data.release) return null;
+    const release = data.release as Partial<VersaoDisponivel>;
+    if (typeof release.versao !== 'string' || typeof release.url !== 'string' || typeof release.sha256 !== 'string') {
+      throw new ApiError('Resposta de atualização inválida', 500);
+    }
+    return {
+      versao: release.versao,
+      url: release.url,
+      sha256: release.sha256,
+      tamanho: Number(release.tamanho ?? 0),
+      notas: String(release.notas ?? ''),
+      obrigatoria: release.obrigatoria === true,
+    };
+  }
+
+  /**
+   * Baixa o instalador gravando direto em disco (são dezenas de MB) e confere
+   * o SHA-256 no caminho. Devolve false se o arquivo chegou corrompido.
+   */
+  async baixarAtualizacao(versao: VersaoDisponivel, destino: string): Promise<boolean> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+
+    const response = await fetch(`${this.baseUrl}${versao.url}`, {
+      headers,
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    });
+    if (!response.ok || !response.body) {
+      throw new ApiError(`Erro HTTP ${response.status} ao baixar a atualização`, response.status);
+    }
+
+    const hash = createHash('sha256');
+    const arquivo = createWriteStream(destino);
+    const leitura = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0]);
+    leitura.on('data', (parte: Buffer) => hash.update(parte));
+    await pipeline(leitura, arquivo);
+
+    return hash.digest('hex') === versao.sha256;
   }
 }
