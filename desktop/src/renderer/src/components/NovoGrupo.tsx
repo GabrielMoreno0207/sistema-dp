@@ -2,19 +2,20 @@ import { useMemo, useState } from 'react';
 import type { ConversaResumo, Participante } from '../../../shared/types';
 import { iniciais } from './conversa-comuns';
 
-interface NovaConversaProps {
-  tipo: 'direta' | 'grupo';
+interface NovoGrupoProps {
   contatos: Participante[];
   onFechar(): void;
-  onCriada(conversa: ConversaResumo): void;
+  onCriado(conversa: ConversaResumo): void;
 }
 
 /**
- * Janela de "+ Conversa" e "+ Grupo". Na conversa direta escolhe-se uma
- * pessoa; no grupo, o nome e quantas pessoas quiser (quem cria vira admin do
- * grupo e entra automaticamente).
+ * Janela de "+ Grupo": nome e quantas pessoas quiser. Quem cria vira
+ * administrador do grupo e já entra nele.
+ *
+ * Conversa direta não passa por aqui: todo mundo que tem conta já aparece na
+ * lista da esquerda, e basta clicar na pessoa.
  */
-export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConversaProps) {
+export function NovoGrupo({ contatos, onFechar, onCriado }: NovoGrupoProps) {
   const [busca, setBusca] = useState('');
   const [nome, setNome] = useState('');
   const [escolhidos, setEscolhidos] = useState<string[]>([]);
@@ -32,21 +33,7 @@ export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConvers
     );
   }, [busca, contatos]);
 
-  async function criarDireta(pessoaId: string) {
-    setSalvando(true);
-    setErro(null);
-    const resposta = await window.dp.conversasApi<ConversaResumo>('POST', '/api/conversas/direta', {
-      comUsuarioId: pessoaId,
-    });
-    setSalvando(false);
-    if (!resposta.ok || !resposta.dados) {
-      setErro(resposta.message || 'Não foi possível abrir a conversa.');
-      return;
-    }
-    onCriada(resposta.dados);
-  }
-
-  async function criarGrupo() {
+  async function criar() {
     const titulo = nome.trim();
     if (!titulo || escolhidos.length === 0) {
       setErro('Dê um nome ao grupo e escolha pelo menos uma pessoa.');
@@ -63,7 +50,7 @@ export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConvers
       setErro(resposta.message || 'Não foi possível criar o grupo.');
       return;
     }
-    onCriada(resposta.dados);
+    onCriado(resposta.dados);
   }
 
   function alternar(id: string) {
@@ -73,26 +60,24 @@ export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConvers
   return (
     <div className="modal" role="dialog" aria-modal="true">
       <div className="modal__caixa">
-        <h2 className="modal__titulo">{tipo === 'direta' ? 'Nova conversa' : 'Novo grupo'}</h2>
-
-        {tipo === 'grupo' && (
-          <label className="field">
-            <span>Nome do grupo</span>
-            <input
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex.: Equipe da expedição"
-              maxLength={60}
-            />
-          </label>
-        )}
+        <h2 className="modal__titulo">Novo grupo</h2>
 
         <label className="field">
-          <span>Procurar pessoa</span>
+          <span>Nome do grupo</span>
+          <input
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            placeholder="Ex.: Equipe da expedição"
+            maxLength={60}
+          />
+        </label>
+
+        <label className="field">
+          <span>Quem participa</span>
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Nome, setor ou matrícula"
+            placeholder="Procurar por nome, setor ou matrícula"
           />
         </label>
 
@@ -104,7 +89,7 @@ export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConvers
             <li key={pessoa.id}>
               <button
                 className={`escolha-pessoa ${escolhidos.includes(pessoa.id) ? 'escolha-pessoa--marcada' : ''}`}
-                onClick={() => (tipo === 'direta' ? void criarDireta(pessoa.id) : alternar(pessoa.id))}
+                onClick={() => alternar(pessoa.id)}
                 disabled={salvando}
               >
                 <span className="escolha-pessoa__avatar" aria-hidden>
@@ -114,27 +99,23 @@ export function NovaConversa({ tipo, contatos, onFechar, onCriada }: NovaConvers
                   <strong>{pessoa.nome}</strong>
                   <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>
                 </span>
-                {tipo === 'grupo' && escolhidos.includes(pessoa.id) && <span aria-hidden>✓</span>}
+                {escolhidos.includes(pessoa.id) && <span aria-hidden>✓</span>}
               </button>
             </li>
           ))}
         </ul>
 
         <div className="modal__rodape">
-          {tipo === 'grupo' && (
-            <span className="escolha-pessoas__contagem">
-              {escolhidos.length} {escolhidos.length === 1 ? 'pessoa escolhida' : 'pessoas escolhidas'}
-            </span>
-          )}
+          <span className="escolha-pessoas__contagem">
+            {escolhidos.length} {escolhidos.length === 1 ? 'pessoa escolhida' : 'pessoas escolhidas'}
+          </span>
           <span className="modal__espaco" />
           <button className="btn" onClick={onFechar} disabled={salvando}>
             Cancelar
           </button>
-          {tipo === 'grupo' && (
-            <button className="btn btn--primary" onClick={() => void criarGrupo()} disabled={salvando}>
-              {salvando ? 'Criando...' : 'Criar grupo'}
-            </button>
-          )}
+          <button className="btn btn--primary" onClick={() => void criar()} disabled={salvando}>
+            {salvando ? 'Criando...' : 'Criar grupo'}
+          </button>
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import type {
   MidiaPublica,
   Participante,
 } from '../../../shared/types';
-import { NovaConversa } from '../components/NovaConversa';
+import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
 import { MensagemDaConversa, dataDoDia, iniciais } from '../components/conversa-comuns';
 
@@ -31,7 +31,8 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [criando, setCriando] = useState<'direta' | 'grupo' | null>(null);
+  const [criandoGrupo, setCriandoGrupo] = useState(false);
+  const [busca, setBusca] = useState('');
   const [verGrupo, setVerGrupo] = useState(false);
   const [temMais, setTemMais] = useState(false);
   const fimRef = useRef<HTMLDivElement>(null);
@@ -200,6 +201,23 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
     await carregarLista();
   }
 
+  /**
+   * Clique em alguém que ainda não tem conversa: o servidor abre a conversa
+   * direta (ou devolve a que já existia) e ela entra na lista.
+   */
+  async function abrirComPessoa(pessoaId: string) {
+    setErro(null);
+    const resposta = await window.dp.conversasApi<ConversaResumo>('POST', '/api/conversas/direta', {
+      comUsuarioId: pessoaId,
+    });
+    if (!resposta.ok || !resposta.dados) {
+      setErro(resposta.message || 'Não foi possível abrir a conversa.');
+      return;
+    }
+    await carregarLista();
+    await abrir(resposta.dados.id);
+  }
+
   function aoDigitar(evento: KeyboardEvent<HTMLTextAreaElement>) {
     // Enter envia; Shift+Enter quebra a linha
     if (evento.key === 'Enter' && !evento.shiftKey) {
@@ -208,12 +226,33 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
     }
   }
 
-  /** Conversa criada (direta ou grupo): entra na lista e já abre */
+  /** Grupo criado: entra na lista e já abre */
   async function aoCriar(conversa: ConversaResumo) {
-    setCriando(null);
+    setCriandoGrupo(false);
     await carregarLista();
     await abrir(conversa.id);
   }
+
+  const termo = busca.trim().toLowerCase();
+
+  function combina(...campos: (string | null)[]): boolean {
+    if (!termo) return true;
+    return campos.some((campo) => (campo ?? '').toLowerCase().includes(termo));
+  }
+
+  // Quem já tem conversa direta não precisa aparecer de novo na lista de pessoas
+  const jaTemConversa = new Set(
+    conversas
+      .filter((conversa) => conversa.tipo === 'DIRETA')
+      .flatMap((conversa) => conversa.participantes.map((pessoa) => pessoa.id)),
+  );
+  const conversasVisiveis = conversas.filter((conversa) =>
+    combina(conversa.titulo, ...conversa.participantes.map((pessoa) => pessoa.nome)),
+  );
+  const pessoasSemConversa = contatos
+    .filter((pessoa) => !jaTemConversa.has(pessoa.id))
+    .filter((pessoa) => combina(pessoa.nome, pessoa.setor, pessoa.matricula))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   let diaAnterior = '';
 
@@ -227,27 +266,34 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
             {identidade.ehDp && ' (DP)'}
           </p>
           <div className="contacts__acoes">
-            <button className="btn btn--primary btn--sm" onClick={() => setCriando('direta')}>
-              + Conversa
-            </button>
-            <button className="btn btn--sm" onClick={() => setCriando('grupo')}>
+            <input
+              className="contacts__busca"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Procurar pessoa ou grupo"
+              aria-label="Procurar pessoa ou grupo"
+            />
+            <button className="btn btn--sm" onClick={() => setCriandoGrupo(true)}>
               + Grupo
             </button>
           </div>
         </header>
 
-        {conversas.length === 0 ? (
+        {conversasVisiveis.length === 0 && pessoasSemConversa.length === 0 ? (
           <div className="empty-state">
             <span aria-hidden>💬</span>
             <p>
-              {online
-                ? 'Nenhuma conversa ainda. Use "+ Conversa" para falar com um colega ou com o DP.'
-                : 'As conversas aparecem quando o app estiver 🟢 Conectado.'}
+              {termo
+                ? 'Ninguém encontrado com esse termo.'
+                : online
+                  ? 'Ninguém mais tem conta no sistema ainda.'
+                  : 'As conversas aparecem quando o app estiver 🟢 Conectado.'}
             </p>
           </div>
         ) : (
           <ul className="contacts__list">
-            {conversas.map((conversa) => (
+            {conversasVisiveis.length > 0 && <li className="contacts__secao">Conversas</li>}
+            {conversasVisiveis.map((conversa) => (
               <li key={conversa.id}>
                 <button
                   className={`contact ${conversa.id === abertaId ? 'contact--active' : ''} ${
@@ -272,10 +318,31 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
                               ? conversa.ultimaMensagem.conteudo || '📎 arquivo'
                               : conversa.ultimaMensagem.conteudo
                           }`
-                        : 'Clique para conversar'}
+                        : conversa.tipo === 'GRUPO'
+                          ? `${conversa.participantes.length} participantes`
+                          : 'Clique para conversar'}
                     </span>
                   </span>
                   {conversa.naoLidas > 0 && <span className="contact__badge">{conversa.naoLidas}</span>}
+                </button>
+              </li>
+            ))}
+
+            {pessoasSemConversa.length > 0 && <li className="contacts__secao">Pessoas</li>}
+            {pessoasSemConversa.map((pessoa) => (
+              <li key={pessoa.id}>
+                <button className="contact" onClick={() => void abrirComPessoa(pessoa.id)}>
+                  <span className="contact__avatar" aria-hidden>
+                    {iniciais(pessoa.nome)}
+                  </span>
+                  <span className="contact__main">
+                    <span className="contact__top">
+                      <span className="contact__name">{pessoa.nome}</span>
+                    </span>
+                    <span className="contact__preview">
+                      {pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}
+                    </span>
+                  </span>
                 </button>
               </li>
             ))}
@@ -287,7 +354,7 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
         {!aberta ? (
           <div className="empty-state empty-state--detail">
             <span aria-hidden>💬</span>
-            <p>Escolha uma conversa à esquerda, ou comece uma nova.</p>
+            <p>Escolha uma pessoa ou um grupo à esquerda para começar.</p>
             {erro && <p className="feedback feedback--error">{erro}</p>}
           </div>
         ) : (
@@ -407,12 +474,11 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
         )}
       </section>
 
-      {criando && (
-        <NovaConversa
-          tipo={criando}
+      {criandoGrupo && (
+        <NovoGrupo
           contatos={contatos}
-          onFechar={() => setCriando(null)}
-          onCriada={(conversa) => void aoCriar(conversa)}
+          onFechar={() => setCriandoGrupo(false)}
+          onCriado={(conversa) => void aoCriar(conversa)}
         />
       )}
     </div>
