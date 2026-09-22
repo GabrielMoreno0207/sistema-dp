@@ -380,6 +380,57 @@ describe('apagar mensagem', () => {
   });
 });
 
+describe('conta apagada', () => {
+  test('a conversa direta com quem foi apagado some da lista, mas o TI continua vendo', async () => {
+    const temporarioId = await criarFuncionario('Rita Alves', '3009', 'Senha-Rita-3009');
+    const aberta = await app.inject({
+      method: 'POST',
+      url: '/api/conversas/direta',
+      headers: comToken(pcMaria),
+      payload: { comUsuarioId: temporarioId },
+    });
+    assert.equal(aberta.statusCode, 201);
+    const conversaId = aberta.json().id;
+
+    const antes = await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcMaria) });
+    assert.ok(antes.json().conversas.some((c: { id: string }) => c.id === conversaId));
+
+    const apagou = await app.inject({
+      method: 'DELETE',
+      url: `/api/employees/${temporarioId}`,
+      headers: comToken(tokenTi),
+    });
+    assert.equal(apagou.statusCode, 204);
+
+    const depois = await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcMaria) });
+    assert.ok(!depois.json().conversas.some((c: { id: string }) => c.id === conversaId));
+
+    // O histórico continua no banco: a área do TI ainda enxerga a conversa
+    const doTi = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(tokenTi) });
+    assert.ok(doTi.json().conversas.some((c: { id: string }) => c.id === conversaId));
+  });
+
+  test('em grupo, quem foi apagado sai da lista de participantes', async () => {
+    const temporarioId = await criarFuncionario('Paulo Reis', '3010', 'Senha-Paulo-3010');
+    const grupo = await app.inject({
+      method: 'POST',
+      url: '/api/conversas/grupo',
+      headers: comToken(pcMaria),
+      payload: { nome: 'Turno da tarde', membros: [joaoId, temporarioId] },
+    });
+    assert.equal(grupo.statusCode, 201);
+    const grupoId = grupo.json().id;
+
+    await app.inject({ method: 'DELETE', url: `/api/employees/${temporarioId}`, headers: comToken(tokenTi) });
+
+    const lista = await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcMaria) });
+    const resumo = lista.json().conversas.find((c: { id: string }) => c.id === grupoId);
+    assert.ok(resumo, 'o grupo continua na lista');
+    assert.ok(!resumo.participantes.some((p: { removido: boolean }) => p.removido));
+    assert.equal(resumo.participantes.length, 2);
+  });
+});
+
 describe('leitura pelo TI', () => {
   test('o TI enxerga as conversas de todo mundo', async () => {
     const lista = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(tokenTi) });

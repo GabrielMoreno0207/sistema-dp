@@ -55,7 +55,10 @@ export interface Participante {
   /** true = pessoa do DP (aparece com etiqueta na lista) */
   ehDp: boolean;
   fotoMidiaId: string | null;
+  /** Conta desativada pelo DP continua aparecendo (a pessoa pode voltar) */
   ativo: boolean;
+  /** A conta foi apagada: a conversa direta com ela sai da lista */
+  removido: boolean;
 }
 
 /** Como a conversa aparece na lista de cada pessoa */

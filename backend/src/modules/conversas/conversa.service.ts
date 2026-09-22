@@ -67,6 +67,7 @@ export class ConversaService {
         ehDp: false,
         fotoMidiaId: usuario.fotoMidiaId,
         ativo: true,
+        removido: false,
       });
     }
     for (const usuario of dp) {
@@ -80,6 +81,7 @@ export class ConversaService {
         ehDp: true,
         fotoMidiaId: usuario.fotoMidiaId,
         ativo: true,
+        removido: false,
       });
     }
     return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
@@ -97,6 +99,7 @@ export class ConversaService {
         ehDp: false,
         fotoMidiaId: null,
         ativo: false,
+        removido: true,
       };
     }
     return {
@@ -107,6 +110,7 @@ export class ConversaService {
       ehDp: usuario.role === 'ADMIN',
       fotoMidiaId: usuario.fotoMidiaId,
       ativo: usuario.status === 'ACTIVE',
+      removido: false,
     };
   }
 
@@ -114,7 +118,12 @@ export class ConversaService {
 
   async listar(quem: Pessoa): Promise<ConversaResumo[]> {
     const conversas = await this.conversas.listDoUsuario(quem.id, 100);
-    return this.montarResumos(conversas, quem.id);
+    const resumos = await this.montarResumos(conversas, quem.id);
+    // Conta apagada não tem conversa: a direta com ela some da lista (o
+    // histórico continua no banco e o TI ainda enxerga)
+    return resumos.filter(
+      (resumo) => resumo.tipo === 'GRUPO' || resumo.participantes.some((p) => p.id !== quem.id && !p.removido),
+    );
   }
 
   /** Monta os resumos reaproveitando uma busca por pessoa entre as conversas. */
@@ -137,7 +146,8 @@ export class ConversaService {
           pessoa = await this.participante(membro.userId);
           cache.set(membro.userId, pessoa);
         }
-        participantes.push(pessoa);
+        // Conta apagada não entra na lista de participantes do grupo
+        if (!pessoa.removido || conversa.tipo === 'DIRETA') participantes.push(pessoa);
       }
       const ultima = ultimas.get(conversa.id) ?? null;
       resumos.push({

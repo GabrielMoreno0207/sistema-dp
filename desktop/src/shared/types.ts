@@ -239,7 +239,10 @@ export interface Participante {
   /** true = pessoa do Departamento Pessoal */
   ehDp: boolean;
   fotoMidiaId: string | null;
+  /** Conta desativada pelo DP (a pessoa pode voltar) */
   ativo: boolean;
+  /** A conta foi apagada: a conversa direta com ela não aparece na lista */
+  removido: boolean;
 }
 
 export interface MensagemConversa {
