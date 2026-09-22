@@ -37,10 +37,15 @@ FROM node:${NODE_VERSION}
 ENV TZ=America/Sao_Paulo
 RUN apk add --no-cache tzdata
 
+# Os caminhos dos dados sao absolutos de proposito: o codigo roda de
+# /app/aplicativo (volume), entao um caminho relativo cairia dentro dele e nao
+# no volume de dados.
 ENV NODE_ENV=production \
     SERVER_HOST=0.0.0.0 \
     SERVER_PORT=3000 \
     UPLOADS_PATH=/app/data/uploads \
+    MIDIAS_PATH=/app/data/midias \
+    UPDATES_PATH=/app/data/atualizacoes \
     APP_PATH=/app/aplicativo
 
 WORKDIR /app

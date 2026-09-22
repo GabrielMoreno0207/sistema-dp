@@ -74,8 +74,10 @@ if [ -d "$APP/proximo" ]; then
   date -u +%Y-%m-%dT%H:%M:%SZ > "$APP/em-teste"
 fi
 
-cd "$APP"
-node --disable-warning=ExperimentalWarning dist/server.js &
+# A pasta de trabalho continua sendo /app: qualquer caminho relativo de dados
+# (data/...) resolve no volume de dados, como antes de o codigo ir para o volume.
+cd /app
+node --disable-warning=ExperimentalWarning "$APP/dist/server.js" &
 filho=$!
 
 # "docker compose down" precisa chegar ao node, que trata SIGTERM e grava o que falta

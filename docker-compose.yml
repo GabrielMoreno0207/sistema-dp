@@ -37,8 +37,10 @@ services:
       DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env (PostgreSQL)}
       DATABASE_SCHEMA: ${DATABASE_SCHEMA:-dp}
 
-      # Anexos e mídias: dentro do volume, nunca na imagem
+      # Anexos, mídias e instaladores: dentro do volume, nunca na imagem
       UPLOADS_PATH: /app/data/uploads
+      MIDIAS_PATH: /app/data/midias
+      UPDATES_PATH: /app/data/atualizacoes
 
       # Primeiro login da Central, criado só se o banco ainda não tiver nenhum
       ADMIN_USERNAME: ${ADMIN_USERNAME:-ti}

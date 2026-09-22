@@ -17,6 +17,10 @@ async function main(): Promise<void> {
 
   const app = buildApp({ repositories: database.repositories, https });
   app.log.info(`Banco de dados -> ${database.description}`);
+  // Onde os arquivos ficam: erra-se fácil ao mudar o container de lugar
+  app.log.info(
+    `Pastas -> anexos: ${env.uploadsPath} | mídias: ${env.midiasPath} | atualizações: ${env.updatesPath}`,
+  );
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`Sinal ${signal} recebido. Encerrando backend...`);
