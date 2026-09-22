@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { OperationResult, SettingsView } from '../../../shared/types';
 import { playAlertSound } from '../lib/sound';
+import { Icone } from '../lib/icones';
 
 export function SettingsPage() {
   const [settings, setSettings] = useState<SettingsView | null>(null);
@@ -101,10 +102,10 @@ export function SettingsPage() {
         <p className="page__subtitle">Confira se o som das novas mensagens está audível neste computador.</p>
         <div className="form__actions form__actions--start">
           <button className="btn btn--ghost" onClick={() => playAlertSound(false)}>
-            🔔 Testar som normal
+            <Icone nome="sino" /> Testar som normal
           </button>
           <button className="btn btn--ghost" onClick={() => playAlertSound(true)}>
-            🚨 Testar som urgente
+            <Icone nome="urgente" /> Testar som urgente
           </button>
         </div>
       </section>

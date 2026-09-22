@@ -9,6 +9,7 @@ import {
   ROTULO_CATEGORIA,
   quando,
 } from '../components/chamados-comuns';
+import { Icone } from '../lib/icones';
 
 /** Chamados que a pessoa abriu para o TI. */
 export function ChamadosPage() {
@@ -224,7 +225,7 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
             <span key={imagem.id} className="anexo-chip">
               {imagem.nome}
               <button onClick={() => setImagens((atuais) => atuais.filter((i) => i.id !== imagem.id))} aria-label="Remover">
-                ×
+                <Icone nome="fechar" tamanho={13} />
               </button>
             </span>
           ))}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { DpAttachment } from '../../../shared/types';
+import { Icone } from '../lib/icones';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,7 +26,7 @@ function Thumbnail({ attachment }: { attachment: DpAttachment }) {
     };
   }, [attachment.id]);
 
-  if (!source) return <span className="attachment__icon" aria-hidden>🖼️</span>;
+  if (!source) return <span className="attachment__icon" aria-hidden><Icone nome="imagem" />️</span>;
   return <img className="attachment__thumb" src={source} alt={attachment.name} />;
 }
 
@@ -80,7 +81,7 @@ export function MessageAttachments({ messageId, attachments }: MessageAttachment
   return (
     <section className="attachments">
       <h3 className="attachments__title">
-        📎 {attachments.length} anexo{attachments.length === 1 ? '' : 's'}
+        <Icone nome="anexo" /> {attachments.length} anexo{attachments.length === 1 ? '' : 's'}
         {attachments.length > 1 && <span className="attachments__hint"> — o primeiro abre sozinho</span>}
       </h3>
 
@@ -91,7 +92,7 @@ export function MessageAttachments({ messageId, attachments }: MessageAttachment
               <Thumbnail attachment={attachment} />
             ) : (
               <span className="attachment__icon" aria-hidden>
-                📄
+                <Icone nome="arquivo" />
               </span>
             )}
             <span className="attachment__info">

@@ -50,7 +50,8 @@ const atalhoBody = {
   required: ['rotulo', 'icone', 'cor', 'destino'],
   properties: {
     rotulo: { type: 'string', minLength: 1, maxLength: LIMITES_CONTEUDO.maxRotulo },
-    icone: { type: 'string', minLength: 1, maxLength: 8 },
+    // nome do ícone na biblioteca (ex.: 'comunicados'); os atalhos antigos guardam um caractere
+    icone: { type: 'string', minLength: 1, maxLength: 24 },
     cor: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' },
     destino: { type: 'string', enum: [...DESTINOS] },
   },

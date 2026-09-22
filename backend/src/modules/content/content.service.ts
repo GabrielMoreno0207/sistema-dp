@@ -297,7 +297,7 @@ export class ContentService {
     }
     return {
       rotulo: textoObrigatorio(dados.rotulo, 'o nome do atalho', LIMITES_CONTEUDO.maxRotulo),
-      icone: textoObrigatorio(dados.icone, 'o ícone', 8),
+      icone: textoObrigatorio(dados.icone, 'o ícone', 24),
       cor: dados.cor.toLowerCase(),
       destino: dados.destino,
     };

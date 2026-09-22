@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { DpMessage } from '../../../shared/types';
 import { MessageDetail } from '../components/MessageDetail';
 import { MessageList } from '../components/MessageList';
+import { Icone } from '../lib/icones';
 
 export type MessageFilter = 'all' | 'unread' | 'urgent';
 
@@ -97,7 +98,7 @@ export function MessagesPage(props: MessagesPageProps) {
           <MessageDetail message={selected} onClose={onCloseDetail} />
         ) : (
           <div className="empty-state empty-state--detail">
-            <span aria-hidden>📢</span>
+            <Icone nome="comunicados" tamanho={28} />
             <p>Selecione um comunicado para ler o conteúdo completo.</p>
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { quando } from '../../components/chamados-comuns';
+import { Icone } from '../../lib/icones';
 
 type TipoComunicado = 'COMUNICADO' | 'AVISO' | 'INFORMATIVO' | 'URGENTE';
 type Destino = 'ALL' | 'SECTOR' | 'SHIFT' | 'COMPUTER' | 'EMPLOYEE';
@@ -252,7 +253,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
               <span key={anexo.id} className="anexo-chip">
                 {anexo.name}
                 <button onClick={() => setAnexos((atuais) => atuais.filter((a) => a.id !== anexo.id))} aria-label="Remover">
-                  ×
+                  <Icone nome="fechar" tamanho={13} />
                 </button>
               </span>
             ))}

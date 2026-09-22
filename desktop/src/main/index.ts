@@ -1249,7 +1249,7 @@ function start(): void {
     if (!bruto || typeof bruto !== 'object') return null;
     const { rotulo, icone, cor, destino } = bruto as Record<string, unknown>;
     if (typeof rotulo !== 'string' || !rotulo.trim() || rotulo.length > 24) return null;
-    if (typeof icone !== 'string' || !icone.trim() || icone.length > 8) return null;
+    if (typeof icone !== 'string' || !icone.trim() || icone.length > 24) return null;
     if (typeof cor !== 'string' || !COR_VALIDA.test(cor)) return null;
     if (typeof destino !== 'string' || !DESTINOS_VALIDOS.includes(destino as DestinoAtalho)) return null;
     return { rotulo: rotulo.trim(), icone: icone.trim(), cor, destino: destino as DestinoAtalho };

@@ -1,3 +1,5 @@
+import { Icone, type NomeIcone } from '../lib/icones';
+
 export type Page =
   | 'home'
   | 'messages'
@@ -16,26 +18,26 @@ export type Page =
 interface ItemMenu {
   page: Page;
   label: string;
-  icon: string;
+  icone: NomeIcone;
 }
 
 const ITENS: ItemMenu[] = [
-  { page: 'home', label: 'Início', icon: '⌂' },
-  { page: 'announcements', label: 'Comunicados', icon: '◈' },
-  { page: 'messages', label: 'Mensagens', icon: '✉' },
-  { page: 'chamados', label: 'Chamados TI', icon: '⚑' },
-  { page: 'profile', label: 'Meu perfil', icon: '☺' },
-  { page: 'settings', label: 'Configurações', icon: '⚙' },
+  { page: 'home', label: 'Início', icone: 'inicio' },
+  { page: 'announcements', label: 'Comunicados', icone: 'comunicados' },
+  { page: 'messages', label: 'Mensagens', icone: 'mensagens' },
+  { page: 'chamados', label: 'Chamados TI', icone: 'chamados' },
+  { page: 'profile', label: 'Meu perfil', icone: 'perfil' },
+  { page: 'settings', label: 'Configurações', icone: 'configuracoes' },
 ];
 
 /** Seções que aparecem só para quem entrou com a conta do DP/TI */
 const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
-  { page: 'admin-comunicados', label: 'Comunicados', icon: '✈' },
-  { page: 'admin-mural', label: 'Mural', icon: '◉' },
-  { page: 'admin-cadastros', label: 'Cadastros', icon: '▤' },
-  { page: 'admin-ajustes', label: 'Ajustes', icon: '⚙' },
-  { page: 'admin-chamados', label: 'Fila do TI', icon: '⚒', soTi: true },
-  { page: 'admin-conversas', label: 'Conversas (TI)', icon: '🔎', soTi: true },
+  { page: 'admin-comunicados', label: 'Comunicados', icone: 'enviar' },
+  { page: 'admin-mural', label: 'Mural', icone: 'mural' },
+  { page: 'admin-cadastros', label: 'Cadastros', icone: 'cadastros' },
+  { page: 'admin-ajustes', label: 'Ajustes', icone: 'ajustes' },
+  { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true },
+  { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true },
 ];
 
 interface MenuLateralProps {
@@ -88,8 +90,8 @@ export function MenuLateral({
               className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''}`}
               onClick={() => onNavigate(item.page)}
             >
-              <span className="item-menu__icone" aria-hidden>
-                {item.icon}
+              <span className="item-menu__icone">
+                <Icone nome={item.icone} />
               </span>
               <span className="item-menu__label">{item.label}</span>
               {badge > 0 && <span className="item-menu__badge">{badge > 99 ? '99+' : badge}</span>}
@@ -107,8 +109,8 @@ export function MenuLateral({
               className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''}`}
               onClick={() => onNavigate(item.page)}
             >
-              <span className="item-menu__icone" aria-hidden>
-                {item.icon}
+              <span className="item-menu__icone">
+                <Icone nome={item.icone} />
               </span>
               <span className="item-menu__label">{item.label}</span>
             </button>
@@ -118,14 +120,14 @@ export function MenuLateral({
 
       <div className="menu-lateral__rodape">
         <button className="item-menu item-menu--discreto" onClick={() => onNavigate('home')}>
-          <span className="item-menu__icone" aria-hidden>
-            ✦
+          <span className="item-menu__icone">
+            <Icone nome="novidades" />
           </span>
           <span className="item-menu__label">Novidades</span>
         </button>
         <button className="item-menu item-menu--discreto" onClick={() => onNavigate('messages')}>
-          <span className="item-menu__icone" aria-hidden>
-            ?
+          <span className="item-menu__icone">
+            <Icone nome="ajuda" />
           </span>
           <span className="item-menu__label">Central de Ajuda</span>
         </button>

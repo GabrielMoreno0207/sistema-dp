@@ -53,7 +53,7 @@ export function HistoricoConversas({ conversas, meuId, disponivel, onAbrir, onEn
                 <strong>{conversa.titulo}</strong>
                 <span className="conversa__previa">
                   {conversa.ultimaMensagem?.tipo === 'MIDIA'
-                    ? (conversa.ultimaMensagem.conteudo || '📎 arquivo')
+                    ? (conversa.ultimaMensagem.conteudo || 'arquivo')
                     : conversa.ultimaMensagem?.conteudo}
                 </span>
               </span>

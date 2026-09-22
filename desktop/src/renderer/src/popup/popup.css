@@ -247,3 +247,21 @@ body.popup-body {
   25% { transform: rotate(-14deg); }
   75% { transform: rotate(14deg); }
 }
+
+/* Ícones da biblioteca no alerta */
+svg {
+  flex: none;
+  vertical-align: middle;
+}
+
+.toast__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

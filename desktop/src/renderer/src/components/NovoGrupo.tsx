@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ConversaResumo, Participante } from '../../../shared/types';
 import { Avatar } from './conversa-comuns';
+import { Icone } from '../lib/icones';
 
 interface NovoGrupoProps {
   contatos: Participante[];
@@ -97,7 +98,7 @@ export function NovoGrupo({ contatos, onFechar, onCriado }: NovoGrupoProps) {
                   <strong>{pessoa.nome}</strong>
                   <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>
                 </span>
-                {escolhidos.includes(pessoa.id) && <span aria-hidden>✓</span>}
+                {escolhidos.includes(pessoa.id) && <Icone nome="certo" />}
               </button>
             </li>
           ))}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AvisoMensagem, DpMessage, PopupState } from '../../../shared/types';
 import { formatMessageDate, MESSAGE_TYPE_META } from '../lib/message-meta';
 import { playAlertSound } from '../lib/sound';
+import { Icone } from '../lib/icones';
 
 /** URGENTE: o som se repete enquanto o alerta estiver na tela */
 const URGENT_REPEAT_MS = 10_000;
@@ -78,8 +79,8 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
 
   return (
     <div className={`toast toast--${meta.tone}`} key={comunicado.id} role="alert">
-      <span className="toast__icon" aria-hidden>
-        {meta.icon}
+      <span className="toast__icon">
+        <Icone nome={meta.icone} />
       </span>
 
       <div className="toast__body">
@@ -87,7 +88,7 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
           <span className="toast__kicker">{urgente ? 'URGENTE · DP' : `${meta.label} · DP`}</span>
           <span className="toast__time">{formatMessageDate(comunicado.createdAt)}</span>
           <button className="toast__close" aria-label="Fechar" title="Fechar" onClick={onFechar}>
-            ×
+            <Icone nome="fechar" tamanho={14} />
           </button>
         </div>
 
@@ -95,7 +96,7 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
         <p className="toast__content">{comunicado.content}</p>
         {comunicado.attachments.length > 0 && (
           <p className="toast__attachments">
-            📎 {comunicado.attachments.length} anexo{comunicado.attachments.length === 1 ? '' : 's'}
+            <Icone nome="anexo" /> {comunicado.attachments.length} anexo{comunicado.attachments.length === 1 ? '' : 's'}
           </p>
         )}
 
@@ -109,8 +110,8 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
 function AlertaMensagem({ aviso, onFechar, rodape }: AlertaProps & { aviso: AvisoMensagem }) {
   return (
     <div className="toast toast--mensagem" key={aviso.id} role="alert">
-      <span className="toast__icon" aria-hidden>
-        💬
+      <span className="toast__icon">
+        <Icone nome="mensagens" />
       </span>
 
       <div className="toast__body">
@@ -118,7 +119,7 @@ function AlertaMensagem({ aviso, onFechar, rodape }: AlertaProps & { aviso: Avis
           <span className="toast__kicker">{aviso.grupo ? 'GRUPO' : 'MENSAGEM'}</span>
           <span className="toast__time">{formatMessageDate(aviso.createdAt)}</span>
           <button className="toast__close" aria-label="Fechar" title="Fechar" onClick={onFechar}>
-            ×
+            <Icone nome="fechar" tamanho={14} />
           </button>
         </div>
 

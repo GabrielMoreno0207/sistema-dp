@@ -1,5 +1,6 @@
 import type { DpMessage } from '../../../shared/types';
 import { formatMessageDate, MESSAGE_TYPE_META } from '../lib/message-meta';
+import { Icone } from '../lib/icones';
 
 interface MessageListProps {
   messages: DpMessage[];
@@ -12,7 +13,7 @@ export function MessageList({ messages, selectedId, emptyText, onSelect }: Messa
   if (messages.length === 0) {
     return (
       <div className="empty-state">
-        <span aria-hidden>📭</span>
+        <Icone nome="vazio" tamanho={28} />
         <p>{emptyText}</p>
       </div>
     );
@@ -29,15 +30,15 @@ export function MessageList({ messages, selectedId, emptyText, onSelect }: Messa
         return (
           <li key={message.id}>
             <button className={classes.join(' ')} onClick={() => onSelect(message)}>
-              <span className="msg-item__icon" aria-hidden>
-                {meta.icon}
+              <span className="msg-item__icon">
+                <Icone nome={meta.icone} />
               </span>
               <span className="msg-item__main">
                 <span className="msg-item__title">{message.title}</span>
                 <span className="msg-item__preview">{message.content}</span>
                 <span className="msg-item__meta">
                   {formatMessageDate(message.createdAt)} · {meta.label}
-                  {message.attachments.length > 0 && ` · 📎 ${message.attachments.length}`}
+                  {message.attachments.length > 0 && ` · <Icone nome="anexo" /> ${message.attachments.length}`}
                 </span>
               </span>
               {!message.read && <span className="msg-item__unread">Não lida</span>}

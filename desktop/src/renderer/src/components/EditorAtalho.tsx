@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { Atalho, DadosAtalho, DestinoAtalho } from '../../../shared/types';
+import { IconeDoAtalho, ICONES_DE_ATALHO } from '../lib/icones';
 
-const ICONES = ['◈', '✉', '☺', '★', '✚', '◷', '▤', '♥', '⚑', '✎', '⧗', '☀'];
+
 const CORES = ['#17b3a3', '#3f8fd0', '#6c63c7', '#2ea36f', '#d98324', '#c0554d', '#e0a92b', '#d15c8a'];
 
 const DESTINOS: { valor: DestinoAtalho; label: string }[] = [
@@ -22,7 +23,7 @@ interface EditorAtalhoProps {
 
 export function EditorAtalho({ atalho, onSalvar, onRemover, onFechar }: EditorAtalhoProps) {
   const [rotulo, setRotulo] = useState(atalho?.rotulo ?? '');
-  const [icone, setIcone] = useState(atalho?.icone ?? ICONES[0]);
+  const [icone, setIcone] = useState<string>(atalho?.icone ?? ICONES_DE_ATALHO[0]);
   const [cor, setCor] = useState(atalho?.cor ?? CORES[0]);
   const [destino, setDestino] = useState<DestinoAtalho>(atalho?.destino ?? 'COMUNICADOS');
   const [salvando, setSalvando] = useState(false);
@@ -44,8 +45,8 @@ export function EditorAtalho({ atalho, onSalvar, onRemover, onFechar }: EditorAt
 
         <div className="editor-atalho">
           <div className="editor-atalho__previa" style={{ backgroundColor: cor }}>
-            <span className="azulejo__icone" aria-hidden>
-              {icone}
+            <span className="azulejo__icone">
+              <IconeDoAtalho nome={icone} tamanho={30} />
             </span>
             <span className="azulejo__label">{rotulo.trim() || 'Nome do atalho'}</span>
           </div>
@@ -72,7 +73,7 @@ export function EditorAtalho({ atalho, onSalvar, onRemover, onFechar }: EditorAt
 
             <span className="editor-atalho__rotulo-grupo">Ícone</span>
             <div className="editor-atalho__opcoes">
-              {ICONES.map((opcao) => (
+              {ICONES_DE_ATALHO.map((opcao) => (
                 <button
                   key={opcao}
                   className={`opcao-icone ${icone === opcao ? 'opcao-icone--ativa' : ''}`}

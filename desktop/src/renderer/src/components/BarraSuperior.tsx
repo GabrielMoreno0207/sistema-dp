@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { aplicarTema, temaGuardado, type Tema } from '../lib/tema';
 import type { AdminUser, ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
 import { ConnectionBadge } from './ConnectionBadge';
+import { Icone } from '../lib/icones';
 
 interface BarraSuperiorProps {
   employee: EmployeeProfile | null;
@@ -84,7 +85,7 @@ export function BarraSuperior({
           title={tema === 'claro' ? 'Mudar para o tema escuro' : 'Mudar para o tema claro'}
           aria-label={tema === 'claro' ? 'Mudar para o tema escuro' : 'Mudar para o tema claro'}
         >
-          {tema === 'claro' ? '🌙' : '☀'}
+          {tema === 'claro' ? <Icone nome="escuro" /> : <Icone nome="claro" />}
         </button>
         <ConnectionBadge connection={connection} />
 
@@ -96,11 +97,11 @@ export function BarraSuperior({
             aria-haspopup="menu"
           >
             <span className="menu-usuario__avatar" aria-hidden>
-              {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee ? iniciais(employee.name) : '👤'}
+              {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee ? iniciais(employee.name) : <Icone nome="perfil" />}
             </span>
             <span className="menu-usuario__nome">{employee?.name ?? 'Entrar'}</span>
-            <span className="menu-usuario__seta" aria-hidden>
-              ▾
+            <span className="menu-usuario__seta">
+              <Icone nome="seta" tamanho={14} />
             </span>
           </button>
 

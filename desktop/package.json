@@ -1,7 +1,7 @@
 {
   "name": "sistema-dp-desktop",
   "productName": "Comunicação DP",
-  "version": "1.13.1",
+  "version": "1.14.0",
   "description": "Aplicativo desktop de comunicação interna do Departamento Pessoal",
   "author": "Departamento Pessoal",
   "private": true,
@@ -25,6 +25,7 @@
     "electron-builder": "^26.0.0",
     "electron-vite": "^5.0.0",
     "react": "^19.0.0",
+    "react-icons": "^5.7.0",
     "react-dom": "^19.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.6"

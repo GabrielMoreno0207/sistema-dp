@@ -1,17 +1,19 @@
 import type { MessageType } from '../../../shared/types';
+import type { NomeIcone } from './icones';
 
 export interface MessageTypeMeta {
   label: string;
-  icon: string;
+  /** Nome do ícone da biblioteca (ver lib/icones.tsx) */
+  icone: NomeIcone;
   /** Classe CSS com as cores do tipo */
   tone: 'urgent' | 'warning' | 'announcement' | 'info';
 }
 
 export const MESSAGE_TYPE_META: Record<MessageType, MessageTypeMeta> = {
-  URGENTE: { label: 'Urgente', icon: '🚨', tone: 'urgent' },
-  AVISO: { label: 'Aviso', icon: '⚠️', tone: 'warning' },
-  COMUNICADO: { label: 'Comunicado', icon: '📢', tone: 'announcement' },
-  INFORMATIVO: { label: 'Informativo', icon: 'ℹ️', tone: 'info' },
+  URGENTE: { label: 'Urgente', icone: 'urgente', tone: 'urgent' },
+  AVISO: { label: 'Aviso', icone: 'aviso', tone: 'warning' },
+  COMUNICADO: { label: 'Comunicado', icone: 'comunicados', tone: 'announcement' },
+  INFORMATIVO: { label: 'Informativo', icone: 'informativo', tone: 'info' },
 };
 
 /** "Hoje, 10:24" / "Ontem, 16:32" / "12/09/2026, 08:00" */

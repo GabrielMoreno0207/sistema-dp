@@ -1,6 +1,7 @@
 import type { DpMessage } from '../../../shared/types';
 import { MESSAGE_TYPE_META } from '../lib/message-meta';
 import { MessageAttachments } from './MessageAttachments';
+import { Icone } from '../lib/icones';
 
 function formatFullDate(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' });
@@ -23,12 +24,12 @@ export function MessageDetail({ message, onClose }: { message: DpMessage; onClos
       <header className="detail__header">
         <span className="detail__tags">
           <span className="detail__type">
-            {meta.icon} {meta.label}
+            <Icone nome={meta.icone} /> {meta.label}
           </span>
           {targetLabel && <span className="detail__target">{targetLabel}</span>}
         </span>
         <button className="icon-btn" onClick={onClose} aria-label="Fechar mensagem" title="Fechar">
-          ×
+          <Icone nome="fechar" />
         </button>
       </header>
 
@@ -42,7 +43,7 @@ export function MessageDetail({ message, onClose }: { message: DpMessage; onClos
       <MessageAttachments messageId={message.id} attachments={message.attachments} />
 
       <footer className="detail__footer">
-        {message.readAt ? `✓ Lida em ${formatFullDate(message.readAt)}` : 'Não lida'}
+        {message.readAt ? `<Icone nome="certo" /> Lida em ${formatFullDate(message.readAt)}` : 'Não lida'}
         <span className="detail__id">{message.id}</span>
       </footer>
     </article>

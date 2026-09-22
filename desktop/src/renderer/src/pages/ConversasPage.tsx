@@ -10,6 +10,7 @@ import type {
 import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
 import { Avatar, MensagemDaConversa, dataDoDia, juntarMensagens, outraPessoa } from '../components/conversa-comuns';
+import { Icone } from '../lib/icones';
 
 /** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
 interface ConversasPageProps {
@@ -307,13 +308,13 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
 
         {conversasVisiveis.length === 0 && pessoasSemConversa.length === 0 ? (
           <div className="empty-state">
-            <span aria-hidden>💬</span>
+            <Icone nome="mensagens" tamanho={28} />
             <p>
               {termo
                 ? 'Ninguém encontrado com esse termo.'
                 : online
                   ? 'Ninguém mais tem conta no sistema ainda.'
-                  : 'As conversas aparecem quando o app estiver 🟢 Conectado.'}
+                  : 'As conversas aparecem quando o app estiver Conectado.'}
             </p>
           </div>
         ) : (
@@ -343,7 +344,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       {conversa.ultimaMensagem
                         ? `${conversa.ultimaMensagem.autorNome === identidade.nome ? 'Você: ' : conversa.tipo === 'GRUPO' ? `${conversa.ultimaMensagem.autorNome}: ` : ''}${
                             conversa.ultimaMensagem.tipo === 'MIDIA'
-                              ? conversa.ultimaMensagem.conteudo || '📎 arquivo'
+                              ? conversa.ultimaMensagem.conteudo || 'arquivo'
                               : conversa.ultimaMensagem.conteudo
                           }`
                         : conversa.tipo === 'GRUPO'
@@ -379,7 +380,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       <section className="chat">
         {!aberta ? (
           <div className="empty-state empty-state--detail">
-            <span aria-hidden>💬</span>
+            <Icone nome="mensagens" tamanho={28} />
             <p>Escolha uma pessoa ou um grupo à esquerda para começar.</p>
             {erro && <p className="feedback feedback--error">{erro}</p>}
           </div>
@@ -437,7 +438,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
               )}
               {mensagens.length === 0 && (
                 <div className="empty-state">
-                  <span aria-hidden>💬</span>
+                  <Icone nome="mensagens" tamanho={28} />
                   <p>Nenhuma mensagem ainda. Escreva abaixo para começar.</p>
                 </div>
               )}
@@ -464,14 +465,14 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
             <form className="chat__composer" onSubmit={(e) => void enviar(e)}>
               {!online && (
                 <p className="chat__offline">
-                  Sem conexão com o servidor: a mensagem só pode ser enviada com o app 🟢 Conectado.
+                  Sem conexão com o servidor: a mensagem só pode ser enviada com o app Conectado.
                 </p>
               )}
               {erro && <p className="feedback feedback--error chat__error">{erro}</p>}
               {aviso && <p className="feedback feedback--ok chat__error">{aviso}</p>}
               {anexo && (
                 <p className="chat__anexo">
-                  📎 {anexo.nome}
+                  <Icone nome="anexo" /> {anexo.nome}
                   <button type="button" className="btn btn--sm" onClick={() => setAnexo(null)}>
                     Remover
                   </button>
@@ -486,7 +487,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                   title="Anexar imagem, vídeo ou documento"
                   aria-label="Anexar arquivo"
                 >
-                  📎
+                  <Icone nome="anexo" />
                 </button>
                 <textarea
                   className="chat__input"

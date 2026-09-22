@@ -1,4 +1,5 @@
 import type { DpMessage, EmployeeProfile, MessagesState, MidiaPublica } from '../../../shared/types';
+import { Icone } from '../lib/icones';
 
 interface ColunaDireitaProps {
   employee: EmployeeProfile | null;
@@ -29,12 +30,12 @@ export function ColunaDireita({ employee, foto, messages, onAbrir, onVerTodos, o
           >
             {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee.name.trim().charAt(0).toUpperCase()}
             <span className="cartao-perfil__camera" aria-hidden>
-              ✎
+              <Icone nome="lapis" tamanho={13} />
             </span>
           </button>
         ) : (
-          <span className="cartao-perfil__foto" aria-hidden>
-            👤
+          <span className="cartao-perfil__foto">
+            <Icone nome="perfil" tamanho={34} />
           </span>
         )}
         {employee ? (

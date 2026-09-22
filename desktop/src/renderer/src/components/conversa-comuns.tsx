@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
+import { Icone } from '../lib/icones';
 
 /** "Ana Paula" → "AP"; "Livia (DP)" → "L" */
 export function iniciais(nome: string): string {
@@ -32,8 +33,8 @@ export function Avatar({
 
   if (grupo) {
     return (
-      <span className={classe} aria-hidden>
-        #
+      <span className={classe}>
+        <Icone nome="grupo" />
       </span>
     );
   }
@@ -144,7 +145,9 @@ export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onErro 
       {!minha && !emGrupo && mensagem.automatica && (
         <span className="bubble__sender">
           {mensagem.autorNome}
-          <span className="bubble__auto">🤖 Resposta automática</span>
+          <span className="bubble__auto">
+            <Icone nome="robo" /> Resposta automática
+          </span>
         </span>
       )}
 
@@ -164,7 +167,7 @@ export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onErro 
               onClick={() => void abrirArquivo(midia.id, midia.nome)}
               disabled={abrindo}
             >
-              <span aria-hidden>📄</span>
+              <Icone nome="arquivo" />
               <span className="bubble__arquivo-nome">{midia.nome}</span>
               <span className="bubble__arquivo-tamanho">{tamanhoLegivel(midia.tamanho)}</span>
             </button>

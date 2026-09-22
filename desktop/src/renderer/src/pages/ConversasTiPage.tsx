@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AcessoTi, ConversaResumo, MensagemConversa } from '../../../shared/types';
 import { Avatar, MensagemDaConversa, dataDoDia, horaDoDia } from '../components/conversa-comuns';
+import { Icone } from '../lib/icones';
 
 /**
  * Área do TI: todas as conversas do sistema, em leitura.
@@ -133,7 +134,7 @@ export function ConversasTiPage() {
         <section className="chat">
           {!aberta ? (
             <div className="empty-state empty-state--detail">
-              <span aria-hidden>🔎</span>
+              <Icone nome="auditoria" tamanho={28} />
               <p>Escolha uma conversa para ler. A abertura fica registrada.</p>
             </div>
           ) : (
@@ -169,7 +170,7 @@ export function ConversasTiPage() {
               <div className="chat__messages">
                 {mensagens.length === 0 && (
                   <div className="empty-state">
-                    <span aria-hidden>💬</span>
+                    <Icone nome="mensagens" tamanho={28} />
                     <p>Sem mensagens nesta conversa.</p>
                   </div>
                 )}

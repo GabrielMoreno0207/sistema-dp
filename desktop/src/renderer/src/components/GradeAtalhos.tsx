@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Atalho, DadosAtalho, DestinoAtalho } from '../../../shared/types';
 import { EditorAtalho } from './EditorAtalho';
 import type { Page } from './MenuLateral';
+import { Icone, IconeDoAtalho } from '../lib/icones';
 
 /** Para onde cada destino leva dentro do aplicativo. */
 const PAGINA_DO_DESTINO: Record<DestinoAtalho, Page> = {
@@ -95,14 +96,14 @@ export function GradeAtalhos({ atalhos, podeEditar, badges, onAbrir, onAviso }: 
                   title={atalho.rotulo}
                   onClick={() => (editando ? setEmEdicao(atalho) : onAbrir(PAGINA_DO_DESTINO[atalho.destino]))}
                 >
-                  <span className="azulejo__icone" aria-hidden>
-                    {atalho.icone}
+                  <span className="azulejo__icone">
+                    <IconeDoAtalho nome={atalho.icone} tamanho={30} />
                   </span>
                   <span className="azulejo__label">{atalho.rotulo}</span>
                   {badge > 0 && !editando && <span className="azulejo__badge">{badge > 99 ? '99+' : badge}</span>}
                   {editando && (
                     <span className="azulejo__editar" aria-hidden>
-                      ✎
+                      <Icone nome="lapis" tamanho={13} />
                     </span>
                   )}
                 </button>
