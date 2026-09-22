@@ -21,6 +21,8 @@ export interface ServerToClientEvents {
   'mural:atualizado': () => void;
   /** Um chamado de quem está logado neste PC mudou (resposta do TI, status novo) */
   'chamado:atualizado': (payload: { chamadoId: string }) => void;
+  /** Uma conversa de quem está logado neste PC mudou (mensagem, grupo, leitura) */
+  'conversa:atualizada': (payload: { conversaId: string }) => void;
 }
 
 // O cliente não envia eventos por enquanto; tudo que ele faz passa pela API REST.
@@ -68,7 +70,12 @@ function roomFor(message: Message): string | null {
   }
 }
 
-export interface RealtimeGateway extends MessageNotifier, ChatNotifier, MuralNotifier, ChamadoNotifier {
+export interface RealtimeGateway
+  extends MessageNotifier,
+    ChatNotifier,
+    MuralNotifier,
+    ChamadoNotifier,
+    ConversaNotifier {
   /** Derruba as conexões de um PC (ex.: credencial liberada pelo DP) */
   disconnectComputer(computerId: string): void;
 }
@@ -81,6 +88,11 @@ export interface MuralNotifier {
 /** Avisa quem abriu o chamado de que houve resposta ou mudança de status. */
 export interface ChamadoNotifier {
   chamadoAtualizado(solicitanteId: string, chamadoId: string): void;
+}
+
+/** Avisa os participantes de uma conversa de que ela mudou. */
+export interface ConversaNotifier {
+  conversaAtualizada(userIds: string[], conversaId: string): void;
 }
 
 export function createSocketServer(
@@ -200,6 +212,13 @@ export function createSocketServer(
      */
     chamadoAtualizado(solicitanteId: string, chamadoId: string): void {
       io.to(Rooms.employee(solicitanteId)).emit('chamado:atualizado', { chamadoId });
+    },
+    /**
+     * Conversa mexida: vai para a sala de cada participante, onde quer que ele
+     * esteja logado. Só o aviso; o conteúdo o aplicativo busca pela API.
+     */
+    conversaAtualizada(userIds: string[], conversaId: string): void {
+      for (const userId of userIds) io.to(Rooms.employee(userId)).emit('conversa:atualizada', { conversaId });
     },
     /** Envia a mensagem aos PCs destinatários conectados. Retorna quantos sockets receberam. */
     async publish(message: Message): Promise<number> {

@@ -36,6 +36,9 @@ import {
 import { PostgresChamadoRepository } from '../modules/tickets/ticket.postgres-repository';
 import type { ChamadoRepository } from '../modules/tickets/ticket.repository';
 import { SqliteChamadoRepository } from '../modules/tickets/ticket.sqlite-repository';
+import { PostgresConversaRepository } from '../modules/conversas/conversa.postgres-repository';
+import type { ConversaRepository } from '../modules/conversas/conversa.repository';
+import { SqliteConversaRepository } from '../modules/conversas/conversa.sqlite-repository';
 import type { PostgresDatabase } from './postgres';
 import type { SqliteDatabase } from './sqlite';
 
@@ -57,6 +60,8 @@ export interface Repositories {
   atalhos: AtalhoRepository;
   /** Chamados abertos para o TI */
   chamados: ChamadoRepository;
+  /** Conversas do chat (diretas e grupos) */
+  conversas: ConversaRepository;
 }
 
 /**
@@ -76,6 +81,7 @@ export function createSqliteRepositories(db: SqliteDatabase): Repositories {
     mural: new SqliteMuralRepository(db),
     atalhos: new SqliteAtalhoRepository(db),
     chamados: new SqliteChamadoRepository(db),
+    conversas: new SqliteConversaRepository(db),
   };
 }
 
@@ -97,5 +103,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     mural: new PostgresMuralRepository(db),
     atalhos: new PostgresAtalhoRepository(db),
     chamados: new PostgresChamadoRepository(db),
+    conversas: new PostgresConversaRepository(db),
   };
 }

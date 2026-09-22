@@ -439,4 +439,55 @@ export const MIGRATIONS: Migration[] = [
       CREATE INDEX idx_acessos_ti ON conversa_acessos_ti (conversa_id, created_at);
     `,
   },
+  {
+    version: 17,
+    name: 'chat antigo vira conversa direta',
+    sql: `
+      -- Traz o chat antigo (par funcionário + pessoa do DP) para o modelo novo.
+      -- A tabela chat_messages continua no banco como cópia de segurança.
+      CREATE TABLE migra_conversas AS
+        SELECT employee_id, dp_user_id,
+               'CNV-' || lower(hex(randomblob(12))) AS conversa_id,
+               MIN(created_at) AS inicio,
+               MAX(created_at) AS fim
+        FROM chat_messages
+        WHERE dp_user_id IS NOT NULL
+        GROUP BY employee_id, dp_user_id;
+
+      INSERT INTO conversas (id, tipo, nome, criado_por, created_at, updated_at)
+        SELECT conversa_id, 'DIRETA', NULL, employee_id, inicio, fim FROM migra_conversas;
+
+      INSERT INTO conversa_membros (conversa_id, user_id, papel, entrou_em)
+        SELECT conversa_id, employee_id, 'MEMBRO', inicio FROM migra_conversas
+        UNION ALL
+        SELECT conversa_id, dp_user_id, 'MEMBRO', inicio FROM migra_conversas;
+
+      INSERT INTO conversa_mensagens (conversa_id, autor_id, autor_nome, tipo, conteudo, midia_id, automatica, created_at)
+        SELECT m.conversa_id,
+               CASE WHEN c.sender_type = 'DP' THEN c.dp_user_id ELSE c.employee_id END,
+               c.sender_name,
+               'TEXTO',
+               c.content,
+               NULL,
+               c.automatic,
+               c.created_at
+        FROM chat_messages c
+        JOIN migra_conversas m ON m.employee_id = c.employee_id AND m.dp_user_id = c.dp_user_id
+        ORDER BY c.id;
+
+      -- Leitura aproximada: a última vez que cada lado leu o que o outro escreveu
+      UPDATE conversa_membros SET ultima_leitura = (
+        SELECT MAX(c.read_at)
+        FROM chat_messages c
+        JOIN migra_conversas m ON m.employee_id = c.employee_id AND m.dp_user_id = c.dp_user_id
+        WHERE m.conversa_id = conversa_membros.conversa_id
+          AND c.read_at IS NOT NULL
+          AND ((conversa_membros.user_id = c.employee_id AND c.sender_type = 'DP')
+            OR (conversa_membros.user_id = c.dp_user_id AND c.sender_type = 'EMPLOYEE'))
+      )
+      WHERE conversa_id IN (SELECT conversa_id FROM migra_conversas);
+
+      DROP TABLE migra_conversas;
+    `,
+  },
 ];

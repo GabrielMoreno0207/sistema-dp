@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { requireAdmin, requireComputer } from '../auth/principal';
-import type { ChatService } from './chat.service';
+import type { ChatCompatService } from './chat.compat-service';
 import { CHAT_CONTENT_MAX } from './chat.types';
 
 const contentSchema = {
@@ -42,7 +42,7 @@ const dpUserQuerySchema = {
 const adminOnly = { onRequest: async (request: FastifyRequest) => void requireAdmin(request) };
 const computerOnly = { onRequest: async (request: FastifyRequest) => void requireComputer(request) };
 
-export const chatRoutes: FastifyPluginAsync<{ chat: ChatService }> = async (app, { chat }) => {
+export const chatRoutes: FastifyPluginAsync<{ chat: ChatCompatService }> = async (app, { chat }) => {
   // ---------------------------------------------------------------- DP (Central): cada pessoa vê só as próprias conversas
 
   app.get('/chats', adminOnly, async (request) => ({

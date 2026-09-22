@@ -28,6 +28,11 @@ export interface ConversaRepository {
   apagarMensagem(id: number, agora: string): Promise<boolean>;
   findMensagem(id: number): Promise<MensagemConversa | null>;
 
+  /** Quantas mensagens cada conversa tem (números do painel do TI) */
+  contarMensagensPorConversa(conversaIds: string[]): Promise<Map<string, number>>;
+  /** Limpeza do TI: apaga mensagens das conversas indicadas, opcionalmente só as antigas */
+  apagarMensagens(conversaIds: string[], antesDe: string | null): Promise<number>;
+
   /** Auditoria: registra que o TI abriu uma conversa */
   registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void>;
   listarAcessosTi(limite: number): Promise<{ conversaId: string; usuarioNome: string; createdAt: string }[]>;

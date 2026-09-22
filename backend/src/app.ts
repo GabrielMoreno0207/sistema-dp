@@ -14,6 +14,9 @@ import { AttachmentStorage } from './modules/attachments/attachment.storage';
 import { contentRoutes } from './modules/content/content.routes';
 import { ContentService } from './modules/content/content.service';
 import { MidiaStorage } from './modules/content/content.storage';
+import { conversaRoutes } from './modules/conversas/conversa.routes';
+import { ConversaService } from './modules/conversas/conversa.service';
+import { ChatCompatService } from './modules/chat/chat.compat-service';
 import { ticketRoutes } from './modules/tickets/ticket.routes';
 import { TicketService } from './modules/tickets/ticket.service';
 import { updateRoutes } from './modules/updates/update.routes';
@@ -136,12 +139,22 @@ export function buildApp({
   );
   const messages = new MessageService(repositories.messages, repositories.attachments, computers, employees, realtime, app.log);
   const autoReplies = new AutoReplyService(repositories.autoReplies, repositories.sectors, app.log);
-  const chat = new ChatService(repositories.chat, employees, repositories.users, realtime, autoReplies, app.log);
+  // Chat novo: conversas diretas, grupos e arquivos
+  const conversas = new ConversaService(
+    repositories.conversas,
+    repositories.users,
+    repositories.midias,
+    autoReplies,
+    realtime,
+    app.log,
+  );
+  // As telas antigas (Central e versão atual do app) continuam funcionando por aqui
+  const chat = new ChatCompatService(conversas, repositories.conversas, employees, repositories.users, app.log);
   // Poderes extras da conta do TI (apagar comunicados e conversas, gerenciar os logins do DP)
   const admin = new AdminService(
     repositories.users,
     repositories.messages,
-    repositories.chat,
+    chat,
     repositories.tokens,
     attachments,
     app.log,
@@ -186,6 +199,7 @@ export function buildApp({
       await api.register(updateRoutes, { updates });
       await api.register(contentRoutes, { content });
       await api.register(ticketRoutes, { tickets });
+      await api.register(conversaRoutes, { conversas, employees, users: repositories.users });
     },
     { prefix: '/api' },
   );

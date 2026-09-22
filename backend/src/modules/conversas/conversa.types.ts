@@ -91,7 +91,10 @@ export function tituloPara(conversa: Conversa, participantes: Participante[], me
   return outro?.nome ?? 'Conversa';
 }
 
-/** Resumo curto para a lista (a última mensagem pode ser mídia ou de sistema). */
+/**
+ * Resumo curto para a lista. A última mensagem pode ser mídia ou aviso de
+ * sistema; avisos de sistema aparecem, mas não contam como mensagem nova.
+ */
 export function resumoDaMensagem(mensagem: MensagemConversa | null): string {
   if (!mensagem) return '';
   if (mensagem.apagadaEm) return 'mensagem apagada';

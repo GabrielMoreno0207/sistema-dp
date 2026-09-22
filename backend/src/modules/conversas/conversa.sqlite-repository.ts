@@ -240,6 +240,7 @@ export class SqliteConversaRepository implements ConversaRepository {
          WHERE m.conversa_id IN (${marcadores(conversaIds.length)})
            AND m.autor_id <> ?
            AND m.apagada_em IS NULL
+           AND m.tipo <> 'SISTEMA'
            AND (mb.ultima_leitura IS NULL OR m.created_at > mb.ultima_leitura)
          GROUP BY m.conversa_id`,
       )
@@ -261,6 +262,32 @@ export class SqliteConversaRepository implements ConversaRepository {
   async findMensagem(id: number): Promise<MensagemConversa | null> {
     const row = this.db.prepare('SELECT * FROM conversa_mensagens WHERE id = ?').get(id);
     return row ? toMensagem(row as Row) : null;
+  }
+
+  async contarMensagensPorConversa(conversaIds: string[]): Promise<Map<string, number>> {
+    const resultado = new Map<string, number>();
+    if (conversaIds.length === 0) return resultado;
+    const linhas = this.db
+      .prepare(
+        `SELECT conversa_id, COUNT(*) AS total FROM conversa_mensagens
+         WHERE conversa_id IN (${marcadores(conversaIds.length)}) AND tipo <> 'SISTEMA'
+         GROUP BY conversa_id`,
+      )
+      .all(...conversaIds);
+    for (const linha of linhas) resultado.set(text(linha as Row, 'conversa_id'), Number((linha as Row).total));
+    return resultado;
+  }
+
+  async apagarMensagens(conversaIds: string[], antesDe: string | null): Promise<number> {
+    if (conversaIds.length === 0) return 0;
+    const filtro = antesDe ? ' AND created_at < ?' : '';
+    const valores: (string | number)[] = [...conversaIds];
+    if (antesDe) valores.push(antesDe);
+    return Number(
+      this.db
+        .prepare(`DELETE FROM conversa_mensagens WHERE conversa_id IN (${marcadores(conversaIds.length)})${filtro}`)
+        .run(...valores).changes,
+    );
   }
 
   async registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void> {

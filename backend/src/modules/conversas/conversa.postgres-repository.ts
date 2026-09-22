@@ -232,6 +232,7 @@ export class PostgresConversaRepository implements ConversaRepository {
        WHERE m.conversa_id = ANY($2::text[])
          AND m.autor_id <> $1
          AND m.apagada_em IS NULL
+         AND m.tipo <> 'SISTEMA'
          AND (mb.ultima_leitura IS NULL OR m.created_at > mb.ultima_leitura)
        GROUP BY m.conversa_id`,
       [userId, conversaIds],
@@ -252,6 +253,29 @@ export class PostgresConversaRepository implements ConversaRepository {
   async findMensagem(id: number): Promise<MensagemConversa | null> {
     const row = await this.db.one('SELECT * FROM conversa_mensagens WHERE id = $1', [id]);
     return row ? toMensagem(row) : null;
+  }
+
+  async contarMensagensPorConversa(conversaIds: string[]): Promise<Map<string, number>> {
+    const resultado = new Map<string, number>();
+    if (conversaIds.length === 0) return resultado;
+    const rows = await this.db.all(
+      `SELECT conversa_id, COUNT(*) AS total FROM conversa_mensagens
+       WHERE conversa_id = ANY($1::text[]) AND tipo <> 'SISTEMA'
+       GROUP BY conversa_id`,
+      [conversaIds],
+    );
+    for (const row of rows) resultado.set(text(row, 'conversa_id'), Number(row.total));
+    return resultado;
+  }
+
+  async apagarMensagens(conversaIds: string[], antesDe: string | null): Promise<number> {
+    if (conversaIds.length === 0) return 0;
+    return antesDe
+      ? this.db.run('DELETE FROM conversa_mensagens WHERE conversa_id = ANY($1::text[]) AND created_at < $2', [
+          conversaIds,
+          antesDe,
+        ])
+      : this.db.run('DELETE FROM conversa_mensagens WHERE conversa_id = ANY($1::text[])', [conversaIds]);
   }
 
   async registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void> {

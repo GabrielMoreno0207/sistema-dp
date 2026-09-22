@@ -3,7 +3,15 @@ import { AppError, NotFoundError } from '../../errors/app-error';
 import type { AttachmentService } from '../attachments/attachment.service';
 import { hashSecret } from '../auth/crypto';
 import type { TokenRepository } from '../auth/token.repository';
-import type { ChatRepository } from '../chat/chat.repository';
+/**
+ * O que a seção do TI precisa do chat: números e limpeza, nunca conteúdo.
+ * Implementado hoje pelo ChatCompatService, sobre o modelo novo de conversas.
+ */
+export interface AdminChatData {
+  summaryByDpUser(): Promise<{ dpUserId: string; conversations: number; messages: number; lastAt: string | null }[]>;
+  deleteConversation(dpUserId: string, employeeId: string): Promise<number>;
+  deleteMessages(dpUserId: string | null, before: Date | null): Promise<number>;
+}
 import type { MessageRepository } from '../messages/message.repository';
 import type { UserRepository } from '../users/user.repository';
 import { toPublicUser, type PublicUser } from '../users/user.types';
@@ -36,7 +44,7 @@ export class AdminService {
   constructor(
     private readonly users: UserRepository,
     private readonly messages: MessageRepository,
-    private readonly chat: ChatRepository,
+    private readonly chat: AdminChatData,
     private readonly tokens: TokenRepository,
     private readonly attachments: AttachmentService,
     private readonly log: FastifyBaseLogger,
