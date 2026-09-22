@@ -25,6 +25,11 @@ function loadPage(win: BrowserWindow, page: Page): void {
   }
 }
 
+/**
+ * Janela principal sem a moldura do Windows: a barra de título é a do próprio
+ * sistema (ver BarraSuperior), com os botões de minimizar, maximizar e fechar.
+ * A janela continua redimensionável pelas bordas.
+ */
 export function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1100,
@@ -33,6 +38,8 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 560,
     title: 'Comunica Trinys',
     show: false,
+    frame: false,
+    backgroundColor: '#0e151b',
     autoHideMenuBar: true,
     webPreferences: secureWebPreferences('index'),
   });

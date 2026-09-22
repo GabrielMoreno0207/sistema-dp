@@ -20,6 +20,13 @@ const api: DesktopApi = {
   onOpenConversa: (listener) => subscribe(IpcChannels.OpenConversa, listener),
   conversaEmFoco: (conversaId) => ipcRenderer.send(IpcChannels.ConversaEmFoco, conversaId),
 
+  janelaMinimizar: () => ipcRenderer.send(IpcChannels.JanelaMinimizar),
+  janelaMaximizar: () => ipcRenderer.invoke(IpcChannels.JanelaMaximizar),
+  janelaEsconder: () => ipcRenderer.send(IpcChannels.JanelaEsconder),
+  janelaFechar: (senha) => ipcRenderer.invoke(IpcChannels.JanelaFechar, senha),
+  janelaEstaMaximizada: () => ipcRenderer.invoke(IpcChannels.JanelaEstado),
+  onPedirSenhaParaFechar: (listener) => subscribe(IpcChannels.PedirSenhaParaFechar, listener),
+
   openAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentOpen, attachmentId),
   saveAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentSave, attachmentId),
   getAttachmentImage: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentImage, attachmentId),
@@ -73,6 +80,8 @@ const api: DesktopApi = {
   adminAnexar: () => ipcRenderer.invoke(IpcChannels.AdminAnexo),
 
   conversasApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.ConversasApi, { method, path, body }),
+  // Mesma porta de entrada das conversas: a rota é conferida no processo principal
+  agendaApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.ConversasApi, { method, path, body }),
   conversasIdentidade: () => ipcRenderer.invoke(IpcChannels.ConversasIdentidade),
   conversasAnexar: () => ipcRenderer.invoke(IpcChannels.ConversasAnexar),
   conversasAbrirArquivo: (midiaId, nome) => ipcRenderer.invoke(IpcChannels.ConversasAbrirArquivo, { midiaId, nome }),

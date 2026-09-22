@@ -9,6 +9,7 @@ import {
   type BrowserWindow,
   type IpcMainInvokeEvent,
 } from 'electron';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -202,13 +203,16 @@ function start(): void {
 
     const win = createMainWindow();
     win.setIcon(loadIcon('icon.png'));
-    // Fechar a janela só esconde: o app continua na bandeja recebendo mensagens
+    // Fechar a janela (X da barra, Alt+F4) não encerra o sistema: pede a senha.
+    // Quem só quer tirar da frente tem o botão de minimizar na bandeja.
     win.on('close', (event) => {
       if (!quitting) {
         event.preventDefault();
-        win.hide();
+        pedirSenhaParaFechar();
       }
     });
+    win.on('maximize', () => sendToMain(IpcChannels.JanelaEstado, true));
+    win.on('unmaximize', () => sendToMain(IpcChannels.JanelaEstado, false));
     // Logoff/desligamento do Windows: grava o cache e tira o funcionário do PC (PC compartilhado:
     // o próximo a usar não herda a sessão). Melhor esforço: o Windows não espera muito.
     win.on('session-end', () => {
@@ -271,11 +275,69 @@ function start(): void {
 
   const tray = new AppTray({
     open: showMainWindow,
-    quit: () => {
-      quitting = true;
-      app.quit();
-    },
+    quit: () => pedirSenhaParaFechar(),
   });
+
+  // ---------------------------------------------------------------- fechar o sistema
+
+  /**
+   * Encerrar o aplicativo exige a senha do TI: nos computadores da fábrica ele
+   * precisa continuar aberto para receber os comunicados.
+   *
+   * Guardamos só o resumo SHA-256 — a senha não fica escrita no programa. Dá
+   * para trocar sem recompilar, pondo SENHA_FECHAR no .env ao lado do executável.
+   *
+   * Isto é uma tranca contra fechar sem querer (ou de propósito, pela janela):
+   * quem tiver o Gerenciador de Tarefas ainda consegue encerrar o processo.
+   */
+  const RESUMO_SENHA_PADRAO = '74eaa0a540c22261919aa2c906f4108e5d3b1451f455a364f4579400eae5b2ad';
+
+  function senhaDeFecharConfere(senha: string): boolean {
+    const esperado = process.env.SENHA_FECHAR
+      ? createHash('sha256').update(process.env.SENHA_FECHAR).digest('hex')
+      : RESUMO_SENHA_PADRAO;
+    const recebido = createHash('sha256').update(senha).digest('hex');
+    // timingSafeEqual: comparar byte a byte não conta o tempo a favor de quem tenta adivinhar
+    return timingSafeEqual(Buffer.from(recebido, 'hex'), Buffer.from(esperado, 'hex'));
+  }
+
+  /** Traz a janela para a frente com a caixa da senha aberta. */
+  function pedirSenhaParaFechar(): void {
+    showMainWindow();
+    sendToMain(IpcChannels.PedirSenhaParaFechar, null);
+  }
+
+  handle(IpcChannels.JanelaFechar, async (bruto): Promise<OperationResult> => {
+    const senha = typeof bruto === 'string' ? bruto : '';
+    if (!senha || !senhaDeFecharConfere(senha)) {
+      console.warn('[janela] tentativa de fechar com senha errada');
+      return { ok: false, message: 'Senha incorreta.' };
+    }
+    console.log('[janela] senha conferida: encerrando o sistema');
+    quitting = true;
+    setTimeout(() => app.quit(), 150);
+    return { ok: true, message: 'Encerrando...' };
+  });
+
+  ipcMain.on(IpcChannels.JanelaMinimizar, (event) => {
+    if (!isTrustedSender(event as unknown as IpcMainInvokeEvent)) return;
+    mainWindow?.minimize();
+  });
+
+  ipcMain.on(IpcChannels.JanelaEsconder, (event) => {
+    if (!isTrustedSender(event as unknown as IpcMainInvokeEvent)) return;
+    mainWindow?.hide();
+  });
+
+  handle(IpcChannels.JanelaMaximizar, async () => {
+    const win = mainWindow;
+    if (!win || win.isDestroyed()) return false;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+    return win.isMaximized();
+  });
+
+  handle(IpcChannels.JanelaEstado, async () => mainWindow?.isMaximized() ?? false);
 
   // ---------------------------------------------------------------- funcionário logado
 
@@ -1143,6 +1205,11 @@ function start(): void {
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/' + CNV + '/membros/[\\w-]{1,64}$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/sair$') },
     { metodo: 'PUT', padrao: new RegExp('^/api/conversas/' + CNV + '/nome$') },
+    // Calendário da tela inicial
+    { metodo: 'GET', padrao: new RegExp('^/api/eventos[?]de=\\d{4}-\\d{2}-\\d{2}&ate=\\d{4}-\\d{2}-\\d{2}$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/eventos$') },
+    { metodo: 'PUT', padrao: new RegExp('^/api/eventos/EVT-[0-9a-f]{24}$') },
+    { metodo: 'DELETE', padrao: new RegExp('^/api/eventos/EVT-[0-9a-f]{24}$') },
     // Área do TI (cada leitura fica registrada no servidor)
     { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas$') },
     { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/acessos$') },

@@ -260,6 +260,23 @@ export interface MensagemConversa {
   apagadaEm: string | null;
 }
 
+/** Evento do calendário da tela inicial */
+export interface EventoAgenda {
+  id: string;
+  titulo: string;
+  descricao: string;
+  /** Data do calendário, AAAA-MM-DD */
+  dia: string;
+  /** 'HH:MM', ou null quando é o dia inteiro */
+  hora: string | null;
+  /** PESSOAL: anotação de quem criou; GERAL: publicado pelo DP para todos */
+  escopo: 'PESSOAL' | 'GERAL';
+  cor: string;
+  criadoPor: string;
+  criadoPorNome: string;
+  createdAt: string;
+}
+
 /** Leitura de uma conversa pelo TI (auditoria) */
 export interface AcessoTi {
   conversaId: string;
@@ -368,6 +385,25 @@ export interface DesktopApi {
   onOpenConversa(listener: (conversaId: string) => void): () => void;
   /** A tela avisa qual conversa está aberta: enquanto ela estiver à vista, não alerta */
   conversaEmFoco(conversaId: string | null): void;
+
+  // ---- Janela (a barra de título é do próprio sistema) ----
+  janelaMinimizar(): void;
+  /** Maximiza ou volta ao tamanho anterior; devolve se ficou maximizada */
+  janelaMaximizar(): Promise<boolean>;
+  /** Esconde na bandeja: o sistema continua recebendo comunicados */
+  janelaEsconder(): void;
+  /** Fecha o sistema de vez; só com a senha certa */
+  janelaFechar(senha: string): Promise<OperationResult>;
+  janelaEstaMaximizada(): Promise<boolean>;
+  /** O processo principal pede a senha (botão de fechar, bandeja, Alt+F4) */
+  onPedirSenhaParaFechar(listener: () => void): () => void;
+
+  /** Calendário da tela inicial (mesma credencial de quem está usando o aplicativo) */
+  agendaApi<T = unknown>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    path: string,
+    body?: unknown,
+  ): Promise<{ ok: boolean; dados: T | null; message: string }>;
 
   // Anexos dos comunicados (o download é sempre feito pelo processo main)
   /** Abre o anexo no programa padrão do Windows (baixa para uma pasta temporária) */
@@ -542,5 +578,14 @@ export const IpcChannels = {
   ConversasAnexar: 'conversas:anexar',
   ConversasAbrirArquivo: 'conversas:abrir-arquivo',
   ConversasChanged: 'conversas:changed',
+
+  // Janela: a barra de título é do próprio sistema
+  JanelaMinimizar: 'janela:minimizar',
+  JanelaMaximizar: 'janela:maximizar',
+  JanelaEsconder: 'janela:esconder',
+  JanelaFechar: 'janela:fechar',
+  JanelaEstado: 'janela:estado',
+  /** Pedido para abrir a janelinha da senha (botão de fechar, bandeja, Alt+F4) */
+  PedirSenhaParaFechar: 'janela:pedir-senha',
 } as const;
 // Canais do popup: ver popup-channels.ts

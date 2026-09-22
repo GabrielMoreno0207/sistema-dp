@@ -15,6 +15,8 @@ import { contentRoutes } from './modules/content/content.routes';
 import { ContentService } from './modules/content/content.service';
 import { MidiaStorage } from './modules/content/content.storage';
 import { TIPOS_ACEITOS } from './modules/content/content.types';
+import { eventoRoutes } from './modules/agenda/evento.routes';
+import { EventoService } from './modules/agenda/evento.service';
 import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
 import { ChatCompatService } from './modules/chat/chat.compat-service';
@@ -181,6 +183,7 @@ export function buildApp({
   );
 
   const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);
+  const eventos = new EventoService(repositories.eventos, app.log);
 
   registerAuthentication(app, auth);
 
@@ -208,6 +211,7 @@ export function buildApp({
       await api.register(contentRoutes, { content });
       await api.register(ticketRoutes, { tickets });
       await api.register(conversaRoutes, { conversas, employees, users: repositories.users });
+      await api.register(eventoRoutes, { eventos, employees });
     },
     { prefix: '/api' },
   );

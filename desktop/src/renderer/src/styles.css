@@ -3551,3 +3551,318 @@ svg {
   font-size: 10.5px;
   font-weight: 700;
 }
+
+/* ------------------------------------------------------------------
+ * Barra de título do próprio sistema (a janela não usa a do Windows).
+ * A barra inteira arrasta a janela; o que é clicável fica de fora disso.
+ * ------------------------------------------------------------------ */
+.barra-superior {
+  -webkit-app-region: drag;
+}
+
+.barra-superior button,
+.barra-superior input,
+.barra-superior a,
+.barra-superior .menu-usuario,
+.barra-superior .barra-superior__admin {
+  -webkit-app-region: no-drag;
+}
+
+.controles-janela {
+  display: flex;
+  margin-left: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.controle-janela {
+  display: grid;
+  width: 42px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #cfdbe4;
+  cursor: pointer;
+  place-items: center;
+}
+
+.controle-janela:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.controle-janela--fechar:hover {
+  background: #c62828;
+  color: #fff;
+}
+
+/* A tela de entrada não tem a barra superior: ganha uma faixa para arrastar */
+.login-screen {
+  position: relative;
+}
+
+.login-screen__barra {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  height: 38px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px;
+  -webkit-app-region: drag;
+}
+
+.fechar-sistema__texto {
+  margin: 0 0 10px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------
+ * Calendário da tela inicial: mês à esquerda, o dia escolhido à direita.
+ * ------------------------------------------------------------------ */
+.agenda {
+  margin-top: 22px;
+}
+
+.agenda__titulo {
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.agenda__caixa {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.3fr) minmax(260px, 1fr);
+  gap: 18px;
+  padding: 16px 18px;
+}
+
+.agenda__fechada {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px;
+  color: var(--muted);
+}
+
+.agenda__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.agenda__nome-do-mes {
+  font-size: 14px;
+  text-transform: capitalize;
+}
+
+.agenda__semana,
+.agenda__grade {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.agenda__dia-da-semana {
+  padding-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.agenda__dia {
+  display: flex;
+  min-height: 44px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 2px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: var(--surface-alta);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+
+.agenda__dia:hover {
+  border-color: var(--campo-borda);
+}
+
+.agenda__dia--fora {
+  background: transparent;
+  color: var(--muted);
+}
+
+.agenda__dia--hoje .agenda__numero {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: var(--sobre-acento);
+  font-weight: 700;
+  place-items: center;
+}
+
+.agenda__dia--escolhido {
+  border-color: var(--acento);
+  background: var(--realce);
+}
+
+.agenda__marcas {
+  display: flex;
+  height: 6px;
+  gap: 3px;
+}
+
+.agenda__marca {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* ---- o dia escolhido ---- */
+.agenda__lado {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+  border-left: 1px solid var(--border);
+  padding-left: 18px;
+}
+
+.agenda__lado-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.agenda__lado-topo strong {
+  font-size: 13px;
+}
+
+.agenda__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.agenda__campo {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--campo-borda);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.agenda__linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agenda__campo--hora {
+  width: 84px;
+  flex: none;
+  text-align: center;
+}
+
+.agenda__cores {
+  display: flex;
+  gap: 6px;
+}
+
+.agenda__cor {
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.agenda__cor--ativa {
+  border-color: var(--text);
+}
+
+.agenda__lista {
+  display: flex;
+  max-height: 210px;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.agenda__vazio {
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.agenda__evento {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: var(--surface-alta);
+}
+
+.agenda__evento-cor {
+  width: 4px;
+  height: 30px;
+  flex: none;
+  border-radius: 999px;
+}
+
+.agenda__evento-texto {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.agenda__evento-texto strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda__evento-texto small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.agenda__evento-hora {
+  margin-right: 6px;
+  color: var(--link);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1080px) {
+  .agenda__caixa {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .agenda__lado {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    padding-left: 0;
+  }
+}

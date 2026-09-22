@@ -370,4 +370,28 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       DROP TABLE migra_conversas;
     `,
   },
+  {
+    version: 6,
+    name: 'agenda de eventos',
+    sql: `
+      CREATE TABLE eventos (
+        id              TEXT PRIMARY KEY,
+        titulo          TEXT NOT NULL,
+        descricao       TEXT NOT NULL DEFAULT '',
+        -- dia do evento (sem fuso: é a data do calendário, igual para todo mundo)
+        dia             DATE NOT NULL,
+        -- 'HH:MM', ou NULL quando o evento é do dia inteiro
+        hora            TEXT,
+        -- PESSOAL: só quem criou vê; GERAL: todo mundo (só o DP/TI publica)
+        escopo          TEXT NOT NULL CHECK (escopo IN ('PESSOAL', 'GERAL')),
+        cor             TEXT NOT NULL DEFAULT '#17b3a3',
+        criado_por      TEXT NOT NULL,
+        criado_por_nome TEXT NOT NULL,
+        created_at      TEXT NOT NULL
+      );
+
+      CREATE INDEX idx_eventos_dia ON eventos (dia);
+      CREATE INDEX idx_eventos_dono ON eventos (criado_por, dia);
+    `,
+  },
 ];

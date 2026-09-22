@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { ConnectionState } from '../../../shared/types';
+import { ControlesJanela } from './ControlesJanela';
 
 type Modo = 'FUNCIONARIO' | 'DP';
 
@@ -75,6 +76,9 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
 
   return (
     <div className="login-screen">
+      <div className="login-screen__barra">
+        <ControlesJanela onFechar={() => window.dp.janelaEsconder()} />
+      </div>
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-card__brand">
           <span className="sidebar__logo">DP</span>

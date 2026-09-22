@@ -4,6 +4,7 @@ import { GradeAtalhos } from '../components/GradeAtalhos';
 import { HistoricoConversas } from '../components/HistoricoConversas';
 import type { Page } from '../components/MenuLateral';
 import { Mural } from '../components/Mural';
+import { Calendario } from '../components/Calendario';
 
 interface InicioPageProps {
   employee: EmployeeProfile | null;
@@ -81,6 +82,13 @@ export function InicioPage({
       )}
 
       <Mural post={mural} />
+
+      <Calendario
+        meuId={admin?.id ?? employee?.id ?? null}
+        ehTi={admin?.superAdmin ?? false}
+        podePublicar={Boolean(admin)}
+        disponivel={Boolean(employee || admin)}
+      />
 
       <HistoricoConversas
         conversas={conversas}

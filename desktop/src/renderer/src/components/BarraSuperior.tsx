@@ -3,6 +3,7 @@ import { aplicarTema, temaGuardado, type Tema } from '../lib/tema';
 import type { AdminUser, ConnectionState, EmployeeProfile, MidiaPublica } from '../../../shared/types';
 import { ConnectionBadge } from './ConnectionBadge';
 import { Icone } from '../lib/icones';
+import { ControlesJanela } from './ControlesJanela';
 
 interface BarraSuperiorProps {
   employee: EmployeeProfile | null;
@@ -16,6 +17,8 @@ interface BarraSuperiorProps {
   onEntrar(): void;
   onEntrarComoDp(): void;
   onSairDoDp(): void;
+  /** X da barra: abre a caixa que pede a senha para encerrar */
+  onFecharSistema(): void;
 }
 
 /** Iniciais do nome para o avatar (Maria Souza -> MS) */
@@ -34,6 +37,7 @@ export function BarraSuperior({
   onEntrar,
   onEntrarComoDp,
   onSairDoDp,
+  onFecharSistema,
 }: BarraSuperiorProps) {
   const [menuAberto, setMenuAberto] = useState(false);
   const [tema, setTema] = useState<Tema>(temaGuardado);
@@ -165,6 +169,8 @@ export function BarraSuperior({
             </div>
           )}
         </div>
+
+        <ControlesJanela onFechar={onFecharSistema} />
       </div>
     </header>
   );

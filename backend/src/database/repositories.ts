@@ -22,6 +22,8 @@ import {
 import type { AtalhoRepository, MidiaRepository, MuralRepository } from '../modules/content/content.repository';
 import { PostgresChamadoRepository } from '../modules/tickets/ticket.postgres-repository';
 import type { ChamadoRepository } from '../modules/tickets/ticket.repository';
+import { PostgresEventoRepository } from '../modules/agenda/evento.postgres-repository';
+import type { EventoRepository } from '../modules/agenda/evento.repository';
 import { PostgresConversaRepository } from '../modules/conversas/conversa.postgres-repository';
 import type { ConversaRepository } from '../modules/conversas/conversa.repository';
 import type { PostgresDatabase } from './postgres';
@@ -46,6 +48,8 @@ export interface Repositories {
   chamados: ChamadoRepository;
   /** Conversas do chat (diretas e grupos) */
   conversas: ConversaRepository;
+  /** Eventos do calendário da tela inicial */
+  eventos: EventoRepository;
 }
 
 /** Implementações PostgreSQL: é o único banco do sistema. */
@@ -64,5 +68,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     atalhos: new PostgresAtalhoRepository(db),
     chamados: new PostgresChamadoRepository(db),
     conversas: new PostgresConversaRepository(db),
+    eventos: new PostgresEventoRepository(db),
   };
 }
