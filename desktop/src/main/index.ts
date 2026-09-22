@@ -25,6 +25,7 @@ import {
   type DpAttachment,
   type EmployeeProfile,
   type EmployeeState,
+  type IdentidadeChat,
   type CategoriaChamado,
   type MidiaPublica,
   type MuralPost,
@@ -289,6 +290,8 @@ function start(): void {
     const state: EmployeeState = { employee, checked: employeeChecked };
     sendToMain(IpcChannels.EmployeeChanged, state);
     updateUnreadIndicators();
+    // Trocou quem está no aplicativo: o contador do chat é de outra pessoa
+    void syncNaoLidasConversas();
   }
 
   /** Pergunta ao servidor quem está logado neste PC (o vínculo sobrevive a reinícios do app). */
@@ -301,15 +304,35 @@ function start(): void {
     }
   }
 
+  /** Mensagens não lidas no chat novo (todas as conversas), para a bandeja */
+  let naoLidasConversas = 0;
+
   function updateUnreadIndicators(): void {
     const announcements = store.getState().unreadCount;
-    const chatUnread = chat.getState().unreadCount;
+    const chatUnread = naoLidasConversas;
     const total = announcements + chatUnread;
     tray.update(announcements, chatUnread, CONNECTION_LABELS[connection.getState().status], employee?.name ?? null);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.setTitle(total > 0 ? `(${total}) Comunicação DP` : 'Comunicação DP');
       mainWindow.setOverlayIcon(total > 0 ? badge : null, total > 0 ? `${total} não lidas` : '');
     }
+  }
+
+  /**
+   * Contador do chat novo. Segue a mesma credencial da tela de mensagens: o
+   * funcionário logado no PC ou, sem ele, a conta do DP/TI.
+   */
+  async function syncNaoLidasConversas(): Promise<void> {
+    const anterior = naoLidasConversas;
+    try {
+      const resumo = employee
+        ? await comApi((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'))
+        : await comAdmin((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'));
+      naoLidasConversas = 'dados' in resumo ? (resumo.dados?.naoLidas ?? 0) : 0;
+    } catch {
+      naoLidasConversas = 0;
+    }
+    if (naoLidasConversas !== anterior) updateUnreadIndicators();
   }
 
   /** Lista de contatos do chat (pessoas do DP), com não lidas e última mensagem. */
@@ -708,6 +731,24 @@ function start(): void {
     '.webp': 'image/webp',
   };
 
+  /** Tipos aceitos nos anexos das conversas (o servidor confere de novo). */
+  const TIPOS_ANEXO: Record<string, string> = {
+    ...TIPOS_IMAGEM,
+    '.gif': 'image/gif',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xls': 'application/vnd.ms-excel',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.ppt': 'application/vnd.ms-powerpoint',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.txt': 'text/plain',
+    '.csv': 'text/csv',
+    '.zip': 'application/zip',
+  };
+
   /** Abre o seletor de arquivo e devolve a imagem lida do disco. */
   async function escolherImagem(
     titulo: string,
@@ -842,6 +883,7 @@ function start(): void {
     try {
       const usuario = await adminClient.login(username, password);
       sendToMain(IpcChannels.AdminChanged, usuario);
+      void syncNaoLidasConversas();
       console.log(`[admin] ${usuario.name} entrou${usuario.superAdmin ? ' (TI)' : ''}`);
       return { ok: true, message: '' };
     } catch (err) {
@@ -853,6 +895,7 @@ function start(): void {
   handle(IpcChannels.AdminLogout, async (): Promise<OperationResult> => {
     await adminClient?.logout();
     sendToMain(IpcChannels.AdminChanged, null);
+    void syncNaoLidasConversas();
     return { ok: true, message: '' };
   });
 
@@ -1031,6 +1074,129 @@ function start(): void {
     return { ok: true, anexos, message: '' };
   });
 
+  // ---------------------------------------------------------------- conversas do chat
+
+  /**
+   * Rotas do chat liberadas para a tela. Como no canal administrativo, o que
+   * não estiver nesta lista é recusado antes de sair do aplicativo.
+   */
+  const MIDIA_ID = new RegExp('^MID-[0-9a-f]{24}$');
+  /** Caracteres que o Windows não aceita em nome de arquivo */
+  const NOME_PROIBIDO = new RegExp('[\\/:*?"<>|]', 'g');
+  const CNV = 'CNV-[0-9a-f]{24}';
+  const ROTAS_CONVERSA: { metodo: string; padrao: RegExp }[] = [
+    { metodo: 'GET', padrao: new RegExp('^/api/contatos$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas/resumo$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/direta$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/grupo$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas/' + CNV + '$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas/' + CNV + '/mensagens([?]antes=\\d{1,12})?$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/mensagens$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/lidas$') },
+    { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/mensagens/\\d{1,12}$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/membros$') },
+    { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/' + CNV + '/membros/[\\w-]{1,64}$') },
+    { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/sair$') },
+    { metodo: 'PUT', padrao: new RegExp('^/api/conversas/' + CNV + '/nome$') },
+    // Área do TI (cada leitura fica registrada no servidor)
+    { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/acessos$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/' + CNV + '/mensagens([?]antes=\\d{1,12})?$') },
+    { metodo: 'DELETE', padrao: new RegExp('^/api/admin/conversas/' + CNV + '$') },
+  ];
+
+  /**
+   * Quem está conversando neste computador. O funcionário logado no PC tem
+   * preferência; sem ele, vale a conta do DP/TI aberta no aplicativo.
+   */
+  function identidadeDoChat(): IdentidadeChat | null {
+    if (employee) return { id: employee.id, nome: employee.name, ehDp: false, ehTi: false };
+    const usuario = adminClient?.autenticado ? adminClient.user : null;
+    if (usuario) return { id: usuario.id, nome: usuario.name, ehDp: true, ehTi: usuario.superAdmin };
+    return null;
+  }
+
+  handle(IpcChannels.ConversasIdentidade, async () => identidadeDoChat());
+
+  handle(IpcChannels.ConversasApi, async (bruto) => {
+    const entrada = bruto as { method?: unknown; path?: unknown; body?: unknown } | null;
+    const metodo = typeof entrada?.method === 'string' ? entrada.method.toUpperCase() : '';
+    const caminho = typeof entrada?.path === 'string' ? entrada.path : '';
+    const permitida = ROTAS_CONVERSA.some((rota) => rota.metodo === metodo && rota.padrao.test(caminho));
+    if (!permitida) {
+      console.warn('[conversas] rota recusada: ' + metodo + ' ' + caminho);
+      return { ok: false, dados: null, message: 'Operação não permitida.' };
+    }
+
+    // A área do TI é sempre da conta administrativa; o resto segue quem está no chat
+    const comCredencialDoDp = caminho.startsWith('/api/admin/') || !employee;
+    const saida = comCredencialDoDp
+      ? await comAdmin((client) => client.chamar<unknown>(metodo, caminho, entrada?.body))
+      : await comApi((client) => client.chamar<unknown>(metodo, caminho, entrada?.body));
+    return 'dados' in saida
+      ? { ok: true, dados: saida.dados ?? null, message: '' }
+      : { ok: false, dados: null, message: saida.message };
+  });
+
+  /** Arquivo anexado a uma mensagem: imagem, vídeo ou documento. */
+  handle(IpcChannels.ConversasAnexar, async () => {
+    const escolha = await dialog.showOpenDialog({
+      title: 'Escolha o arquivo para enviar',
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Imagens, vídeos e documentos',
+          extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip'],
+        },
+      ],
+    });
+    if (escolha.canceled || escolha.filePaths.length === 0) return { ok: false, midia: null, message: '' };
+
+    const caminho = escolha.filePaths[0];
+    const nome = caminho.split(/[\\/]/).pop() ?? 'arquivo';
+    const mimeType = TIPOS_ANEXO[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
+    if (!mimeType) return { ok: false, midia: null, message: 'Formato não aceito.' };
+
+    const conteudo = await readFile(caminho);
+    const limiteMb = mimeType.startsWith('video/') ? 200 : mimeType.startsWith('image/') ? 10 : 25;
+    if (conteudo.length > limiteMb * 1024 * 1024) {
+      return { ok: false, midia: null, message: 'O arquivo passa do limite de ' + limiteMb + ' MB.' };
+    }
+
+    const envio = employee
+      ? await comApi((client) => client.enviarMidia(conteudo, mimeType, nome))
+      : await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome));
+    return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
+  });
+
+  /** Documento recebido no chat: baixa e abre no programa padrão do Windows. */
+  handle(IpcChannels.ConversasAbrirArquivo, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { midiaId?: unknown; nome?: unknown } | null;
+    const midiaId = typeof entrada?.midiaId === 'string' && MIDIA_ID.test(entrada.midiaId) ? entrada.midiaId : null;
+    if (!midiaId) return { ok: false, message: 'Arquivo inválido.' };
+    // O nome vem da tela só para o arquivo temporário sair com um nome legível
+    const nome = (typeof entrada?.nome === 'string' ? entrada.nome : 'arquivo').replace(NOME_PROIBIDO, '_').slice(0, 120);
+
+    const baixado = employee
+      ? await comApi((client) => client.baixarMidia(midiaId))
+      : await comAdmin((client) => client.baixarMidia(midiaId));
+    if (!('dados' in baixado)) return baixado;
+
+    const pasta = join(app.getPath('temp'), 'comunicacao-dp-conversas');
+    const arquivo = join(pasta, `${midiaId}-${nome}`);
+    try {
+      await mkdir(pasta, { recursive: true });
+      await writeFile(arquivo, baixado.dados);
+      const falha = await shell.openPath(arquivo);
+      if (falha) return { ok: false, message: `O Windows não conseguiu abrir o arquivo: ${falha}` };
+      return { ok: true, message: `Abrindo ${nome}...` };
+    } catch (err) {
+      console.error('[conversas] falha ao gravar o arquivo temporário:', err);
+      return { ok: false, message: 'Não foi possível abrir o arquivo neste computador.' };
+    }
+  });
+
   // ---------------------------------------------------------------- atalhos e foto de perfil
 
   const DESTINOS_VALIDOS: DestinoAtalho[] = ['COMUNICADOS', 'CHAT', 'PERFIL', 'CONFIGURACOES', 'MURAL'];
@@ -1137,7 +1303,9 @@ function start(): void {
   connection.on('connected', () => {
     const client = api;
     if (!client) return;
-    void refreshSession(client).then(() => Promise.all([syncWithServer(), syncChat(), syncMural(), syncPerfil()]));
+    void refreshSession(client).then(() =>
+      Promise.all([syncWithServer(), syncChat(), syncMural(), syncPerfil(), syncNaoLidasConversas()]),
+    );
   });
 
   // O servidor mudou a sessão (expirou, funcionário desativado, senha redefinida pelo DP, setor/turno alterado)
@@ -1151,11 +1319,18 @@ function start(): void {
     setEmployee(next);
     void syncWithServer();
     void syncChat();
+    void syncNaoLidasConversas();
   });
 
   // O DP trocou o recado do mural: busca na hora, sem esperar reconectar
   connection.on('mural', () => {
     void syncMural();
+  });
+
+  // Chat novo: a tela de mensagens recarrega a conversa e a lista
+  connection.on('conversa', (conversaId) => {
+    sendToMain(IpcChannels.ConversasChanged, conversaId);
+    void syncNaoLidasConversas();
   });
 
   // Chat: só atualiza o contador e a conversa (sem popup nem som)

@@ -14,6 +14,7 @@ import { AttachmentStorage } from './modules/attachments/attachment.storage';
 import { contentRoutes } from './modules/content/content.routes';
 import { ContentService } from './modules/content/content.service';
 import { MidiaStorage } from './modules/content/content.storage';
+import { TIPOS_ACEITOS } from './modules/content/content.types';
 import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
 import { ChatCompatService } from './modules/chat/chat.compat-service';
@@ -88,6 +89,13 @@ export function buildApp({
 
   // Imagens e vídeos do mural e fotos de perfil: mesmo caminho, pelo tipo real do arquivo
   app.addContentTypeParser(/^(image|video)\//, (_request, payload, done) => done(null, payload));
+
+  // Documentos anexados às conversas (PDF, Word, Excel, TXT...): também como fluxo.
+  // A lista é a mesma que o serviço aceita, para não abrir aqui um tipo que ele recusaria.
+  for (const [mimeType, aceito] of Object.entries(TIPOS_ACEITOS)) {
+    if (aceito.tipo !== 'ARQUIVO') continue;
+    app.addContentTypeParser(mimeType, (_request, payload, done) => done(null, payload));
+  }
 
   // Uma linha por requisição; health check só em debug para não poluir o log
   app.addHook('onResponse', async (request, reply) => {

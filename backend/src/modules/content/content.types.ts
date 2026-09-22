@@ -6,7 +6,7 @@
  */
 import { randomBytes } from 'node:crypto';
 
-export type MidiaTipo = 'IMAGEM' | 'VIDEO';
+export type MidiaTipo = 'IMAGEM' | 'VIDEO' | 'ARQUIVO';
 
 export interface Midia {
   id: string;
@@ -73,6 +73,8 @@ export const LIMITES_CONTEUDO = {
   maxImagemBytes: 10 * 1024 * 1024,
   /** Vídeo do mural */
   maxVideoBytes: 200 * 1024 * 1024,
+  /** Documento anexado a uma conversa */
+  maxArquivoBytes: 25 * 1024 * 1024,
   maxTitulo: 120,
   maxTexto: 4000,
   maxRotulo: 24,
@@ -92,6 +94,17 @@ export const TIPOS_ACEITOS: Record<string, { tipo: MidiaTipo; extensao: string }
   'image/gif': { tipo: 'IMAGEM', extensao: '.gif' },
   'video/mp4': { tipo: 'VIDEO', extensao: '.mp4' },
   'video/webm': { tipo: 'VIDEO', extensao: '.webm' },
+  // Documentos: anexos das conversas do chat
+  'application/pdf': { tipo: 'ARQUIVO', extensao: '.pdf' },
+  'application/msword': { tipo: 'ARQUIVO', extensao: '.doc' },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { tipo: 'ARQUIVO', extensao: '.docx' },
+  'application/vnd.ms-excel': { tipo: 'ARQUIVO', extensao: '.xls' },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { tipo: 'ARQUIVO', extensao: '.xlsx' },
+  'application/vnd.ms-powerpoint': { tipo: 'ARQUIVO', extensao: '.ppt' },
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': { tipo: 'ARQUIVO', extensao: '.pptx' },
+  'text/plain': { tipo: 'ARQUIVO', extensao: '.txt' },
+  'text/csv': { tipo: 'ARQUIVO', extensao: '.csv' },
+  'application/zip': { tipo: 'ARQUIVO', extensao: '.zip' },
 };
 
 export function tipoAceito(mimeType: string): { tipo: MidiaTipo; extensao: string } | null {
@@ -99,7 +112,9 @@ export function tipoAceito(mimeType: string): { tipo: MidiaTipo; extensao: strin
 }
 
 export function limiteDoTipo(tipo: MidiaTipo): number {
-  return tipo === 'VIDEO' ? LIMITES_CONTEUDO.maxVideoBytes : LIMITES_CONTEUDO.maxImagemBytes;
+  if (tipo === 'VIDEO') return LIMITES_CONTEUDO.maxVideoBytes;
+  if (tipo === 'ARQUIVO') return LIMITES_CONTEUDO.maxArquivoBytes;
+  return LIMITES_CONTEUDO.maxImagemBytes;
 }
 
 function novoId(prefixo: string): string {

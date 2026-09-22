@@ -216,6 +216,53 @@ describe('conversa entre funcionários', () => {
     assert.equal(enviada.statusCode, 201);
     assert.equal(enviada.json().mensagem.tipo, 'MIDIA');
     assert.equal(enviada.json().mensagem.midiaId, midia.json().id);
+    // A tela precisa do nome e do tipo para decidir entre imagem, vídeo e arquivo
+    assert.equal(enviada.json().mensagem.midia.tipo, 'IMAGEM');
+    assert.equal(enviada.json().mensagem.midia.nome, 'escala.png');
+  });
+
+  test('documento também pode ser anexado, e a lista traz os dados do arquivo', async () => {
+    const midia = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: { ...comToken(pcMaria), 'content-type': 'application/pdf', 'x-nome': encodeURIComponent('holerite.pdf') },
+      payload: Buffer.from('%PDF-1.4 arquivo de teste'),
+    });
+    assert.equal(midia.statusCode, 201);
+    assert.equal(midia.json().tipo, 'ARQUIVO');
+
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { midiaId: midia.json().id },
+    });
+    assert.equal(enviada.statusCode, 201);
+
+    const lista = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+    });
+    const ultima = lista.json().mensagens.at(-1);
+    assert.equal(ultima.midia.tipo, 'ARQUIVO');
+    assert.equal(ultima.midia.nome, 'holerite.pdf');
+    assert.equal(ultima.midia.mimeType, 'application/pdf');
+    assert.ok(ultima.midia.tamanho > 0);
+  });
+
+  test('tipo de arquivo fora da lista é recusado', async () => {
+    const midia = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: {
+        ...comToken(pcMaria),
+        'content-type': 'application/x-msdownload',
+        'x-nome': encodeURIComponent('virus.exe'),
+      },
+      payload: Buffer.from('MZ'),
+    });
+    assert.equal(midia.statusCode, 415);
   });
 });
 

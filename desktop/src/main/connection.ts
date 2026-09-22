@@ -20,6 +20,8 @@ export interface ServerConnectionEvents {
   chat: [ChatMessage];
   /** O DP mudou o recado do mural: o app busca o novo */
   mural: [];
+  /** Mexeram em uma conversa do chat (mensagem nova, grupo alterado): a tela recarrega */
+  conversa: [string];
 }
 
 export interface ConnectionCredentials {
@@ -174,6 +176,13 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
     socket.on('mural:atualizado', () => {
       if (this.isStale(generation)) return;
       this.emit('mural');
+    });
+
+    // Só o aviso: o conteúdo vem pela API, com a credencial de quem está no chat
+    socket.on('conversa:atualizada', (payload: unknown) => {
+      if (this.isStale(generation)) return;
+      const id = (payload as { conversaId?: unknown } | null)?.conversaId;
+      this.emit('conversa', typeof id === 'string' ? id : '');
     });
 
     socket.on('message:new', (payload: unknown) => {

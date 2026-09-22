@@ -10,7 +10,7 @@ export type Page =
   | 'admin-chamados'
   | 'admin-comunicados'
   | 'admin-cadastros'
-  | 'admin-chat'
+  | 'admin-conversas'
   | 'admin-ajustes';
 
 interface ItemMenu {
@@ -32,10 +32,10 @@ const ITENS: ItemMenu[] = [
 const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
   { page: 'admin-comunicados', label: 'Comunicados', icon: '✈' },
   { page: 'admin-mural', label: 'Mural', icon: '◉' },
-  { page: 'admin-chat', label: 'Mensagens do DP', icon: '✆' },
   { page: 'admin-cadastros', label: 'Cadastros', icon: '▤' },
   { page: 'admin-ajustes', label: 'Ajustes', icon: '⚙' },
   { page: 'admin-chamados', label: 'Fila do TI', icon: '⚒', soTi: true },
+  { page: 'admin-conversas', label: 'Conversas (TI)', icon: '🔎', soTi: true },
 ];
 
 interface MenuLateralProps {

@@ -1,3 +1,4 @@
+import type { MidiaTipo } from '../content/content.types';
 /**
  * Chamados para o TI: o funcionário (ou alguém do DP) relata um problema e a
  * conversa acontece dentro do chamado, separada do chat com o Departamento Pessoal.
@@ -57,7 +58,7 @@ export type NovaMensagem = Omit<ChamadoMensagem, 'id' | 'createdAt' | 'lidaEm'>;
 export interface ChamadoCompleto extends Chamado {
   mensagens: ChamadoMensagem[];
   /** Prints anexados na abertura (só os ids; a tela busca em /api/midias/:id) */
-  midias: { id: string; tipo: 'IMAGEM' | 'VIDEO'; nome: string; url: string }[];
+  midias: { id: string; tipo: MidiaTipo; nome: string; url: string }[];
   /** Mensagens do outro lado ainda não lidas */
   naoLidas: number;
 }

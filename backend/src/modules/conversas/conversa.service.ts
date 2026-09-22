@@ -4,6 +4,7 @@ import type { AutoReplyService } from '../auto-replies/auto-reply.service';
 import { renderAutoReply } from '../auto-replies/auto-reply.types';
 import type { MidiaRepository } from '../content/content.repository';
 import type { UserRepository } from '../users/user.repository';
+import { midiaPublica, type MidiaPublica } from '../content/content.types';
 import type { ConversaRepository } from './conversa.repository';
 import {
   LIMITES_CONVERSA,
@@ -26,6 +27,11 @@ export interface Pessoa {
 }
 
 /** Avisa os participantes de que a conversa mudou. */
+/** Mensagem como a tela recebe: já com os dados do arquivo anexado. */
+export interface MensagemComMidia extends MensagemConversa {
+  midia: MidiaPublica | null;
+}
+
 export interface ConversaNotifier {
   conversaAtualizada(userIds: string[], conversaId: string): void;
 }
@@ -238,21 +244,39 @@ export class ConversaService {
     return { conversa, membro };
   }
 
-  async mensagens(quem: Pessoa, conversaId: string, antesDoId?: number): Promise<MensagemConversa[]> {
+  async mensagens(quem: Pessoa, conversaId: string, antesDoId?: number): Promise<MensagemComMidia[]> {
     await this.exigirMembro(conversaId, quem);
-    return this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId);
+    const mensagens = await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId);
+    return this.comMidias(mensagens);
   }
 
-  async enviar(quem: Pessoa, conversaId: string, conteudo: string, midiaId: string | null): Promise<MensagemConversa> {
+  /**
+   * Junta os dados do arquivo a cada mensagem: a tela precisa do nome e do
+   * tipo para decidir entre mostrar a imagem, tocar o vídeo ou oferecer o
+   * download.
+   */
+  private async comMidias(mensagens: MensagemConversa[]): Promise<MensagemComMidia[]> {
+    const ids = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
+    if (ids.length === 0) return mensagens.map((m) => ({ ...m, midia: null }));
+
+    const encontradas = await Promise.all(ids.map((id) => this.midias.findById(id)));
+    const porId = new Map<string, MidiaPublica>();
+    for (const midia of encontradas) if (midia) porId.set(midia.id, midiaPublica(midia));
+    return mensagens.map((m) => ({ ...m, midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null }));
+  }
+
+  async enviar(quem: Pessoa, conversaId: string, conteudo: string, midiaId: string | null): Promise<MensagemComMidia> {
     const { conversa } = await this.exigirMembro(conversaId, quem);
     const texto = conteudo.trim();
     if (!texto && !midiaId) throw new AppError('Escreva uma mensagem ou anexe um arquivo.', 400, 'MENSAGEM_VAZIA');
     if (texto.length > LIMITES_CONVERSA.maxConteudo) {
       throw new AppError(`A mensagem passa de ${LIMITES_CONVERSA.maxConteudo} caracteres.`, 400, 'MENSAGEM_LONGA');
     }
+    let midia: MidiaPublica | null = null;
     if (midiaId) {
-      const midia = await this.midias.findById(midiaId);
-      if (!midia) throw new AppError('O arquivo anexado não existe mais.', 400, 'MIDIA_INEXISTENTE');
+      const encontrada = await this.midias.findById(midiaId);
+      if (!encontrada) throw new AppError('O arquivo anexado não existe mais.', 400, 'MIDIA_INEXISTENTE');
+      midia = midiaPublica(encontrada);
     }
 
     const agora = new Date().toISOString();
@@ -275,7 +299,7 @@ export class ConversaService {
     await this.respostaAutomatica(conversa, quem).catch((err) =>
       this.log.error({ err }, 'Falha na resposta automática do DP'),
     );
-    return mensagem;
+    return { ...mensagem, midia };
   }
 
   /**
@@ -431,14 +455,14 @@ export class ConversaService {
     return this.montarResumos(conversas, quem.id);
   }
 
-  async lerComoTi(quem: Pessoa, conversaId: string, antesDoId?: number): Promise<MensagemConversa[]> {
+  async lerComoTi(quem: Pessoa, conversaId: string, antesDoId?: number): Promise<MensagemComMidia[]> {
     this.exigirTi(quem);
     const conversa = await this.conversas.findById(conversaId);
     if (!conversa) throw new NotFoundError('Conversa não encontrada');
 
     await this.conversas.registrarAcessoTi(conversaId, quem.id, quem.nome, new Date().toISOString());
     this.log.warn(`Auditoria: ${quem.nome} (TI) abriu a conversa ${conversaId}`);
-    return this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId);
+    return this.comMidias(await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId));
   }
 
   async acessosDoTi(quem: Pessoa): Promise<{ conversaId: string; usuarioNome: string; createdAt: string }[]> {

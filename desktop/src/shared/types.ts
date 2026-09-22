@@ -123,7 +123,7 @@ export const CHAT_MESSAGE_MAX = 2000;
 /** Imagem ou vídeo guardado no servidor */
 export interface MidiaPublica {
   id: string;
-  tipo: 'IMAGEM' | 'VIDEO';
+  tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO';
   nome: string;
   mimeType: string;
   tamanho: number;
@@ -202,7 +202,7 @@ export interface ChamadoResumo extends Chamado {
 
 export interface ChamadoCompleto extends Chamado {
   mensagens: ChamadoMensagem[];
-  midias: { id: string; tipo: 'IMAGEM' | 'VIDEO'; nome: string; url: string }[];
+  midias: { id: string; tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO'; nome: string; url: string }[];
   naoLidas: number;
 }
 
@@ -222,6 +222,70 @@ export interface AdminUser {
   /** Conta do TI: fila de chamados e as funções administrativas extras */
   superAdmin: boolean;
   mustChangePassword: boolean;
+}
+
+// ---- Chat: conversas diretas e grupos ----
+
+export type TipoConversa = 'DIRETA' | 'GRUPO';
+export type PapelMembro = 'ADMIN' | 'MEMBRO';
+export type TipoMensagemConversa = 'TEXTO' | 'MIDIA' | 'SISTEMA';
+
+/** Pessoa que participa de uma conversa (ou está na lista de contatos) */
+export interface Participante {
+  id: string;
+  nome: string;
+  matricula: string | null;
+  setor: string | null;
+  /** true = pessoa do Departamento Pessoal */
+  ehDp: boolean;
+  fotoMidiaId: string | null;
+  ativo: boolean;
+}
+
+export interface MensagemConversa {
+  id: number;
+  conversaId: string;
+  autorId: string;
+  autorNome: string;
+  tipo: TipoMensagemConversa;
+  conteudo: string;
+  midiaId: string | null;
+  /** Dados do arquivo anexado (o servidor já manda junto) */
+  midia: MidiaPublica | null;
+  automatica: boolean;
+  createdAt: string;
+  apagadaEm: string | null;
+}
+
+/** Leitura de uma conversa pelo TI (auditoria) */
+export interface AcessoTi {
+  conversaId: string;
+  usuarioNome: string;
+  createdAt: string;
+}
+
+export interface ConversaResumo {
+  id: string;
+  tipo: TipoConversa;
+  nome: string | null;
+  criadoPor: string;
+  createdAt: string;
+  updatedAt: string;
+  participantes: Participante[];
+  /** Nome do grupo, ou da outra pessoa na conversa direta */
+  titulo: string;
+  ultimaMensagem: { conteudo: string; autorNome: string; tipo: TipoMensagemConversa; createdAt: string } | null;
+  naoLidas: number;
+  meuPapel: PapelMembro;
+}
+
+/** Com qual identidade o aplicativo está conversando neste computador */
+export interface IdentidadeChat {
+  id: string;
+  nome: string;
+  /** true = entrou com a conta do DP/TI; false = funcionário do PC */
+  ehDp: boolean;
+  ehTi: boolean;
 }
 
 export interface AppState {
@@ -357,6 +421,25 @@ export interface DesktopApi {
   ): Promise<{ ok: boolean; dados: T | null; message: string }>;
   /** Escolhe arquivos no disco e anexa ao comunicado que está sendo escrito */
   adminAnexar(): Promise<{ ok: boolean; anexos: { id: string; name: string; size: number }[]; message: string }>;
+
+  // ---- Conversas (chat entre funcionários, grupos e arquivos) ----
+  /**
+   * Chamada às rotas de conversa com a credencial certa: o token do PC quando
+   * há funcionário logado, ou o da pessoa do DP/TI. A rota é conferida por uma
+   * lista no processo principal.
+   */
+  conversasApi<T = unknown>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    path: string,
+    body?: unknown,
+  ): Promise<{ ok: boolean; dados: T | null; message: string }>;
+  /** Quem está conversando neste computador (para saber de quem é cada mensagem) */
+  conversasIdentidade(): Promise<IdentidadeChat | null>;
+  /** Escolhe um arquivo no disco e envia; devolve a mídia para anexar à mensagem */
+  conversasAnexar(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Baixa o arquivo de uma mensagem e abre no programa padrão do Windows */
+  conversasAbrirArquivo(midiaId: string, nome: string): Promise<OperationResult>;
+  onConversasChange(listener: () => void): () => void;
 }
 
 /** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
@@ -422,5 +505,13 @@ export const IpcChannels = {
   /** Canal único das telas administrativas; a rota é conferida por uma lista */
   AdminApi: 'admin:api',
   AdminAnexo: 'admin:anexo',
+
+  // Conversas do chat
+  /** Canal único da tela de mensagens; a rota é conferida por uma lista */
+  ConversasApi: 'conversas:api',
+  ConversasIdentidade: 'conversas:identidade',
+  ConversasAnexar: 'conversas:anexar',
+  ConversasAbrirArquivo: 'conversas:abrir-arquivo',
+  ConversasChanged: 'conversas:changed',
 } as const;
 // Canais do popup: ver popup-channels.ts

@@ -1,0 +1,420 @@
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import type {
+  ConnectionState,
+  ConversaResumo,
+  IdentidadeChat,
+  MensagemConversa,
+  MidiaPublica,
+  Participante,
+} from '../../../shared/types';
+import { NovaConversa } from '../components/NovaConversa';
+import { PainelGrupo } from '../components/PainelGrupo';
+import { MensagemDaConversa, dataDoDia, iniciais } from '../components/conversa-comuns';
+
+/** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
+interface ConversasPageProps {
+  connection: ConnectionState;
+  onRequestLogin(): void;
+}
+
+/** Quando a identidade é do DP/TI não há sala de tempo real para este PC: confere de tempos em tempos. */
+const INTERVALO_CONFERENCIA_MS = 20_000;
+
+export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps) {
+  const [identidade, setIdentidade] = useState<IdentidadeChat | null | undefined>(undefined);
+  const [conversas, setConversas] = useState<ConversaResumo[]>([]);
+  const [abertaId, setAbertaId] = useState<string | null>(null);
+  const [mensagens, setMensagens] = useState<MensagemConversa[]>([]);
+  const [contatos, setContatos] = useState<Participante[]>([]);
+  const [texto, setTexto] = useState('');
+  const [anexo, setAnexo] = useState<MidiaPublica | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [criando, setCriando] = useState<'direta' | 'grupo' | null>(null);
+  const [verGrupo, setVerGrupo] = useState(false);
+  const [temMais, setTemMais] = useState(false);
+  const fimRef = useRef<HTMLDivElement>(null);
+  // Lido dentro dos listeners, que são registrados uma vez só
+  const abertaRef = useRef<string | null>(null);
+  abertaRef.current = abertaId;
+
+  const online = connection.status === 'connected';
+  const aberta = conversas.find((c) => c.id === abertaId) ?? null;
+
+  const carregarLista = useCallback(async () => {
+    const resposta = await window.dp.conversasApi<{ conversas: ConversaResumo[] }>('GET', '/api/conversas');
+    if (!resposta.ok) {
+      setErro(resposta.message);
+      return;
+    }
+    setErro(null);
+    setConversas(resposta.dados?.conversas ?? []);
+  }, []);
+
+  const carregarMensagens = useCallback(async (conversaId: string) => {
+    const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
+      'GET',
+      `/api/conversas/${conversaId}/mensagens`,
+    );
+    if (!resposta.ok) {
+      setErro(resposta.message);
+      return;
+    }
+    const lista = resposta.dados?.mensagens ?? [];
+    setMensagens(lista);
+    setTemMais(lista.length >= 50);
+    await window.dp.conversasApi('POST', `/api/conversas/${conversaId}/lidas`);
+  }, []);
+
+  useEffect(() => {
+    void window.dp.conversasIdentidade().then(setIdentidade);
+  }, []);
+
+  useEffect(() => {
+    if (!identidade) return;
+    void carregarLista();
+    void window.dp
+      .conversasApi<{ contatos: Participante[] }>('GET', '/api/contatos')
+      .then((r) => setContatos(r.dados?.contatos ?? []));
+  }, [identidade, carregarLista]);
+
+  // Mensagem nova, grupo alterado: o servidor avisa e a tela busca o que mudou
+  useEffect(() => {
+    if (!identidade) return;
+    const parar = window.dp.onConversasChange(() => {
+      void carregarLista();
+      const id = abertaRef.current;
+      if (id) void carregarMensagens(id);
+    });
+    // A conta do DP/TI não tem aviso em tempo real neste PC (o socket é do computador)
+    if (!identidade.ehDp) return parar;
+    const timer = setInterval(() => {
+      void carregarLista();
+      const id = abertaRef.current;
+      if (id) void carregarMensagens(id);
+    }, INTERVALO_CONFERENCIA_MS);
+    return () => {
+      parar();
+      clearInterval(timer);
+    };
+  }, [identidade, carregarLista, carregarMensagens]);
+
+  // Desce até a última mensagem ao abrir a conversa e a cada mensagem nova
+  useEffect(() => {
+    fimRef.current?.scrollIntoView({ block: 'end' });
+  }, [mensagens.length, abertaId]);
+
+  if (identidade === undefined) return <div className="loading">Carregando...</div>;
+
+  if (identidade === null) {
+    return (
+      <div className="page">
+        <header className="page__header">
+          <div>
+            <h1>Mensagens</h1>
+            <p className="page__subtitle">Converse com colegas, com o DP e em grupos.</p>
+          </div>
+        </header>
+        <section className="panel panel--muted">
+          <h2>Entre para ver suas conversas</h2>
+          <p>
+            As conversas são pessoais: entre com sua matrícula para falar com colegas e com o Departamento Pessoal. Os
+            comunicados gerais continuam na página Comunicados.
+          </p>
+          <div className="form__actions form__actions--start">
+            <button className="btn btn--primary" onClick={onRequestLogin}>
+              Entrar com minha matrícula
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  async function abrir(conversaId: string) {
+    setAbertaId(conversaId);
+    setMensagens([]);
+    setTexto('');
+    setAnexo(null);
+    setErro(null);
+    setVerGrupo(false);
+    await carregarMensagens(conversaId);
+    await carregarLista();
+  }
+
+  /** Página anterior de mensagens (botão no topo da conversa) */
+  async function carregarAnteriores() {
+    if (!abertaId || mensagens.length === 0) return;
+    const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
+      'GET',
+      `/api/conversas/${abertaId}/mensagens?antes=${mensagens[0].id}`,
+    );
+    const anteriores = resposta.dados?.mensagens ?? [];
+    setTemMais(anteriores.length >= 50);
+    if (anteriores.length > 0) setMensagens((atual) => [...anteriores, ...atual]);
+  }
+
+  async function enviar(evento?: FormEvent) {
+    evento?.preventDefault();
+    const conteudo = texto.trim();
+    if (!abertaId || (!conteudo && !anexo) || enviando) return;
+    setEnviando(true);
+    setErro(null);
+    try {
+      const resposta = await window.dp.conversasApi<{ mensagem: MensagemConversa }>(
+        'POST',
+        `/api/conversas/${abertaId}/mensagens`,
+        { conteudo, midiaId: anexo?.id ?? null },
+      );
+      if (!resposta.ok) {
+        setErro(resposta.message);
+        return;
+      }
+      setTexto('');
+      setAnexo(null);
+      if (resposta.dados?.mensagem) setMensagens((atual) => [...atual, resposta.dados!.mensagem]);
+      await carregarLista();
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function anexar() {
+    setErro(null);
+    const resultado = await window.dp.conversasAnexar();
+    if (!resultado.ok) {
+      if (resultado.message) setErro(resultado.message);
+      return;
+    }
+    setAnexo(resultado.midia);
+  }
+
+  async function apagar(mensagemId: number) {
+    const resposta = await window.dp.conversasApi('DELETE', `/api/conversas/mensagens/${mensagemId}`);
+    if (!resposta.ok) {
+      setErro(resposta.message);
+      return;
+    }
+    if (abertaId) await carregarMensagens(abertaId);
+    await carregarLista();
+  }
+
+  function aoDigitar(evento: KeyboardEvent<HTMLTextAreaElement>) {
+    // Enter envia; Shift+Enter quebra a linha
+    if (evento.key === 'Enter' && !evento.shiftKey) {
+      evento.preventDefault();
+      void enviar();
+    }
+  }
+
+  /** Conversa criada (direta ou grupo): entra na lista e já abre */
+  async function aoCriar(conversa: ConversaResumo) {
+    setCriando(null);
+    await carregarLista();
+    await abrir(conversa.id);
+  }
+
+  let diaAnterior = '';
+
+  return (
+    <div className="chat-layout">
+      <aside className="contacts">
+        <header className="contacts__header">
+          <h1>Mensagens</h1>
+          <p className="page__subtitle">
+            Conversando como <strong>{identidade.nome}</strong>
+            {identidade.ehDp && ' (DP)'}
+          </p>
+          <div className="contacts__acoes">
+            <button className="btn btn--primary btn--sm" onClick={() => setCriando('direta')}>
+              + Conversa
+            </button>
+            <button className="btn btn--sm" onClick={() => setCriando('grupo')}>
+              + Grupo
+            </button>
+          </div>
+        </header>
+
+        {conversas.length === 0 ? (
+          <div className="empty-state">
+            <span aria-hidden>💬</span>
+            <p>
+              {online
+                ? 'Nenhuma conversa ainda. Use "+ Conversa" para falar com um colega ou com o DP.'
+                : 'As conversas aparecem quando o app estiver 🟢 Conectado.'}
+            </p>
+          </div>
+        ) : (
+          <ul className="contacts__list">
+            {conversas.map((conversa) => (
+              <li key={conversa.id}>
+                <button
+                  className={`contact ${conversa.id === abertaId ? 'contact--active' : ''} ${
+                    conversa.naoLidas > 0 ? 'contact--unread' : ''
+                  }`}
+                  onClick={() => void abrir(conversa.id)}
+                >
+                  <span className="contact__avatar" aria-hidden>
+                    {conversa.tipo === 'GRUPO' ? '#' : iniciais(conversa.titulo)}
+                  </span>
+                  <span className="contact__main">
+                    <span className="contact__top">
+                      <span className="contact__name">{conversa.titulo}</span>
+                      {conversa.ultimaMensagem && (
+                        <span className="contact__time">{dataDoDia(conversa.ultimaMensagem.createdAt)}</span>
+                      )}
+                    </span>
+                    <span className="contact__preview">
+                      {conversa.ultimaMensagem
+                        ? `${conversa.ultimaMensagem.autorNome === identidade.nome ? 'Você: ' : conversa.tipo === 'GRUPO' ? `${conversa.ultimaMensagem.autorNome}: ` : ''}${
+                            conversa.ultimaMensagem.tipo === 'MIDIA'
+                              ? conversa.ultimaMensagem.conteudo || '📎 arquivo'
+                              : conversa.ultimaMensagem.conteudo
+                          }`
+                        : 'Clique para conversar'}
+                    </span>
+                  </span>
+                  {conversa.naoLidas > 0 && <span className="contact__badge">{conversa.naoLidas}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
+
+      <section className="chat">
+        {!aberta ? (
+          <div className="empty-state empty-state--detail">
+            <span aria-hidden>💬</span>
+            <p>Escolha uma conversa à esquerda, ou comece uma nova.</p>
+            {erro && <p className="feedback feedback--error">{erro}</p>}
+          </div>
+        ) : (
+          <>
+            <header className="chat__header">
+              <span className="chat__avatar" aria-hidden>
+                {aberta.tipo === 'GRUPO' ? '#' : iniciais(aberta.titulo)}
+              </span>
+              <div className="chat__header-texto">
+                <h1>{aberta.titulo}</h1>
+                <p className="page__subtitle">
+                  {aberta.tipo === 'GRUPO'
+                    ? `${aberta.participantes.length} participantes`
+                    : `Conversa individual entre você e ${aberta.titulo}.`}
+                </p>
+              </div>
+              {aberta.tipo === 'GRUPO' && (
+                <button className="btn btn--sm" onClick={() => setVerGrupo((v) => !v)}>
+                  {verGrupo ? 'Fechar' : 'Participantes'}
+                </button>
+              )}
+            </header>
+
+            {verGrupo && aberta.tipo === 'GRUPO' && (
+              <PainelGrupo
+                conversa={aberta}
+                contatos={contatos}
+                euId={identidade.id}
+                onMudou={async () => {
+                  await carregarLista();
+                  if (abertaId) await carregarMensagens(abertaId);
+                }}
+                onSaiu={async () => {
+                  setVerGrupo(false);
+                  setAbertaId(null);
+                  setMensagens([]);
+                  await carregarLista();
+                }}
+                onErro={setErro}
+                onAviso={setAviso}
+              />
+            )}
+
+            <div className="chat__messages" role="log" aria-live="polite">
+              {temMais && mensagens.length > 0 && (
+                <div className="chat__mais">
+                  <button className="btn btn--sm" onClick={() => void carregarAnteriores()}>
+                    Carregar mensagens anteriores
+                  </button>
+                </div>
+              )}
+              {mensagens.length === 0 && (
+                <div className="empty-state">
+                  <span aria-hidden>💬</span>
+                  <p>Nenhuma mensagem ainda. Escreva abaixo para começar.</p>
+                </div>
+              )}
+              {mensagens.map((mensagem) => {
+                const dia = dataDoDia(mensagem.createdAt, true);
+                const mostrarDia = dia !== diaAnterior;
+                diaAnterior = dia;
+                return (
+                  <Fragment key={mensagem.id}>
+                    {mostrarDia && <div className="chat__day">{dia}</div>}
+                    <MensagemDaConversa
+                      mensagem={mensagem}
+                      minha={mensagem.autorId === identidade.id}
+                      emGrupo={aberta.tipo === 'GRUPO'}
+                      onApagar={() => void apagar(mensagem.id)}
+                      onErro={setErro}
+                    />
+                  </Fragment>
+                );
+              })}
+              <div ref={fimRef} />
+            </div>
+
+            <form className="chat__composer" onSubmit={(e) => void enviar(e)}>
+              {!online && (
+                <p className="chat__offline">
+                  Sem conexão com o servidor: a mensagem só pode ser enviada com o app 🟢 Conectado.
+                </p>
+              )}
+              {erro && <p className="feedback feedback--error chat__error">{erro}</p>}
+              {aviso && <p className="feedback feedback--ok chat__error">{aviso}</p>}
+              {anexo && (
+                <p className="chat__anexo">
+                  📎 {anexo.nome}
+                  <button type="button" className="btn btn--sm" onClick={() => setAnexo(null)}>
+                    Remover
+                  </button>
+                </p>
+              )}
+              <div className="chat__input-row">
+                <button type="button" className="btn btn--sm" onClick={() => void anexar()} disabled={!online}>
+                  📎
+                </button>
+                <textarea
+                  className="chat__input"
+                  value={texto}
+                  onChange={(e) => setTexto(e.target.value)}
+                  onKeyDown={aoDigitar}
+                  placeholder={`Escreva para ${aberta.titulo}... (Enter envia, Shift+Enter quebra a linha)`}
+                  maxLength={4000}
+                  rows={2}
+                />
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={enviando || (!texto.trim() && !anexo) || !online}
+                >
+                  {enviando ? 'Enviando...' : 'Enviar'}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </section>
+
+      {criando && (
+        <NovaConversa
+          tipo={criando}
+          contatos={contatos}
+          onFechar={() => setCriando(null)}
+          onCriada={(conversa) => void aoCriar(conversa)}
+        />
+      )}
+    </div>
+  );
+}

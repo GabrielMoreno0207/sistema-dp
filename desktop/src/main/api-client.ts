@@ -87,6 +87,11 @@ export class ApiClient {
     return data.token;
   }
 
+  /** Chamada livre com o token do PC (a rota é conferida antes, no processo principal). */
+  async chamar<T>(method: string, path: string, body?: unknown): Promise<T> {
+    return this.request<T>(method, path, body);
+  }
+
   /** Token do computador usado nas próximas chamadas (null = nenhum) */
   setToken(token: string | null): void {
     this.token = token;
@@ -274,6 +279,18 @@ export class ApiClient {
 
   async removerFoto(): Promise<void> {
     await this.request('DELETE', '/api/perfil/foto');
+  }
+
+  /** Baixa a mídia inteira (arquivo anexado a uma conversa, para abrir no Windows). */
+  async baixarMidia(midiaId: string): Promise<Buffer> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const response = await fetch(`${this.baseUrl}/api/midias/${encodeURIComponent(midiaId)}`, {
+      headers,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new ApiError(`Erro HTTP ${response.status} ao baixar o arquivo`, response.status);
+    return Buffer.from(await response.arrayBuffer());
   }
 
   /** Busca a mídia no servidor repassando o cabeçalho Range (usado pelo protocolo dpmidia://). */

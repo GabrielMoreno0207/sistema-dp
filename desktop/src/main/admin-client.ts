@@ -187,6 +187,17 @@ export class AdminClient {
   }
 
   /** Envia imagem ou vídeo com a credencial do DP. */
+  /** Baixa a mídia inteira com a credencial do DP (arquivo de uma conversa). */
+  async baixarMidia(midiaId: string): Promise<Buffer> {
+    if (!this.token) throw new ApiError('Entre com a conta do DP para usar esta função', 401);
+    const response = await fetch(`${this.baseUrl}/api/midias/${encodeURIComponent(midiaId)}`, {
+      headers: { Authorization: `Bearer ${this.token}` },
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new ApiError(`Erro HTTP ${response.status} ao baixar o arquivo`, response.status);
+    return Buffer.from(await response.arrayBuffer());
+  }
+
   async enviarMidia(conteudo: Buffer, mimeType: string, nome: string): Promise<MidiaPublica> {
     if (!this.token) throw new ApiError('Entre com a conta do DP para enviar arquivos', 401);
     const response = await fetch(`${this.baseUrl}/api/midias`, {

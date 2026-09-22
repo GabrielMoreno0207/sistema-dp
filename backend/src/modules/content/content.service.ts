@@ -83,7 +83,7 @@ export class ContentService {
     const aceito = tipoAceito(envio.mimeType);
     if (!aceito) {
       throw new AppError(
-        `Tipo de arquivo não aceito: ${envio.mimeType}. Envie imagem (JPG, PNG, WEBP, GIF) ou vídeo (MP4, WEBM).`,
+        `Tipo de arquivo não aceito: ${envio.mimeType}. Envie imagem (JPG, PNG, WEBP, GIF), vídeo (MP4, WEBM) ou documento (PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP).`,
         415,
         'TIPO_NAO_ACEITO',
       );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DpMessage } from '../../shared/types';
+import type { ConversaResumo, DpMessage } from '../../shared/types';
 import { ForcePasswordScreen } from './components/ForcePasswordScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { BarraSuperior } from './components/BarraSuperior';
@@ -7,13 +7,13 @@ import { EntrarComoDp } from './components/EntrarComoDp';
 import { ColunaDireita } from './components/ColunaDireita';
 import { MenuLateral, type Page } from './components/MenuLateral';
 import { useDesktopState } from './hooks/useDesktopState';
-import { ChatPage } from './pages/ChatPage';
+import { ConversasPage } from './pages/ConversasPage';
+import { ConversasTiPage } from './pages/ConversasTiPage';
 import { ChamadosPage } from './pages/ChamadosPage';
 import { FilaChamadosPage } from './pages/FilaChamadosPage';
 import { InicioPage } from './pages/InicioPage';
 import { AjustesDpPage } from './pages/admin/AjustesDpPage';
 import { CadastrosPage } from './pages/admin/CadastrosPage';
-import { ChatDpPage } from './pages/admin/ChatDpPage';
 import { ComunicadosAdminPage } from './pages/admin/ComunicadosAdminPage';
 import { MuralAdminPage } from './pages/MuralAdminPage';
 import { MessagesPage } from './pages/MessagesPage';
@@ -50,6 +50,8 @@ export function App() {
   const [entrandoComoDp, setEntrandoComoDp] = useState(false);
   // Chamados com resposta nova (badge do menu)
   const [chamadosNaoLidos, setChamadosNaoLidos] = useState(0);
+  // Conversas do chat: alimentam a tela inicial e o contador do menu
+  const [conversas, setConversas] = useState<ConversaResumo[]>([]);
   // Funcionário atual, lido dentro do listener (que é registrado uma vez só)
   const employeeIdRef = useRef<string | null>(null);
   employeeIdRef.current = state?.employee?.id ?? null;
@@ -92,6 +94,19 @@ export function App() {
       writeSkipLogin(false);
     }
   }, [employeeId]);
+
+  // Conversas do chat, atualizadas quando o servidor avisa que algo mudou
+  const adminId = state?.admin?.id ?? null;
+  useEffect(() => {
+    async function atualizar() {
+      const resposta = await window.dp.conversasApi<{ conversas: ConversaResumo[] }>('GET', '/api/conversas');
+      setConversas(resposta.dados?.conversas ?? []);
+    }
+    void atualizar();
+    return window.dp.onConversasChange(() => void atualizar());
+  }, [employeeId, adminId]);
+
+  const naoLidasChat = conversas.reduce((soma, conversa) => soma + conversa.naoLidas, 0);
 
   if (!state) return <div className="loading">Carregando...</div>;
 
@@ -143,9 +158,8 @@ export function App() {
     setSelectedId(null);
   }
 
-  /** Abre a conversa com aquela pessoa do DP já na tela de mensagens */
-  function abrirConversa(contatoId: string) {
-    void window.dp.chatOpen(contatoId);
+  /** Atalho da tela inicial: leva para a página de mensagens */
+  function abrirConversa() {
     navigate('messages');
   }
 
@@ -156,7 +170,8 @@ export function App() {
         <InicioPage
           employee={state.employee}
           messages={messages}
-          chat={state.chat}
+          conversas={conversas}
+          naoLidasChat={naoLidasChat}
           mural={state.mural}
           atalhos={state.atalhos}
           onNavegar={navigate}
@@ -166,14 +181,7 @@ export function App() {
       );
       break;
     case 'messages':
-      content = (
-        <ChatPage
-          chat={state.chat}
-          employee={state.employee}
-          connection={state.connection}
-          onRequestLogin={() => chooseSkipLogin(false)}
-        />
-      );
+      content = <ConversasPage connection={state.connection} onRequestLogin={() => chooseSkipLogin(false)} />;
       break;
     case 'announcements':
       content = (
@@ -208,8 +216,8 @@ export function App() {
     case 'admin-cadastros':
       content = <CadastrosPage />;
       break;
-    case 'admin-chat':
-      content = <ChatDpPage />;
+    case 'admin-conversas':
+      content = <ConversasTiPage />;
       break;
     case 'admin-ajustes':
       content = <AjustesDpPage ehTi={state.admin?.superAdmin ?? false} />;
@@ -239,7 +247,7 @@ export function App() {
         <MenuLateral
           page={page}
           unreadAnnouncements={messages.unreadCount}
-          unreadChat={state.chat.unreadCount}
+          unreadChat={naoLidasChat}
           chamadosNaoLidos={chamadosNaoLidos}
           adminNome={state.admin?.name ?? null}
           adminEhTi={state.admin?.superAdmin ?? false}

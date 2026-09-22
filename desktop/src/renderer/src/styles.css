@@ -3022,3 +3022,260 @@ button.stat:hover {
 .leituras__item--pendente {
   border-left: 3px solid var(--warning);
 }
+
+/* ------------------------------------------------------------------
+ * Conversas do chat: lista, grupos, anexos e a área de leitura do TI.
+ * Reaproveita o layout do chat antigo (.chat-layout, .contact, .bubble)
+ * e acrescenta só o que é novo.
+ * ------------------------------------------------------------------ */
+
+.btn--perigo {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn--perigo:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+.contacts__acoes {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.chat__header-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat__mais {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* Avisos do próprio sistema ("Fulano entrou no grupo") */
+.chat__aviso {
+  align-self: center;
+  max-width: 80%;
+  margin: 8px auto;
+  padding: 4px 12px;
+  border-radius: 12px;
+  background: var(--realce);
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: center;
+}
+
+.chat__anexo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.bubble__imagem {
+  display: block;
+  max-width: 320px;
+  max-height: 320px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.bubble__video {
+  display: block;
+  max-width: 360px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: #000;
+}
+
+.bubble__arquivo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.bubble__arquivo:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.bubble__arquivo-nome {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble__arquivo-tamanho {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bubble__text--apagada {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.bubble__apagar {
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+.bubble__apagar:hover {
+  color: var(--danger);
+}
+
+/* Escolha de pessoas (nova conversa, novo grupo) */
+.escolha-pessoas {
+  max-height: 320px;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.escolha-pessoas__vazio {
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.escolha-pessoas__contagem {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.escolha-pessoa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.escolha-pessoa:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.escolha-pessoa--marcada {
+  background: var(--realce);
+}
+
+.escolha-pessoa__avatar {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primary-soft);
+  color: var(--primary-escuro);
+  font-size: 13px;
+  font-weight: 600;
+  place-items: center;
+}
+
+.escolha-pessoa__texto {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.escolha-pessoa__texto small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Painel de participantes do grupo */
+.grupo {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 18px;
+  background: var(--bg);
+}
+
+.grupo__topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.grupo__renomear {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+}
+
+.grupo__renomear input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.grupo__lista {
+  max-height: 220px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.grupo__lista--adicionar {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+
+.grupo__pessoa {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+
+/* Leitura do TI: a lista e a conversa dividem a área da página */
+.chat-layout--ti {
+  height: calc(100vh - 220px);
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.page__acoes {
+  display: flex;
+  gap: 8px;
+}

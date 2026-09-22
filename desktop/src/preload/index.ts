@@ -69,6 +69,12 @@ const api: DesktopApi = {
   adminEnviarMidia: () => ipcRenderer.invoke(IpcChannels.AdminMuralMidia),
   adminApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.AdminApi, { method, path, body }),
   adminAnexar: () => ipcRenderer.invoke(IpcChannels.AdminAnexo),
+
+  conversasApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.ConversasApi, { method, path, body }),
+  conversasIdentidade: () => ipcRenderer.invoke(IpcChannels.ConversasIdentidade),
+  conversasAnexar: () => ipcRenderer.invoke(IpcChannels.ConversasAnexar),
+  conversasAbrirArquivo: (midiaId, nome) => ipcRenderer.invoke(IpcChannels.ConversasAbrirArquivo, { midiaId, nome }),
+  onConversasChange: (listener) => subscribe(IpcChannels.ConversasChanged, listener),
 };
 
 contextBridge.exposeInMainWorld('dp', api);

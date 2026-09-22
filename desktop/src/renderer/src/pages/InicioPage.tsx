@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Atalho, ChatState, EmployeeProfile, MessagesState, MuralPost } from '../../../shared/types';
+import type { Atalho, ConversaResumo, EmployeeProfile, MessagesState, MuralPost } from '../../../shared/types';
 import { GradeAtalhos } from '../components/GradeAtalhos';
 import { HistoricoConversas } from '../components/HistoricoConversas';
 import type { Page } from '../components/MenuLateral';
@@ -8,11 +8,14 @@ import { Mural } from '../components/Mural';
 interface InicioPageProps {
   employee: EmployeeProfile | null;
   messages: MessagesState;
-  chat: ChatState;
+  /** Conversas do chat (as mais recentes aparecem abaixo do mural) */
+  conversas: ConversaResumo[];
+  /** Mensagens não lidas somando todas as conversas */
+  naoLidasChat: number;
   mural: MuralPost | null;
   atalhos: Atalho[];
   onNavegar(page: Page): void;
-  onAbrirConversa(contatoId: string): void;
+  onAbrirConversa(): void;
   onEntrar(): void;
 }
 
@@ -26,7 +29,8 @@ function saudacao(): string {
 export function InicioPage({
   employee,
   messages,
-  chat,
+  conversas,
+  naoLidasChat,
   mural,
   atalhos,
   onNavegar,
@@ -55,14 +59,14 @@ export function InicioPage({
           {messages.unreadCount > 0
             ? `${messages.unreadCount} ${messages.unreadCount === 1 ? 'comunicado não lido' : 'comunicados não lidos'}`
             : 'Nenhum comunicado pendente de leitura'}
-          {chat.unreadCount > 0 && ` · ${chat.unreadCount} do chat com o DP`}
+          {naoLidasChat > 0 && ` · ${naoLidasChat} ${naoLidasChat === 1 ? 'mensagem nova' : 'mensagens novas'}`}
         </p>
       </header>
 
       <GradeAtalhos
         atalhos={atalhos}
         podeEditar={Boolean(employee)}
-        badges={{ COMUNICADOS: messages.unreadCount, CHAT: chat.unreadCount }}
+        badges={{ COMUNICADOS: messages.unreadCount, CHAT: naoLidasChat }}
         onAbrir={onNavegar}
         onAviso={setAviso}
       />
@@ -76,8 +80,8 @@ export function InicioPage({
       <Mural post={mural} />
 
       <HistoricoConversas
-        contatos={chat.contacts}
-        disponivel={chat.available}
+        conversas={conversas}
+        disponivel={Boolean(employee)}
         onAbrir={onAbrirConversa}
         onEntrar={onEntrar}
       />
