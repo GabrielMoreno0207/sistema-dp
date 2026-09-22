@@ -81,6 +81,8 @@ export const LIMITES_CONVERSA = {
   maxMembrosGrupo: 50,
   /** Mensagens carregadas por vez ao abrir ou rolar para cima */
   paginaMensagens: 50,
+  /** Quantos resultados a busca dentro da conversa devolve */
+  buscaMaxima: 40,
 } as const;
 
 export const CONVERSA_ID_PATTERN = '^CNV-[0-9a-f]{24}$';

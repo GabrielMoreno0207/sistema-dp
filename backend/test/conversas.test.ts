@@ -355,6 +355,56 @@ describe('grupos', () => {
   });
 });
 
+describe('procurar na conversa', () => {
+  test('acha pelo texto, sem diferenciar maiúsculas, e ignora o que foi apagado', async () => {
+    await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'A escala de sábado mudou' },
+    });
+    const paraApagar = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'escala errada, esquece' },
+    });
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/conversas/mensagens/${paraApagar.json().mensagem.id}`,
+      headers: comToken(pcMaria),
+    });
+
+    const achou = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/buscar?termo=ESCALA`,
+      headers: comToken(pcJoao),
+    });
+    assert.equal(achou.statusCode, 200);
+    const textos = achou.json().mensagens.map((m: { conteudo: string }) => m.conteudo);
+    assert.ok(textos.includes('A escala de sábado mudou'));
+    assert.ok(!textos.includes('escala errada, esquece'));
+  });
+
+  test('termo de uma letra é recusado, e quem não participa não procura', async () => {
+    const curto = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/buscar?termo=a`,
+      headers: comToken(pcMaria),
+    });
+    assert.equal(curto.statusCode, 400);
+
+    // Quem não participa recebe 404, e não 403: a existência da conversa
+    // não é confirmada para quem está de fora
+    const deFora = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/buscar?termo=escala`,
+      headers: comToken(tokenTi),
+    });
+    assert.equal(deFora.statusCode, 404);
+  });
+});
+
 describe('encaminhar', () => {
   test('a mensagem repassada chega na outra conversa com a marca', async () => {
     const midia = await app.inject({

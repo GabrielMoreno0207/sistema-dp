@@ -3957,3 +3957,96 @@ svg {
   width: 30px;
   height: 30px;
 }
+
+/* ------------------------------------------------------------------
+ * Procurar dentro da conversa aberta (abre sob a barra do contato).
+ * ------------------------------------------------------------------ */
+.busca-conversa {
+  border-bottom: 1px solid var(--border);
+  padding: 10px 28px 12px;
+  background: var(--surface);
+}
+
+.busca-conversa__linha {
+  display: flex;
+  gap: 8px;
+}
+
+.busca-conversa__campo {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 11px;
+  border: 1px solid var(--campo-borda);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.busca-conversa__lista {
+  max-height: 210px;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.busca-conversa__vazio {
+  padding: 8px 2px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.busca-conversa__achado {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.busca-conversa__achado:hover {
+  background: var(--surface-alta);
+}
+
+.busca-conversa__quem {
+  flex: none;
+  color: var(--link);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.busca-conversa__texto {
+  overflow: hidden;
+  flex: 1;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.busca-conversa__quando {
+  flex: none;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* Balão a que a busca levou: pisca e fica realçado por um instante */
+.bubble--destacada {
+  outline: 2px solid var(--acento);
+  animation: realce-mensagem 1.6s ease-out;
+}
+
+@keyframes realce-mensagem {
+  0%,
+  40% {
+    background: var(--realce);
+  }
+}

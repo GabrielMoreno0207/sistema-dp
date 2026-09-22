@@ -277,6 +277,17 @@ export class ConversaService {
     return mensagens.map((m) => ({ ...m, midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null }));
   }
 
+  /**
+   * Procura uma mensagem dentro da conversa. Devolve as mais recentes que
+   * combinam, para a tela listar e pular até ela.
+   */
+  async buscar(quem: Pessoa, conversaId: string, termo: string): Promise<MensagemComMidia[]> {
+    await this.exigirMembro(conversaId, quem);
+    const procurado = termo.trim();
+    if (procurado.length < 2) throw new AppError('Escreva pelo menos 2 letras para procurar.', 400, 'TERMO_CURTO');
+    return this.comMidias(await this.conversas.buscarMensagens(conversaId, procurado, LIMITES_CONVERSA.buscaMaxima));
+  }
+
   async enviar(
     quem: Pessoa,
     conversaId: string,

@@ -114,6 +114,8 @@ interface MensagemProps {
   onApagar?: () => void;
   /** Ausente na área do TI: repassar a mensagem para outra conversa */
   onEncaminhar?: () => void;
+  /** Realce de quem veio da busca */
+  destacada?: boolean;
   onErro(mensagem: string): void;
 }
 
@@ -122,11 +124,15 @@ interface MensagemProps {
  * dpmidia://, que usa a credencial do aplicativo); documento vira um botão que
  * baixa e abre no programa padrão do Windows.
  */
-export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onEncaminhar, onErro }: MensagemProps) {
+export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onEncaminhar, destacada, onErro }: MensagemProps) {
   const [abrindo, setAbrindo] = useState(false);
 
   if (mensagem.tipo === 'SISTEMA') {
-    return <div className="chat__aviso">{mensagem.conteudo}</div>;
+    return (
+      <div className="chat__aviso" id={`mensagem-${mensagem.id}`}>
+        {mensagem.conteudo}
+      </div>
+    );
   }
 
   async function abrirArquivo(midiaId: string, nome: string) {
@@ -142,7 +148,10 @@ export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onEncam
   const midia = mensagem.midia;
 
   return (
-    <div className={`bubble ${minha ? 'bubble--mine' : 'bubble--dp'}`}>
+    <div
+      id={`mensagem-${mensagem.id}`}
+      className={`bubble ${minha ? 'bubble--mine' : 'bubble--dp'} ${destacada ? 'bubble--destacada' : ''}`}
+    >
       {!minha && emGrupo && <span className="bubble__sender">{mensagem.autorNome}</span>}
       {!minha && !emGrupo && mensagem.automatica && (
         <span className="bubble__sender">

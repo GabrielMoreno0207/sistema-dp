@@ -38,6 +38,11 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   const [aviso, setAviso] = useState<string | null>(null);
   const [criandoGrupo, setCriandoGrupo] = useState(false);
   const [encaminhando, setEncaminhando] = useState<MensagemConversa | null>(null);
+  // Procurar dentro da conversa aberta
+  const [procurando, setProcurando] = useState(false);
+  const [termoBusca, setTermoBusca] = useState('');
+  const [achados, setAchados] = useState<MensagemConversa[] | null>(null);
+  const [destacada, setDestacada] = useState<number | null>(null);
   const [busca, setBusca] = useState('');
   const [verGrupo, setVerGrupo] = useState(false);
   const [temMais, setTemMais] = useState(false);
@@ -172,6 +177,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   async function abrir(conversaId: string) {
     // Marca já aqui: a conferência das respostas atrasadas usa este valor
     abertaRef.current = conversaId;
+    fecharBusca();
     setAbertaId(conversaId);
     setMensagens([]);
     setTexto('');
@@ -192,6 +198,49 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     const anteriores = resposta.dados?.mensagens ?? [];
     setTemMais(anteriores.length >= 50);
     if (anteriores.length > 0) setMensagens((atual) => juntarMensagens(atual, anteriores));
+  }
+
+  function fecharBusca() {
+    setProcurando(false);
+    setTermoBusca('');
+    setAchados(null);
+    setDestacada(null);
+  }
+
+  async function procurar(evento?: FormEvent) {
+    evento?.preventDefault();
+    const texto = termoBusca.trim();
+    if (!abertaId || texto.length < 2) return;
+    const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
+      'GET',
+      `/api/conversas/${abertaId}/buscar?termo=${encodeURIComponent(texto)}`,
+    );
+    if (!resposta.ok) {
+      setErro(resposta.message);
+      return;
+    }
+    setAchados(resposta.dados?.mensagens ?? []);
+  }
+
+  /**
+   * Pula até a mensagem achada: carrega o trecho que termina nela (o servidor
+   * devolve as 50 anteriores), rola até o balão e o destaca por um instante.
+   */
+  async function irAte(mensagem: MensagemConversa) {
+    if (!abertaId) return;
+    if (!mensagens.some((m) => m.id === mensagem.id)) {
+      const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
+        'GET',
+        `/api/conversas/${abertaId}/mensagens?antes=${mensagem.id + 1}`,
+      );
+      const trecho = resposta.dados?.mensagens ?? [];
+      if (trecho.length > 0) setMensagens((atual) => juntarMensagens(atual, trecho));
+    }
+    setDestacada(mensagem.id);
+    // Espera o balão existir na tela para poder rolar até ele
+    setTimeout(() => {
+      document.getElementById(`mensagem-${mensagem.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
   }
 
   async function enviar(evento?: FormEvent) {
@@ -413,12 +462,56 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                     : `Conversa individual entre você e ${aberta.titulo}.`}
                 </p>
               </div>
+              <button
+                className="btn btn--sm"
+                onClick={() => (procurando ? fecharBusca() : setProcurando(true))}
+                title="Procurar nesta conversa"
+              >
+                <Icone nome="procurar" />
+              </button>
               {aberta.tipo === 'GRUPO' && (
                 <button className="btn btn--sm" onClick={() => setVerGrupo((v) => !v)}>
                   {verGrupo ? 'Fechar' : 'Participantes'}
                 </button>
               )}
             </header>
+
+            {procurando && (
+              <div className="busca-conversa">
+                <form className="busca-conversa__linha" onSubmit={(e) => void procurar(e)}>
+                  <input
+                    className="busca-conversa__campo"
+                    value={termoBusca}
+                    onChange={(e) => setTermoBusca(e.target.value)}
+                    placeholder="Procurar nesta conversa"
+                    autoFocus
+                  />
+                  <button type="submit" className="btn btn--sm btn--primary" disabled={termoBusca.trim().length < 2}>
+                    Procurar
+                  </button>
+                  <button type="button" className="btn btn--sm" onClick={fecharBusca}>
+                    <Icone nome="fechar" tamanho={14} />
+                  </button>
+                </form>
+
+                {achados !== null && (
+                  <ul className="busca-conversa__lista">
+                    {achados.length === 0 && <li className="busca-conversa__vazio">Nenhuma mensagem com esse texto.</li>}
+                    {achados.map((achada) => (
+                      <li key={achada.id}>
+                        <button className="busca-conversa__achado" onClick={() => void irAte(achada)}>
+                          <span className="busca-conversa__quem">
+                            {achada.autorId === identidade.id ? 'Você' : achada.autorNome}
+                          </span>
+                          <span className="busca-conversa__texto">{achada.conteudo}</span>
+                          <span className="busca-conversa__quando">{dataDoDia(achada.createdAt)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {verGrupo && aberta.tipo === 'GRUPO' && (
               <PainelGrupo
@@ -462,6 +555,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                   <Fragment key={mensagem.id}>
                     {mostrarDia && <div className="chat__day">{dia}</div>}
                     <MensagemDaConversa
+                      destacada={mensagem.id === destacada}
                       mensagem={mensagem}
                       minha={mensagem.autorId === identidade.id}
                       emGrupo={aberta.tipo === 'GRUPO'}

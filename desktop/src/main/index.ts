@@ -1200,6 +1200,7 @@ function start(): void {
     { metodo: 'GET', padrao: new RegExp('^/api/conversas/' + CNV + '/mensagens([?]antes=\\d{1,12})?$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/mensagens$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/lidas$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas/' + CNV + '/buscar[?]termo=.{1,200}$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/mensagens/\\d{1,12}$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/membros$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/' + CNV + '/membros/[\\w-]{1,64}$') },

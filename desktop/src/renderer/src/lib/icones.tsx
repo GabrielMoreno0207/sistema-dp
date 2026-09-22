@@ -70,6 +70,7 @@ export const ICONES = {
   ajustes: LuSlidersHorizontal,
   fila: LuWrench,
   auditoria: LuSearch,
+  procurar: LuSearch,
   novidades: LuSparkles,
   ajuda: LuBookOpen,
   // conteúdo

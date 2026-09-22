@@ -23,6 +23,8 @@ export interface ConversaRepository {
   addMensagem(dados: NovaMensagemConversa, agora: string): Promise<MensagemConversa>;
   /** Página de mensagens; antesDoId permite rolar para cima */
   listMensagens(conversaId: string, limite: number, antesDoId?: number): Promise<MensagemConversa[]>;
+  /** Procura no texto das mensagens da conversa (as mais novas primeiro) */
+  buscarMensagens(conversaId: string, termo: string, limite: number): Promise<MensagemConversa[]>;
   ultimaMensagemDeVarias(conversaIds: string[]): Promise<Map<string, MensagemConversa>>;
   naoLidasDeVarias(conversaIds: string[], userId: string): Promise<Map<string, number>>;
   apagarMensagem(id: number, agora: string): Promise<boolean>;

@@ -131,6 +131,27 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
     },
   );
 
+  /** Procurar dentro da conversa (como no chat do celular). */
+  app.get(
+    '/conversas/:id/buscar',
+    {
+      schema: {
+        params: conversaParams,
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['termo'],
+          properties: { termo: { type: 'string', minLength: 2, maxLength: 120 } },
+        },
+      },
+    },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const { termo } = request.query as { termo: string };
+      return { mensagens: await conversas.buscar(await quemEstaAgindo(request), id, termo) };
+    },
+  );
+
   app.post('/conversas/:id/mensagens', { schema: { params: conversaParams, body: mensagemBody } }, async (request, reply) => {
     const quem = await quemEstaAgindo(request);
     const { id } = request.params as { id: string };

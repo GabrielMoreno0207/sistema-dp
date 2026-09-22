@@ -209,6 +209,22 @@ export class PostgresConversaRepository implements ConversaRepository {
     return rows.map(toMensagem).reverse();
   }
 
+  async buscarMensagens(conversaId: string, termo: string, limite: number): Promise<MensagemConversa[]> {
+    // ILIKE ignora maiúsculas; o termo entra como parâmetro, com os curingas escapados
+    const procurado = `%${termo.replace(/([%_\\])/g, '\\$1')}%`;
+    const rows = await this.db.all(
+      `SELECT * FROM conversa_mensagens
+        WHERE conversa_id = $1
+          AND apagada_em IS NULL
+          AND tipo <> 'SISTEMA'
+          AND conteudo ILIKE $2
+        ORDER BY id DESC
+        LIMIT $3`,
+      [conversaId, procurado, limite],
+    );
+    return rows.map(toMensagem);
+  }
+
   async ultimaMensagemDeVarias(conversaIds: string[]): Promise<Map<string, MensagemConversa>> {
     const resultado = new Map<string, MensagemConversa>();
     if (conversaIds.length === 0) return resultado;
