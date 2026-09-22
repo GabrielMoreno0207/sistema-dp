@@ -9,7 +9,7 @@ import type {
 } from '../../../shared/types';
 import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
-import { MensagemDaConversa, dataDoDia, iniciais } from '../components/conversa-comuns';
+import { MensagemDaConversa, dataDoDia, iniciais, juntarMensagens } from '../components/conversa-comuns';
 
 /** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
 interface ConversasPageProps {
@@ -62,8 +62,11 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
       setErro(resposta.message);
       return;
     }
+    // Trocou de conversa enquanto a resposta vinha: essa lista não é mais desta tela
+    if (abertaRef.current !== conversaId) return;
     const lista = resposta.dados?.mensagens ?? [];
-    setMensagens(lista);
+    // Une em vez de trocar: mantém as páginas antigas que a pessoa já carregou
+    setMensagens((atual) => juntarMensagens(atual, lista));
     setTemMais(lista.length >= 50);
     await window.dp.conversasApi('POST', `/api/conversas/${conversaId}/lidas`);
   }, []);
@@ -134,6 +137,8 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
   }
 
   async function abrir(conversaId: string) {
+    // Marca já aqui: a conferência das respostas atrasadas usa este valor
+    abertaRef.current = conversaId;
     setAbertaId(conversaId);
     setMensagens([]);
     setTexto('');
@@ -153,7 +158,7 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
     );
     const anteriores = resposta.dados?.mensagens ?? [];
     setTemMais(anteriores.length >= 50);
-    if (anteriores.length > 0) setMensagens((atual) => [...anteriores, ...atual]);
+    if (anteriores.length > 0) setMensagens((atual) => juntarMensagens(atual, anteriores));
   }
 
   async function enviar(evento?: FormEvent) {
@@ -174,7 +179,8 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
       }
       setTexto('');
       setAnexo(null);
-      if (resposta.dados?.mensagem) setMensagens((atual) => [...atual, resposta.dados!.mensagem]);
+      const nova = resposta.dados?.mensagem;
+      if (nova) setMensagens((atual) => juntarMensagens(atual, [nova]));
       await carregarLista();
     } finally {
       setEnviando(false);

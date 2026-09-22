@@ -283,9 +283,19 @@ function start(): void {
   let employeeChecked = false;
 
   function setEmployee(next: EmployeeProfile | null, checked = true): void {
+    const trocou = !next || next.id !== employee?.id;
     // O chat é da pessoa: sem funcionário (ou outra pessoa entrou) a conversa anterior sai da tela
-    if (!next || next.id !== employee?.id) chat.clear();
+    if (trocou) chat.clear();
     employee = next;
+    if (trocou) {
+      // Foto e atalhos também são da pessoa: saem da tela na hora, antes mesmo
+      // de buscar os da nova (senão a foto de quem saiu fica aparecendo)
+      foto = null;
+      atalhos = [];
+      sendToMain(IpcChannels.FotoChanged, foto);
+      sendToMain(IpcChannels.AtalhosChanged, atalhos);
+      void syncPerfil();
+    }
     employeeChecked = employeeChecked || checked;
     const state: EmployeeState = { employee, checked: employeeChecked };
     sendToMain(IpcChannels.EmployeeChanged, state);

@@ -35,6 +35,20 @@ export function dataDoDia(iso: string, porExtenso = false): string {
   return data.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/**
+ * Une o que já está na tela com o que chegou, sem repetir.
+ *
+ * A mesma mensagem chega por dois caminhos: a resposta do envio e a recarga
+ * disparada pelo aviso `conversa:atualizada` do servidor. Empilhar as duas
+ * fazia a mensagem aparecer duas vezes; aqui a versão mais nova de cada id
+ * vence, e a ordem é sempre a do servidor (id crescente).
+ */
+export function juntarMensagens(atuais: MensagemConversa[], novas: MensagemConversa[]): MensagemConversa[] {
+  const porId = new Map(atuais.map((mensagem) => [mensagem.id, mensagem]));
+  for (const mensagem of novas) porId.set(mensagem.id, mensagem);
+  return [...porId.values()].sort((a, b) => a.id - b.id);
+}
+
 export function tamanhoLegivel(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
