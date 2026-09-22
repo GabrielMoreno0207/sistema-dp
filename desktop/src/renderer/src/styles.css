@@ -8,7 +8,7 @@
   --text: #1c2430;
   --primary-escuro: #0d7a6f;
   --text-soft: #4a5465;
-  --muted: #7a8494;
+  --muted: #5c6878;
   --border: #e2e7ee;
   --primary: #17b3a3;
   --primary-soft: #e3f5f2;
@@ -18,10 +18,32 @@
   --success: #1faa59;
   --warning: #f2b01e;
   --danger: #e5484d;
+  /* Vermelho para texto (o --danger puro não alcança contraste no claro) */
+  --danger-texto: #b3231f;
+  --badge-fundo: #c62828;
   --sombra: rgba(22, 40, 55, 0.08);
   --sombra-forte: rgba(22, 40, 55, 0.12);
   --balao-meu: #e7f6f4;
   --realce: #e7f6f4;
+  /* Superfície um degrau acima do cartão: cabeçalho de tabela, chip, hover */
+  --surface-alta: #f4f6f9;
+  --campo-borda: #cfd6e0;
+  /* Texto sobre o verde-água (serve nos dois temas: o fundo é claro em ambos) */
+  --sobre-acento: #06312c;
+  /* Link e botão de texto */
+  --link: #0b6f64;
+  /* Botão desligado: continua legível, em vez de só perder opacidade */
+  --desligado-fundo: #eaeef3;
+  --desligado-texto: #5a6474;
+  /* Pares de situação (fundo + texto), conferidos nos dois temas */
+  --ok-fundo: #e4f6ec;
+  --ok-texto: #12633a;
+  --erro-fundo: #fdecec;
+  --erro-texto: #a61b1b;
+  --aviso-fundo: #fff4e0;
+  --aviso-texto: #8a5300;
+  --info-fundo: #e2f4fa;
+  --info-texto: #0e6b85;
 }
 
 /*
@@ -34,7 +56,7 @@
   --surface: #172129;
   --text: #e4ecf1;
   --text-soft: #b3c1cc;
-  --muted: #8397a4;
+  --muted: #93a7b4;
   --border: #253440;
   --primary-soft: rgba(23, 179, 163, 0.16);
   --sidebar: #131f28;
@@ -42,6 +64,23 @@
   --sombra-forte: rgba(0, 0, 0, 0.5);
   --balao-meu: rgba(23, 179, 163, 0.18);
   --realce: rgba(23, 179, 163, 0.14);
+  --surface-alta: #1e2b34;
+  --campo-borda: #32444f;
+  --sobre-acento: #06312c;
+  /* No escuro o verde-água escuro some no fundo: o link clareia */
+  --link: #52d6c5;
+  --desligado-fundo: #1b2731;
+  --desligado-texto: #94a6b2;
+  --danger-texto: #ff8e8e;
+  --badge-fundo: #c62828;
+  --ok-fundo: rgba(31, 170, 89, 0.18);
+  --ok-texto: #7fe0a6;
+  --erro-fundo: rgba(229, 72, 77, 0.2);
+  --erro-texto: #ffa1a1;
+  --aviso-fundo: rgba(242, 176, 30, 0.18);
+  --aviso-texto: #f3c96b;
+  --info-fundo: rgba(8, 145, 178, 0.22);
+  --info-texto: #86d7ec;
 }
 
 html,
@@ -76,10 +115,13 @@ h2 {
 }
 
 /* Cores por tipo de mensagem */
-.tone-urgent { --tone: #dc2626; --tone-soft: #fde8e8; }
-.tone-warning { --tone: #d97706; --tone-soft: #fff4e0; }
-.tone-announcement { --tone: #2563eb; --tone-soft: #e8efff; }
-.tone-info { --tone: #0891b2; --tone-soft: #e0f6fa; }
+.tone-urgent { --tone: #dc2626; }
+.tone-warning { --tone: #d97706; }
+.tone-announcement { --tone: #2563eb; }
+.tone-info { --tone: #0891b2; }
+.tone-urgent, .tone-warning, .tone-announcement, .tone-info {
+  --tone-soft: color-mix(in srgb, var(--tone) 16%, var(--surface));
+}
 
 /* ================= Estrutura ================= */
 /* Barra superior fixa e, abaixo dela, menu lateral + conteúdo + coluna da direita */
@@ -193,7 +235,7 @@ h2 {
   min-width: 22px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -259,6 +301,15 @@ h2 {
   padding: 24px 28px;
 }
 
+/*
+ * Em telas largas o conteúdo parava esticado de ponta a ponta (campos de 1400px).
+ * Cada bloco da página respeita a mesma largura, então cabeçalho, formulário e
+ * tabela terminam alinhados na mesma borda.
+ */
+.page:not(.page--split):not(.page--fila) > * {
+  max-width: 1180px;
+}
+
 .page--split {
   display: grid;
   grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.15fr);
@@ -287,9 +338,11 @@ h2 {
 
 .page__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .page__header h1 {
@@ -315,7 +368,7 @@ h2 {
 }
 
 .panel--muted {
-  background: #f9fafc;
+  background: var(--surface-alta);
   color: var(--text-soft);
 }
 
@@ -368,7 +421,7 @@ h2 {
 }
 
 .stat--urgent .stat__value {
-  color: #dc2626;
+  color: var(--danger-texto);
 }
 
 /* Atalho para o chat no Início */
@@ -384,7 +437,7 @@ button.stat:hover {
 }
 
 .stat--chat .stat__value {
-  color: #0f766e;
+  color: var(--link);
 }
 
 .chat-card__preview {
@@ -449,7 +502,7 @@ button.stat:hover {
 }
 
 .contact:hover {
-  background: #f1f4f8;
+  background: var(--surface-alta);
 }
 
 .contact--active,
@@ -476,7 +529,7 @@ button.stat:hover {
   flex: none;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--sobre-acento);
   font-weight: 700;
   font-size: 13px;
 }
@@ -528,7 +581,7 @@ button.stat:hover {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11.5px;
   font-weight: 700;
@@ -568,7 +621,7 @@ button.stat:hover {
   flex: none;
   border-radius: 50%;
   background: var(--primary);
-  color: #fff;
+  color: var(--sobre-acento);
   font-weight: 800;
   font-size: 14px;
 }
@@ -588,7 +641,7 @@ button.stat:hover {
   margin: 10px 0 4px;
   padding: 3px 12px;
   border-radius: 999px;
-  background: #e9edf3;
+  background: var(--surface-alta);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -615,15 +668,18 @@ button.stat:hover {
 
 .bubble--mine {
   align-self: flex-end;
-  background: var(--primary);
-  color: #fff;
+  /* Verde-água cheio com texto branco não alcançava contraste: o balão usa o
+     tom suave do tema, com o texto normal */
+  background: var(--balao-meu);
+  border: 1px solid color-mix(in srgb, var(--acento) 35%, transparent);
+  color: var(--text);
   border-bottom-right-radius: 4px;
 }
 
 .bubble__sender {
   font-size: 12px;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--link);
 }
 
 .bubble__text {
@@ -635,17 +691,29 @@ button.stat:hover {
 .bubble__meta {
   align-self: flex-end;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--text-soft);
 }
 
 .bubble--mine .bubble__meta {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-soft);
 }
 
 .chat__composer {
   padding: 12px 28px 16px;
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+/* Botão do clipe: quadrado, na mesma altura do campo de escrever */
+.chat__input-row > .btn--sm:first-child {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  flex: none;
+  align-self: flex-end;
+  font-size: 16px;
 }
 
 .chat__input-row {
@@ -660,7 +728,7 @@ button.stat:hover {
   min-height: 44px;
   max-height: 140px;
   padding: 10px 12px;
-  border: 1px solid #cfd6e0;
+  border: 1px solid var(--campo-borda);
   border-radius: 10px;
   font: inherit;
   line-height: 1.4;
@@ -675,8 +743,8 @@ button.stat:hover {
   margin: 0 0 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  background: #fff4e0;
-  color: #92400e;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
   font-size: 12.5px;
 }
 
@@ -697,7 +765,7 @@ button.stat:hover {
   display: inline-flex;
   gap: 4px;
   padding: 3px;
-  background: #e9edf3;
+  background: var(--surface-alta);
   border-radius: 9px;
 }
 
@@ -723,7 +791,7 @@ button.stat:hover {
 .tab__count {
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11px;
 }
@@ -732,7 +800,7 @@ button.stat:hover {
   flex: 1;
   min-width: 160px;
   padding: 7px 11px;
-  border: 1px solid #cfd6e0;
+  border: 1px solid var(--campo-borda);
   border-radius: 8px;
   font: inherit;
   background: var(--surface);
@@ -762,7 +830,7 @@ button.stat:hover {
 }
 
 .msg-item:hover {
-  border-color: #c5cfdc;
+  border-color: var(--campo-borda);
 }
 
 .msg-item--selected {
@@ -823,7 +891,7 @@ button.stat:hover {
   gap: 5px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-texto);
 }
 
 .msg-item__unread::before {
@@ -874,7 +942,7 @@ button.stat:hover {
   color: var(--text);
   padding: 18px 20px;
   border-radius: 10px;
-  background: #f8f9fb;
+  background: var(--surface-alta);
   border: 1px solid var(--border);
   user-select: text;
 }
@@ -931,7 +999,7 @@ button.stat:hover {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: #f1f3f6;
+  background: var(--surface-alta);
   font-size: 20px;
   flex: none;
 }
@@ -969,7 +1037,7 @@ button.stat:hover {
 }
 
 .attachments__feedback--error {
-  color: var(--danger);
+  color: var(--danger-texto);
 }
 
 .btn--sm {
@@ -1002,7 +1070,7 @@ button.stat:hover {
 }
 
 .icon-btn:hover {
-  background: #eef1f5;
+  background: var(--surface-alta);
   color: var(--text);
 }
 
@@ -1082,12 +1150,22 @@ button.stat:hover {
   font-weight: 400;
 }
 
-.field input {
+.field input,
+.field select,
+.field textarea {
   padding: 9px 11px;
-  border: 1px solid #cfd6e0;
+  border: 1px solid var(--campo-borda);
   border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   max-width: 420px;
+}
+
+/* Quadrado da marcação na cor do sistema, nos dois temas */
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--acento);
 }
 
 .field input:focus,
@@ -1127,54 +1205,82 @@ button.stat:hover {
 }
 
 .feedback--ok {
-  background: #e9f7ef;
-  color: #146c3b;
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
 }
 
 .feedback--error {
-  background: #fdecec;
-  color: #a61b1b;
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
 }
 
 .btn {
   padding: 8px 16px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  border: 1px solid transparent;
+  /* Sem cor própria o botão herdava a do navegador (cinza com texto claro no
+     tema escuro), que era justamente o contraste ruim relatado */
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
-.btn:disabled {
-  opacity: 0.55;
+.btn:hover:not(:disabled) {
+  background: var(--surface-alta);
+  border-color: var(--campo-borda);
+}
+
+.btn:disabled,
+.botao:disabled,
+.botao--primario:disabled {
+  border-color: transparent;
+  background: var(--desligado-fundo);
+  color: var(--desligado-texto);
+  opacity: 1;
   cursor: default;
 }
 
 .btn--primary {
-  background: var(--primary);
-  color: #06312c;
+  border-color: var(--acento);
+  background: var(--acento);
+  color: var(--sobre-acento);
   font-weight: 600;
 }
 
 .btn--primary:hover:not(:disabled) {
-  background: var(--primary-escuro);
+  border-color: var(--acento-escuro);
+  background: var(--acento-escuro);
   color: #fff;
 }
 
 .btn--ghost {
   background: var(--surface);
-  border-color: #cfd6e0;
+  border-color: var(--campo-borda);
 }
 
 .btn--ghost:hover:not(:disabled) {
-  background: #f1f3f6;
+  background: var(--surface-alta);
 }
 
 .link-btn {
+  padding: 2px 0;
   border: 0;
   background: transparent;
-  color: var(--primary-escuro);
+  color: var(--link);
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
+}
+
+.link-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.link-btn:disabled {
+  color: var(--desligado-texto);
+  cursor: default;
 }
 
 @media (max-width: 1000px) {
@@ -1249,8 +1355,8 @@ button.stat:hover {
 }
 
 .feedback--warning {
-  background: #fff4e0;
-  color: #8a5300;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
 }
 
 .login-card__notice {
@@ -1315,7 +1421,7 @@ button.stat:hover {
   display: inline-flex;
   padding: 4px 12px;
   border-radius: 999px;
-  background: #eef1f5;
+  background: var(--surface-alta);
   color: var(--text-soft);
   font-weight: 600;
   font-size: 13px;
@@ -1437,7 +1543,7 @@ button.stat:hover {
 }
 
 .menu-usuario__sair {
-  color: var(--danger) !important;
+  color: var(--danger-texto) !important;
 }
 
 /* ---------------- Menu lateral ---------------- */
@@ -1524,7 +1630,7 @@ button.stat:hover {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11px;
   text-align: center;
@@ -1545,7 +1651,7 @@ button.stat:hover {
 .menu-lateral__versao {
   display: block;
   padding: 8px 10px 0;
-  color: #6d8593;
+  color: #8ea6b4;
   font-size: 11px;
 }
 
@@ -1581,6 +1687,7 @@ button.stat:hover {
 
 .azulejo {
   position: relative;
+  background-image: linear-gradient(160deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.44));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1607,6 +1714,7 @@ button.stat:hover {
 
 .azulejo__label {
   font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
@@ -1619,7 +1727,7 @@ button.stat:hover {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11px;
   font-weight: 700;
@@ -1655,7 +1763,7 @@ button.stat:hover {
   padding: 8px 12px;
   border-left: 3px solid var(--warning);
   border-radius: 6px;
-  background: #fff8e6;
+  background: var(--aviso-fundo);
   color: var(--text-soft);
   font-size: 12.5px;
 }
@@ -1761,18 +1869,18 @@ button.stat:hover {
 }
 
 .etiqueta--urgente {
-  background: #fde8e8;
-  color: #c62828;
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
 }
 
 .etiqueta--aviso {
-  background: #fff4e0;
-  color: #b26a00;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
 }
 
 .etiqueta--informativo {
-  background: #e0f6fa;
-  color: #0e7490;
+  background: var(--info-fundo);
+  color: var(--info-texto);
 }
 
 /* ---------------- Coluna da direita ---------------- */
@@ -2144,7 +2252,7 @@ button.stat:hover {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11px;
   text-align: center;
@@ -2226,14 +2334,14 @@ button.stat:hover {
   cursor: pointer;
 }
 
-.botao:hover {
-  background: var(--bg);
+.botao:hover:not(:disabled) {
+  background: var(--surface-alta);
 }
 
 .botao--primario {
   border-color: var(--acento);
   background: var(--acento);
-  color: #06312c;
+  color: var(--sobre-acento);
   font-weight: 600;
 }
 
@@ -2243,18 +2351,14 @@ button.stat:hover {
   color: #fff;
 }
 
-.botao--primario:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .botao--perigo {
-  border-color: #f0c2c2;
-  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger-texto);
 }
 
-.botao--perigo:hover {
-  background: #fdeaea;
+.botao--perigo:hover:not(:disabled) {
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
 }
 
 .editor-atalho {
@@ -2358,10 +2462,26 @@ button.stat:hover {
 .menu-lateral__secao {
   display: block;
   padding: 0 10px 6px;
-  color: #7d97a6;
+  color: #a2bccb;
   font-size: 10.5px;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+}
+
+/* Rótulo com caixa de marcação ("mostrar encerrados", "em exibição no aplicativo") */
+.caixa {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+  user-select: none;
+}
+
+.caixa input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  margin: 0;
 }
 
 /* ---------------- listas de chamado ---------------- */
@@ -2382,9 +2502,10 @@ button.stat:hover {
 }
 
 .chamado-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 4px 12px;
   padding: 11px 14px;
   border: none;
   border-left: 3px solid var(--acento);
@@ -2404,6 +2525,7 @@ button.stat:hover {
 }
 
 .chamado-item__numero {
+  padding-top: 1px;
   color: var(--muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -2428,13 +2550,17 @@ button.stat:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* Etiquetas embaixo, em linha própria: antes espremiam o título em três linhas */
+  grid-column: 2;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .chamado-item__badge {
   min-width: 20px;
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--danger);
+  background: var(--badge-fundo);
   color: #fff;
   font-size: 11px;
   text-align: center;
@@ -2448,18 +2574,18 @@ button.stat:hover {
 }
 
 .etiqueta-status--aberto {
-  background: #fff4e0;
-  color: #b26a00;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
 }
 
 .etiqueta-status--em_andamento {
-  background: #e0f6fa;
-  color: #0e7490;
+  background: var(--info-fundo);
+  color: var(--info-texto);
 }
 
 .etiqueta-status--resolvido {
-  background: var(--realce);
-  color: var(--acento-escuro);
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
 }
 
 .etiqueta-status--fechado {
@@ -2474,8 +2600,8 @@ button.stat:hover {
 }
 
 .etiqueta-prioridade--alta {
-  background: #fde8e8;
-  color: #c62828;
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
 }
 
 .etiqueta-prioridade--baixa {
@@ -2582,16 +2708,30 @@ button.stat:hover {
 
 .fila {
   display: grid;
-  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
   gap: 18px;
   min-height: 0;
   flex: 1;
 }
 
-.fila__lista,
-.fila__detalhe {
+.fila__lista {
   overflow-y: auto;
   padding-right: 4px;
+}
+
+.fila__detalhe {
+  overflow-y: auto;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* Sem chamado escolhido, o aviso fica no meio do cartão em vez de solto no topo */
+.fila__detalhe:has(> .page__subtitle:only-child) {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
 }
 
 .fila__detalhe h2 {
@@ -2671,7 +2811,7 @@ button.stat:hover {
 
 .erro-login {
   margin: 10px 0 0;
-  color: var(--danger);
+  color: var(--danger-texto);
   font-size: 12.5px;
 }
 
@@ -2771,13 +2911,24 @@ button.stat:hover {
 .login-aba--ativa {
   border-color: var(--acento);
   background: var(--realce);
-  color: var(--acento-escuro);
+  color: var(--link);
   font-weight: 600;
 }
 
 /* ---------------- tabelas das telas administrativas ---------------- */
+
+/* No cabeçalho da página as abas não dividem a largura: cada uma fica do
+   tamanho do seu texto, em uma linha só e todas da mesma altura. */
 .abas--linha {
+  flex: none;
   margin-bottom: 0;
+  align-self: center;
+}
+
+.abas--linha .login-aba {
+  flex: none;
+  padding: 8px 14px;
+  white-space: nowrap;
 }
 
 .formulario__titulo {
@@ -2806,7 +2957,11 @@ button.stat:hover {
 }
 
 .tabela th {
-  color: var(--muted);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-alta);
+  color: var(--text-soft);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -2817,8 +2972,8 @@ button.stat:hover {
   border-bottom: none;
 }
 
-.tabela tr:hover td {
-  background: var(--bg);
+.tabela tbody tr:hover td {
+  background: var(--surface-alta);
 }
 
 .tabela__vazia {
@@ -2828,11 +2983,18 @@ button.stat:hover {
 
 .tabela__acoes {
   display: flex;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.tabela th:last-child,
+.tabela td:last-child {
+  text-align: right;
 }
 
 .link-btn--perigo {
-  color: var(--danger);
+  color: var(--danger-texto);
 }
 
 .ponto {
@@ -2940,26 +3102,26 @@ button.stat:hover {
 }
 
 .previa-toast__tipo {
-  color: var(--acento-escuro);
+  color: #0b6f64;
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.4px;
 }
 
 .previa-toast--urgente .previa-toast__tipo {
-  color: #c62828;
+  color: var(--erro-texto);
 }
 
 .previa-toast--aviso .previa-toast__tipo {
-  color: #b26a00;
+  color: var(--aviso-texto);
 }
 
 .previa-toast--informativo .previa-toast__tipo {
-  color: #0e7490;
+  color: var(--info-texto);
 }
 
 .previa-toast__hora {
-  color: #7a8494;
+  color: #5c6878;
   font-size: 10.5px;
 }
 
@@ -3030,8 +3192,8 @@ button.stat:hover {
  * ------------------------------------------------------------------ */
 
 .btn--perigo {
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--danger-texto);
 }
 
 .btn--perigo:hover:not(:disabled) {
@@ -3139,14 +3301,14 @@ button.stat:hover {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--muted);
+  color: var(--text-soft);
   cursor: pointer;
   font-size: 11px;
   text-decoration: underline;
 }
 
 .bubble__apagar:hover {
-  color: var(--danger);
+  color: var(--danger-texto);
 }
 
 /* Escolha de pessoas (nova conversa, novo grupo) */
@@ -3198,7 +3360,7 @@ button.stat:hover {
   flex: none;
   border-radius: 50%;
   background: var(--primary-soft);
-  color: var(--primary-escuro);
+  color: var(--link);
   font-size: 13px;
   font-weight: 600;
   place-items: center;

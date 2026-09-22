@@ -455,7 +455,14 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
                 </p>
               )}
               <div className="chat__input-row">
-                <button type="button" className="btn btn--sm" onClick={() => void anexar()} disabled={!online}>
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  onClick={() => void anexar()}
+                  disabled={!online}
+                  title="Anexar imagem, vídeo ou documento"
+                  aria-label="Anexar arquivo"
+                >
                   📎
                 </button>
                 <textarea
