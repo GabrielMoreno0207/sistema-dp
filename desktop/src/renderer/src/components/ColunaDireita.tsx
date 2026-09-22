@@ -1,8 +1,10 @@
-import type { DpMessage, EmployeeProfile, MessagesState, MidiaPublica } from '../../../shared/types';
+import type { AdminUser, DpMessage, EmployeeProfile, MessagesState, MidiaPublica } from '../../../shared/types';
 import { Icone } from '../lib/icones';
 
 interface ColunaDireitaProps {
   employee: EmployeeProfile | null;
+  /** Conta do DP/TI usando o aplicativo (tem preferência sobre o funcionário) */
+  admin: AdminUser | null;
   foto: MidiaPublica | null;
   messages: MessagesState;
   onAbrir(message: DpMessage): void;
@@ -16,13 +18,19 @@ function data(iso: string): string {
 }
 
 /** Coluna da direita: cartão de perfil e a lista de comunicados. */
-export function ColunaDireita({ employee, foto, messages, onAbrir, onVerTodos, onEntrar }: ColunaDireitaProps) {
+export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerTodos, onEntrar }: ColunaDireitaProps) {
   const recentes = messages.messages.slice(0, 6);
 
   return (
     <aside className="coluna-direita">
       <div className="cartao-perfil">
-        {employee ? (
+        {admin ? (
+          <>
+            <span className="cartao-perfil__foto">{admin.name.trim().charAt(0).toUpperCase()}</span>
+            <strong className="cartao-perfil__nome">{admin.name}</strong>
+            <span className="cartao-perfil__cargo">{admin.superAdmin ? 'TI' : 'Departamento Pessoal'}</span>
+          </>
+        ) : employee ? (
           <button
             className="cartao-perfil__foto cartao-perfil__foto--editavel"
             onClick={() => void window.dp.enviarFoto()}

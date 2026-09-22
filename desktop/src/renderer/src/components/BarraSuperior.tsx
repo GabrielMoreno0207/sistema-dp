@@ -74,11 +74,6 @@ export function BarraSuperior({
       </div>
 
       <div className="barra-superior__direita">
-        {admin && (
-          <span className="barra-superior__admin" title={`Conectado como ${admin.name}`}>
-            {admin.superAdmin ? 'TI' : 'DP'}: {admin.name}
-          </span>
-        )}
         <button
           className="barra-superior__tema"
           onClick={() => setTema(tema === 'claro' ? 'escuro' : 'claro')}
@@ -97,15 +92,37 @@ export function BarraSuperior({
             aria-haspopup="menu"
           >
             <span className="menu-usuario__avatar" aria-hidden>
-              {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee ? iniciais(employee.name) : <Icone nome="perfil" />}
+              {admin ? (
+                iniciais(admin.name)
+              ) : foto ? (
+                <img src={`dpmidia://m/${foto.id}`} alt="" />
+              ) : employee ? (
+                iniciais(employee.name)
+              ) : (
+                <Icone nome="perfil" />
+              )}
             </span>
-            <span className="menu-usuario__nome">{employee?.name ?? 'Entrar'}</span>
+            <span className="menu-usuario__nome">
+              {admin ? admin.name : (employee?.name ?? 'Entrar')}
+              {admin && <span className="menu-usuario__papel">{admin.superAdmin ? 'TI' : 'DP'}</span>}
+            </span>
             <span className="menu-usuario__seta">
               <Icone nome="seta" tamanho={14} />
             </span>
           </button>
 
-          {menuAberto && !employee && (
+          {menuAberto && admin && (
+            <div className="menu-usuario__lista" role="menu">
+              <button role="menuitem" onClick={() => escolher(onAbrirConfiguracoes)}>
+                Configurações
+              </button>
+              <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(onSairDoDp)}>
+                Sair da conta {admin.superAdmin ? 'do TI' : 'do DP'}
+              </button>
+            </div>
+          )}
+
+          {menuAberto && !admin && !employee && (
             <div className="menu-usuario__lista" role="menu">
               <button role="menuitem" onClick={() => escolher(onEntrar)}>
                 Entrar com a matrícula
@@ -122,7 +139,7 @@ export function BarraSuperior({
             </div>
           )}
 
-          {menuAberto && employee && (
+          {menuAberto && !admin && employee && (
             <div className="menu-usuario__lista" role="menu">
               <button role="menuitem" onClick={() => escolher(onAbrirPerfil)}>
                 Meu perfil

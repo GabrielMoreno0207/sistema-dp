@@ -291,9 +291,20 @@ describe('funcionários e login no app', () => {
     assert.equal(computers.find((c: { computerId: string }) => c.computerId === 'PC-CCCC00000001').currentUserId, mariaId);
   });
 
-  test('comunicados para setor e turno chegam só para quem é destinatário; "funcionário" agora é pelo chat', async () => {
+  test('comunicado para uma pessoa só chega para ela', async () => {
     const individual = await sendMessage({ title: 'Para Maria', content: 'Individual.', type: 'AVISO', target: 'EMPLOYEE', targetId: mariaId });
-    assert.equal(individual.statusCode, 400);
+    assert.equal(individual.statusCode, 201);
+
+    const semNinguem = await sendMessage({ title: 'X', content: 'Y', type: 'AVISO', target: 'EMPLOYEE', targetId: 'USR-nao-existe' });
+    assert.equal(semNinguem.statusCode, 404);
+
+    const daMaria = (await employeeRequest('GET', '/api/messages', pcToken)).json().messages.map((m: { title: string }) => m.title);
+    assert.ok(daMaria.includes('Para Maria'));
+    const semLogin = (await employeeRequest('GET', '/api/messages', otherPcToken)).json().messages.map((m: { title: string }) => m.title);
+    assert.ok(!semLogin.includes('Para Maria'));
+  });
+
+  test('comunicados para setor e turno chegam só para quem é destinatário', async () => {
     await sendMessage({ title: 'Para Produção', content: 'Setor.', type: 'COMUNICADO', target: 'SECTOR', targetId: 'Produção' });
     await sendMessage({ title: 'Para Tarde', content: 'Turno.', type: 'INFORMATIVO', target: 'SHIFT', targetId: 'Tarde' });
     const unknownSector = await sendMessage({ title: 'X', content: 'Y', type: 'AVISO', target: 'SECTOR', targetId: 'Inexistente' });

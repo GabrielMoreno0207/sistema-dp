@@ -182,6 +182,7 @@ export function App() {
       content = (
         <InicioPage
           employee={state.employee}
+          admin={state.admin}
           messages={messages}
           conversas={conversas}
           naoLidasChat={naoLidasChat}
@@ -281,6 +282,7 @@ export function App() {
         {page === 'home' && (
           <ColunaDireita
             employee={state.employee}
+            admin={state.admin}
             foto={state.foto}
             messages={messages}
             onAbrir={openMessage}

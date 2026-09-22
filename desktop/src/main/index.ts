@@ -332,7 +332,9 @@ function start(): void {
    * própria pessoa escreveu e a conversa que já está aberta na tela.
    */
   function alertarMensagem(conversaId: string, aviso: AvisoDoServidor | null): void {
-    if (!aviso || !employee || aviso.autorId === employee.id) return;
+    // O aviso vem pela sala do funcionário do PC; com a conta do DP/TI aberta,
+    // quem está no aplicativo é outra pessoa e o alerta não é para ela
+    if (!aviso || !employee || usandoComoDp() || aviso.autorId === employee.id) return;
     const janelaAtiva = mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && mainWindow.isFocused();
     if (janelaAtiva && conversaEmFoco === conversaId) return;
 
@@ -367,9 +369,9 @@ function start(): void {
   async function syncNaoLidasConversas(): Promise<void> {
     const anterior = naoLidasConversas;
     try {
-      const resumo = employee
-        ? await comApi((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'))
-        : await comAdmin((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'));
+      const resumo = usandoComoDp()
+        ? await comAdmin((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'))
+        : await comApi((client) => client.chamar<{ naoLidas: number }>('GET', '/api/conversas/resumo'));
       naoLidasConversas = 'dados' in resumo ? (resumo.dados?.naoLidas ?? 0) : 0;
     } catch {
       naoLidasConversas = 0;
@@ -1148,14 +1150,20 @@ function start(): void {
     { metodo: 'DELETE', padrao: new RegExp('^/api/admin/conversas/' + CNV + '$') },
   ];
 
+  /** Tem alguém do DP/TI usando o aplicativo neste momento? */
+  function usandoComoDp(): boolean {
+    return adminClient?.autenticado === true;
+  }
+
   /**
-   * Quem está conversando neste computador. O funcionário logado no PC tem
-   * preferência; sem ele, vale a conta do DP/TI aberta no aplicativo.
+   * Quem está conversando neste computador. A conta do DP/TI tem preferência:
+   * enquanto ela está aberta, é essa pessoa que está usando o aplicativo — as
+   * conversas são dela, e não do funcionário logado no PC.
    */
   function identidadeDoChat(): IdentidadeChat | null {
-    if (employee) return { id: employee.id, nome: employee.name, ehDp: false, ehTi: false };
     const usuario = adminClient?.autenticado ? adminClient.user : null;
     if (usuario) return { id: usuario.id, nome: usuario.name, ehDp: true, ehTi: usuario.superAdmin };
+    if (employee) return { id: employee.id, nome: employee.name, ehDp: false, ehTi: false };
     return null;
   }
 
@@ -1172,7 +1180,7 @@ function start(): void {
     }
 
     // A área do TI é sempre da conta administrativa; o resto segue quem está no chat
-    const comCredencialDoDp = caminho.startsWith('/api/admin/') || !employee;
+    const comCredencialDoDp = caminho.startsWith('/api/admin/') || usandoComoDp();
     const saida = comCredencialDoDp
       ? await comAdmin((client) => client.chamar<unknown>(metodo, caminho, entrada?.body))
       : await comApi((client) => client.chamar<unknown>(metodo, caminho, entrada?.body));
@@ -1206,9 +1214,9 @@ function start(): void {
       return { ok: false, midia: null, message: 'O arquivo passa do limite de ' + limiteMb + ' MB.' };
     }
 
-    const envio = employee
-      ? await comApi((client) => client.enviarMidia(conteudo, mimeType, nome))
-      : await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome));
+    const envio = usandoComoDp()
+      ? await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome))
+      : await comApi((client) => client.enviarMidia(conteudo, mimeType, nome));
     return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
@@ -1220,9 +1228,9 @@ function start(): void {
     // O nome vem da tela só para o arquivo temporário sair com um nome legível
     const nome = (typeof entrada?.nome === 'string' ? entrada.nome : 'arquivo').replace(NOME_PROIBIDO, '_').slice(0, 120);
 
-    const baixado = employee
-      ? await comApi((client) => client.baixarMidia(midiaId))
-      : await comAdmin((client) => client.baixarMidia(midiaId));
+    const baixado = usandoComoDp()
+      ? await comAdmin((client) => client.baixarMidia(midiaId))
+      : await comApi((client) => client.baixarMidia(midiaId));
     if (!('dados' in baixado)) return baixado;
 
     const pasta = join(app.getPath('temp'), 'comunicacao-dp-conversas');

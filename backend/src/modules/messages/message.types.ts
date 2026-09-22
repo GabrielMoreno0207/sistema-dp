@@ -9,10 +9,16 @@ export type MessageType = (typeof MESSAGE_TYPES)[number];
  */
 export type TargetType = 'ALL' | 'COMPUTER' | 'SECTOR' | 'DEPARTMENT' | 'SHIFT' | 'EMPLOYEE';
 /**
- * Destinos aceitos para NOVOS comunicados. Falar com uma pessoa específica é pelo chat;
- * comunicados antigos com destino EMPLOYEE continuam válidos no histórico (isRecipient trata).
+ * Destinos aceitos para NOVOS comunicados. DEPARTMENT continua de fora: o
+ * modelo prevê, mas não há cadastro de departamento no sistema.
  */
-export const IMPLEMENTED_TARGETS = ['ALL', 'COMPUTER', 'SECTOR', 'SHIFT'] as const satisfies readonly TargetType[];
+export const IMPLEMENTED_TARGETS = [
+  'ALL',
+  'COMPUTER',
+  'SECTOR',
+  'SHIFT',
+  'EMPLOYEE',
+] as const satisfies readonly TargetType[];
 
 export const MESSAGE_LIMITS = { title: 120, content: 5000 } as const;
 export const MESSAGE_ID_PATTERN = '^MSG-\\d{6,}$';

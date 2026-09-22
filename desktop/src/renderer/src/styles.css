@@ -3540,3 +3540,14 @@ svg {
   align-items: center;
   justify-content: center;
 }
+
+/* Etiqueta DP/TI ao lado do nome de quem está usando o aplicativo */
+.menu-usuario__papel {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid var(--acento);
+  border-radius: 999px;
+  color: var(--acento);
+  font-size: 10.5px;
+  font-weight: 700;
+}

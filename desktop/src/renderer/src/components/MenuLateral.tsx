@@ -30,6 +30,13 @@ const ITENS: ItemMenu[] = [
   { page: 'settings', label: 'Configurações', icone: 'configuracoes' },
 ];
 
+/**
+ * Telas que são da pessoa logada no computador. Com a conta do DP/TI aberta,
+ * quem está usando o aplicativo é outra pessoa: elas saem do menu para não
+ * mostrar (nem mexer) nos dados de quem estava antes.
+ */
+const SO_DO_FUNCIONARIO: Page[] = ['profile', 'chamados'];
+
 /** Seções que aparecem só para quem entrou com a conta do DP/TI */
 const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
   { page: 'admin-comunicados', label: 'Comunicados', icone: 'enviar' },
@@ -82,7 +89,7 @@ export function MenuLateral({
       </div>
 
       <nav className="menu-lateral__nav">
-        {ITENS.map((item) => {
+        {ITENS.filter((item) => !adminNome || !SO_DO_FUNCIONARIO.includes(item.page)).map((item) => {
           const badge = badges[item.page] ?? 0;
           return (
             <button

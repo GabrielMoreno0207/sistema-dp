@@ -77,6 +77,16 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
 
   useEffect(() => {
     void window.dp.conversasIdentidade().then(setIdentidade);
+    // Entrar ou sair da conta do DP/TI troca quem está conversando
+    return window.dp.onAdminChange(() => {
+      void window.dp.conversasIdentidade().then((nova) => {
+        setIdentidade(nova);
+        abertaRef.current = null;
+        setAbertaId(null);
+        setMensagens([]);
+        setConversas([]);
+      });
+    });
   }, []);
 
   useEffect(() => {

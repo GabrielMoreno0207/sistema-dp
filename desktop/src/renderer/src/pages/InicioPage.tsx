@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Atalho, ConversaResumo, EmployeeProfile, MessagesState, MuralPost } from '../../../shared/types';
+import type { AdminUser, Atalho, ConversaResumo, EmployeeProfile, MessagesState, MuralPost } from '../../../shared/types';
 import { GradeAtalhos } from '../components/GradeAtalhos';
 import { HistoricoConversas } from '../components/HistoricoConversas';
 import type { Page } from '../components/MenuLateral';
@@ -7,6 +7,8 @@ import { Mural } from '../components/Mural';
 
 interface InicioPageProps {
   employee: EmployeeProfile | null;
+  /** Conta do DP/TI usando o aplicativo (tem preferência sobre o funcionário) */
+  admin: AdminUser | null;
   messages: MessagesState;
   /** Conversas do chat (as mais recentes aparecem abaixo do mural) */
   conversas: ConversaResumo[];
@@ -28,6 +30,7 @@ function saudacao(): string {
 
 export function InicioPage({
   employee,
+  admin,
   messages,
   conversas,
   naoLidasChat,
@@ -46,7 +49,7 @@ export function InicioPage({
     return () => clearTimeout(timer);
   }, [aviso]);
 
-  const primeiroNome = employee?.name.trim().split(/\s+/)[0] ?? null;
+  const primeiroNome = (admin?.name ?? employee?.name)?.trim().split(/\s+/)[0] ?? null;
 
   return (
     <div className="inicio">
