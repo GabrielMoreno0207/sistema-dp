@@ -218,12 +218,9 @@ h2 {
 .sidebar__logo {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  background: var(--primary);
-  color: #06312c;
-  font-weight: 800;
+  width: 38px;
+  height: 38px;
+  flex: none;
 }
 
 .sidebar__nav {
@@ -1536,13 +1533,9 @@ input[type='radio'] {
 
 .barra-superior__logo {
   display: grid;
-  place-items: center;
-  width: 64px;
+  width: 52px;
   height: 100%;
-  background: var(--acento);
-  color: #06312c;
-  font-weight: 700;
-  letter-spacing: 1px;
+  place-items: center;
 }
 
 .barra-superior__sistema {
@@ -1652,13 +1645,10 @@ input[type='radio'] {
 
 .menu-lateral__logo {
   display: grid;
-  place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 9px;
-  background: var(--acento);
-  color: #06312c;
-  font-weight: 700;
+  flex: none;
+  place-items: center;
 }
 
 .menu-lateral__titulo strong {
@@ -3952,4 +3942,18 @@ svg {
   color: var(--link);
   font-size: 12.5px;
   font-weight: 600;
+}
+
+/* Ícone do sistema no lugar das letras "DP" */
+.sidebar__logo img,
+.menu-lateral__logo img,
+.barra-superior__logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.barra-superior__logo img {
+  width: 30px;
+  height: 30px;
 }

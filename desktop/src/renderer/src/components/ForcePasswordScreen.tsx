@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { EmployeeProfile } from '../../../shared/types';
+import icone from '../imagens/icone.png';
 
 /**
  * Troca de senha obrigatória: aparece quando a senha é a inicial ou foi redefinida pelo DP.
@@ -41,7 +42,9 @@ export function ForcePasswordScreen({ employee }: { employee: EmployeeProfile })
     <div className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
         <div className="login-card__brand">
-          <span className="sidebar__logo">DP</span>
+          <span className="sidebar__logo">
+            <img src={icone} alt="" />
+          </span>
           <div>
             <h1>Defina sua nova senha</h1>
             <p>

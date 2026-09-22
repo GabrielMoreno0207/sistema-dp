@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import type { ConnectionState } from '../../../shared/types';
 import { ControlesJanela } from './ControlesJanela';
 import fotoDaEntrada from '../imagens/entrada.jpg';
+import icone from '../imagens/icone.png';
 
 type Modo = 'FUNCIONARIO' | 'DP';
 
@@ -80,7 +81,9 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
       <div className="login-screen__foto">
         <img src={fotoDaEntrada} alt="" />
         <div className="login-screen__marca-foto">
-          <span className="sidebar__logo">DP</span>
+          <span className="sidebar__logo">
+            <img src={icone} alt="" />
+          </span>
           <strong>Comunica Trinys</strong>
         </div>
       </div>

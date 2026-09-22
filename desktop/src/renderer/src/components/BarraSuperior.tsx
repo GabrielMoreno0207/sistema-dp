@@ -4,6 +4,7 @@ import type { AdminUser, ConnectionState, EmployeeProfile, MidiaPublica } from '
 import { ConnectionBadge } from './ConnectionBadge';
 import { Icone } from '../lib/icones';
 import { ControlesJanela } from './ControlesJanela';
+import icone from '../imagens/icone.png';
 
 interface BarraSuperiorProps {
   employee: EmployeeProfile | null;
@@ -73,7 +74,9 @@ export function BarraSuperior({
   return (
     <header className="barra-superior">
       <div className="barra-superior__marca">
-        <span className="barra-superior__logo">DP</span>
+        <span className="barra-superior__logo">
+          <img src={icone} alt="Comunica Trinys" />
+        </span>
         <span className="barra-superior__sistema">Comunica Trinys</span>
       </div>
 

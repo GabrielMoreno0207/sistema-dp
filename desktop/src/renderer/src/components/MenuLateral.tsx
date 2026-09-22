@@ -1,4 +1,5 @@
 import { Icone, type NomeIcone } from '../lib/icones';
+import icone from '../imagens/icone.png';
 
 export type Page =
   | 'home'
@@ -82,7 +83,9 @@ export function MenuLateral({
   return (
     <aside className="menu-lateral">
       <div className="menu-lateral__marca">
-        <span className="menu-lateral__logo">DP</span>
+        <span className="menu-lateral__logo">
+          <img src={icone} alt="" />
+        </span>
         <div className="menu-lateral__titulo">
           <strong>Departamento Pessoal</strong>
         </div>
