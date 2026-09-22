@@ -48,6 +48,8 @@ export function App() {
   const [skipLogin, setSkipLogin] = useState(readSkipLogin);
   const [waitExpired, setWaitExpired] = useState(false);
   const [entrandoComoDp, setEntrandoComoDp] = useState(false);
+  // Conversa que o alerta pediu para abrir (botão "Responder")
+  const [conversaPedida, setConversaPedida] = useState<string | null>(null);
   // Chamados com resposta nova (badge do menu)
   const [chamadosNaoLidos, setChamadosNaoLidos] = useState(0);
   // Conversas do chat: alimentam a tela inicial e o contador do menu
@@ -67,6 +69,17 @@ export function App() {
         }
         setPage('announcements');
         setSelectedId(messageId);
+      }),
+    [],
+  );
+
+  // "Responder" no alerta de mensagem abre a conversa aqui
+  useEffect(
+    () =>
+      window.dp.onOpenConversa((conversaId) => {
+        setPage('messages');
+        setSelectedId(null);
+        setConversaPedida(conversaId);
       }),
     [],
   );
@@ -181,7 +194,14 @@ export function App() {
       );
       break;
     case 'messages':
-      content = <ConversasPage connection={state.connection} onRequestLogin={() => chooseSkipLogin(false)} />;
+      content = (
+        <ConversasPage
+          connection={state.connection}
+          conversaPedida={conversaPedida}
+          onAbriuPedida={() => setConversaPedida(null)}
+          onRequestLogin={() => chooseSkipLogin(false)}
+        />
+      );
       break;
     case 'announcements':
       content = (

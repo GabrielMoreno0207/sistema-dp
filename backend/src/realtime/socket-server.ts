@@ -24,7 +24,7 @@ export interface ServerToClientEvents {
   /** Um chamado de quem está logado neste PC mudou (resposta do TI, status novo) */
   'chamado:atualizado': (payload: { chamadoId: string }) => void;
   /** Uma conversa de quem está logado neste PC mudou (mensagem, grupo, leitura) */
-  'conversa:atualizada': (payload: { conversaId: string }) => void;
+  'conversa:atualizada': (payload: { conversaId: string; mensagem: AvisoDeMensagem | null }) => void;
 }
 
 // O cliente não envia eventos por enquanto; tudo que ele faz passa pela API REST.
@@ -98,9 +98,24 @@ export interface ChamadoNotifier {
   chamadoAtualizado(solicitanteId: string, chamadoId: string): void;
 }
 
+/**
+ * Resumo da mensagem nova, mandado junto com o aviso para o aplicativo poder
+ * mostrar o alerta na tela sem precisar consultar a conversa.
+ */
+export interface AvisoDeMensagem {
+  mensagemId: number;
+  autorId: string;
+  autorNome: string;
+  /** Texto curto: o conteúdo, ou a descrição do arquivo enviado */
+  resumo: string;
+  createdAt: string;
+  /** Nome do grupo, ou null em conversa direta */
+  grupo: string | null;
+}
+
 /** Avisa os participantes de uma conversa de que ela mudou. */
 export interface ConversaNotifier {
-  conversaAtualizada(userIds: string[], conversaId: string): void;
+  conversaAtualizada(userIds: string[], conversaId: string, mensagem?: AvisoDeMensagem): void;
 }
 
 export function createSocketServer(
@@ -229,8 +244,10 @@ export function createSocketServer(
      * Conversa mexida: vai para a sala de cada participante, onde quer que ele
      * esteja logado. Só o aviso; o conteúdo o aplicativo busca pela API.
      */
-    conversaAtualizada(userIds: string[], conversaId: string): void {
-      for (const userId of userIds) io.to(Rooms.employee(userId)).emit('conversa:atualizada', { conversaId });
+    conversaAtualizada(userIds: string[], conversaId: string, mensagem?: AvisoDeMensagem): void {
+      for (const userId of userIds) {
+        io.to(Rooms.employee(userId)).emit('conversa:atualizada', { conversaId, mensagem: mensagem ?? null });
+      }
     },
     /** Envia a mensagem aos PCs destinatários conectados. Retorna quantos sockets receberam. */
     async publish(message: Message): Promise<number> {

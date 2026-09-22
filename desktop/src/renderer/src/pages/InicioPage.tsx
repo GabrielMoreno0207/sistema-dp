@@ -81,6 +81,7 @@ export function InicioPage({
 
       <HistoricoConversas
         conversas={conversas}
+        meuId={employee?.id ?? null}
         disponivel={Boolean(employee)}
         onAbrir={onAbrirConversa}
         onEntrar={onEntrar}

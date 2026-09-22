@@ -9,18 +9,21 @@ import type {
 } from '../../../shared/types';
 import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
-import { MensagemDaConversa, dataDoDia, iniciais, juntarMensagens } from '../components/conversa-comuns';
+import { Avatar, MensagemDaConversa, dataDoDia, juntarMensagens, outraPessoa } from '../components/conversa-comuns';
 
 /** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
 interface ConversasPageProps {
   connection: ConnectionState;
+  /** Conversa que o alerta de mensagem pediu para abrir (null = nenhuma) */
+  conversaPedida: string | null;
+  onAbriuPedida(): void;
   onRequestLogin(): void;
 }
 
 /** Quando a identidade é do DP/TI não há sala de tempo real para este PC: confere de tempos em tempos. */
 const INTERVALO_CONFERENCIA_MS = 20_000;
 
-export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps) {
+export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onRequestLogin }: ConversasPageProps) {
   const [identidade, setIdentidade] = useState<IdentidadeChat | null | undefined>(undefined);
   const [conversas, setConversas] = useState<ConversaResumo[]>([]);
   const [abertaId, setAbertaId] = useState<string | null>(null);
@@ -108,6 +111,23 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
   useEffect(() => {
     fimRef.current?.scrollIntoView({ block: 'end' });
   }, [mensagens.length, abertaId]);
+
+  /*
+   * O processo principal precisa saber qual conversa está à vista: enquanto ela
+   * estiver aberta aqui, mensagem nova dela não vira alerta no canto da tela.
+   */
+  useEffect(() => {
+    window.dp.conversaEmFoco(abertaId);
+    return () => window.dp.conversaEmFoco(null);
+  }, [abertaId]);
+
+  // Veio do alerta: abre a conversa pedida
+  useEffect(() => {
+    if (!conversaPedida || !identidade) return;
+    void abrir(conversaPedida);
+    onAbriuPedida();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversaPedida, identidade]);
 
   if (identidade === undefined) return <div className="loading">Carregando...</div>;
 
@@ -307,9 +327,11 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
                   }`}
                   onClick={() => void abrir(conversa.id)}
                 >
-                  <span className="contact__avatar" aria-hidden>
-                    {conversa.tipo === 'GRUPO' ? '#' : iniciais(conversa.titulo)}
-                  </span>
+                  <Avatar
+                    nome={conversa.titulo}
+                    fotoMidiaId={outraPessoa(conversa, identidade.id)?.fotoMidiaId}
+                    grupo={conversa.tipo === 'GRUPO'}
+                  />
                   <span className="contact__main">
                     <span className="contact__top">
                       <span className="contact__name">{conversa.titulo}</span>
@@ -338,9 +360,7 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
             {pessoasSemConversa.map((pessoa) => (
               <li key={pessoa.id}>
                 <button className="contact" onClick={() => void abrirComPessoa(pessoa.id)}>
-                  <span className="contact__avatar" aria-hidden>
-                    {iniciais(pessoa.nome)}
-                  </span>
+                  <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} />
                   <span className="contact__main">
                     <span className="contact__top">
                       <span className="contact__name">{pessoa.nome}</span>
@@ -366,9 +386,12 @@ export function ConversasPage({ connection, onRequestLogin }: ConversasPageProps
         ) : (
           <>
             <header className="chat__header">
-              <span className="chat__avatar" aria-hidden>
-                {aberta.tipo === 'GRUPO' ? '#' : iniciais(aberta.titulo)}
-              </span>
+              <Avatar
+                nome={aberta.titulo}
+                fotoMidiaId={outraPessoa(aberta, identidade.id)?.fotoMidiaId}
+                grupo={aberta.tipo === 'GRUPO'}
+                classe="chat__avatar"
+              />
               <div className="chat__header-texto">
                 <h1>{aberta.titulo}</h1>
                 <p className="page__subtitle">

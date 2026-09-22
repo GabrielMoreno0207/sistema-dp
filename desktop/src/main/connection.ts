@@ -21,9 +21,34 @@ export interface ServerConnectionEvents {
   /** O DP mudou o recado do mural: o app busca o novo */
   mural: [];
   /** Mexeram em uma conversa do chat (mensagem nova, grupo alterado): a tela recarrega */
-  conversa: [string];
+  conversa: [string, AvisoDoServidor | null];
   /** Saiu versão nova no servidor: o atualizador confere na hora */
   atualizacao: [string];
+}
+
+/** Resumo da mensagem que vem junto do aviso do servidor. */
+export interface AvisoDoServidor {
+  mensagemId: number;
+  autorId: string;
+  autorNome: string;
+  resumo: string;
+  createdAt: string;
+  grupo: string | null;
+}
+
+/** Confere o formato antes de usar: é dado que veio pela rede. */
+function lerAviso(bruto: unknown): AvisoDoServidor | null {
+  if (!bruto || typeof bruto !== 'object') return null;
+  const aviso = bruto as Record<string, unknown>;
+  if (typeof aviso.mensagemId !== 'number' || typeof aviso.autorId !== 'string') return null;
+  return {
+    mensagemId: aviso.mensagemId,
+    autorId: aviso.autorId,
+    autorNome: typeof aviso.autorNome === 'string' ? aviso.autorNome.slice(0, 120) : 'Alguém',
+    resumo: typeof aviso.resumo === 'string' ? aviso.resumo.slice(0, 300) : '',
+    createdAt: typeof aviso.createdAt === 'string' ? aviso.createdAt : new Date().toISOString(),
+    grupo: typeof aviso.grupo === 'string' ? aviso.grupo.slice(0, 120) : null,
+  };
 }
 
 export interface ConnectionCredentials {
@@ -183,8 +208,9 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
     // Só o aviso: o conteúdo vem pela API, com a credencial de quem está no chat
     socket.on('conversa:atualizada', (payload: unknown) => {
       if (this.isStale(generation)) return;
-      const id = (payload as { conversaId?: unknown } | null)?.conversaId;
-      this.emit('conversa', typeof id === 'string' ? id : '');
+      const dados = payload as { conversaId?: unknown; mensagem?: unknown } | null;
+      const id = typeof dados?.conversaId === 'string' ? dados.conversaId : '';
+      this.emit('conversa', id, lerAviso(dados?.mensagem));
     });
 
     // Publicaram uma versão nova pelo versionador

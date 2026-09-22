@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AcessoTi, ConversaResumo, MensagemConversa } from '../../../shared/types';
-import { MensagemDaConversa, dataDoDia, horaDoDia, iniciais } from '../components/conversa-comuns';
+import { Avatar, MensagemDaConversa, dataDoDia, horaDoDia } from '../components/conversa-comuns';
 
 /**
  * Área do TI: todas as conversas do sistema, em leitura.
@@ -104,9 +104,11 @@ export function ConversasTiPage() {
                   className={`contact ${conversa.id === aberta?.id ? 'contact--active' : ''}`}
                   onClick={() => void abrir(conversa)}
                 >
-                  <span className="contact__avatar" aria-hidden>
-                    {conversa.tipo === 'GRUPO' ? '#' : iniciais(conversa.participantes[0]?.nome ?? '?')}
-                  </span>
+                  <Avatar
+                    nome={conversa.participantes[0]?.nome ?? '?'}
+                    fotoMidiaId={conversa.participantes[0]?.fotoMidiaId}
+                    grupo={conversa.tipo === 'GRUPO'}
+                  />
                   <span className="contact__main">
                     <span className="contact__top">
                       <span className="contact__name">

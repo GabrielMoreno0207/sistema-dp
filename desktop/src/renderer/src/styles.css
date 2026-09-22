@@ -3467,3 +3467,12 @@ input[type='radio'] {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* Foto de perfil no lugar das iniciais (mesmo tamanho do círculo) */
+.contact__avatar--foto,
+.chat__avatar--foto,
+.escolha-pessoa__avatar--foto,
+.conversa__avatar--foto {
+  background: var(--surface-alta);
+  object-fit: cover;
+}

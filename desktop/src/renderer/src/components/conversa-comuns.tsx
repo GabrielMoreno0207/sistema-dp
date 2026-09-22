@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MensagemConversa } from '../../../shared/types';
+import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
 
 /** "Ana Paula" → "AP"; "Livia (DP)" → "L" */
 export function iniciais(nome: string): string {
@@ -9,6 +9,56 @@ export function iniciais(nome: string): string {
     .split(/\s+/)
     .filter(Boolean);
   return (palavras.slice(0, 2).map((p) => p[0]).join('') || '?').toUpperCase();
+}
+
+/**
+ * Foto da pessoa, ou as iniciais quando ela não tem foto.
+ *
+ * A imagem vem pelo protocolo dpmidia://, que o processo principal busca no
+ * servidor com a credencial do aplicativo (a tela não tem acesso à rede).
+ */
+export function Avatar({
+  nome,
+  fotoMidiaId,
+  grupo = false,
+  classe = 'contact__avatar',
+}: {
+  nome: string;
+  fotoMidiaId?: string | null;
+  grupo?: boolean;
+  classe?: string;
+}) {
+  const [falhou, setFalhou] = useState(false);
+
+  if (grupo) {
+    return (
+      <span className={classe} aria-hidden>
+        #
+      </span>
+    );
+  }
+  if (fotoMidiaId && !falhou) {
+    return (
+      <img
+        className={`${classe} ${classe}--foto`}
+        src={`dpmidia://m/${fotoMidiaId}`}
+        alt=""
+        // Foto que não carrega (apagada, sem conexão) volta a ser as iniciais
+        onError={() => setFalhou(true)}
+      />
+    );
+  }
+  return (
+    <span className={classe} aria-hidden>
+      {iniciais(nome)}
+    </span>
+  );
+}
+
+/** Em conversa direta, a pessoa do outro lado (é dela a foto e o nome). */
+export function outraPessoa(conversa: ConversaResumo, meuId: string): Participante | null {
+  if (conversa.tipo === 'GRUPO') return null;
+  return conversa.participantes.find((pessoa) => pessoa.id !== meuId) ?? conversa.participantes[0] ?? null;
 }
 
 export function horaDoDia(iso: string): string {

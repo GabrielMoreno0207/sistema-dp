@@ -5,6 +5,7 @@ import { renderAutoReply } from '../auto-replies/auto-reply.types';
 import type { MidiaRepository } from '../content/content.repository';
 import type { UserRepository } from '../users/user.repository';
 import { midiaPublica, type MidiaPublica } from '../content/content.types';
+import type { AvisoDeMensagem } from '../../realtime/socket-server';
 import type { ConversaRepository } from './conversa.repository';
 import {
   LIMITES_CONVERSA,
@@ -33,7 +34,7 @@ export interface MensagemComMidia extends MensagemConversa {
 }
 
 export interface ConversaNotifier {
-  conversaAtualizada(userIds: string[], conversaId: string): void;
+  conversaAtualizada(userIds: string[], conversaId: string, mensagem?: AvisoDeMensagem): void;
 }
 
 /** A pessoa do DP só responde automaticamente se não escreveu nos últimos minutos */
@@ -293,7 +294,7 @@ export class ConversaService {
       agora,
     );
 
-    await this.avisarParticipantes(conversaId);
+    await this.avisarParticipantes(conversaId, this.avisoDaMensagem(conversa, mensagem));
     // Quem escreve já leu a própria mensagem
     await this.conversas.marcarLeitura(conversaId, quem.id, agora);
     await this.respostaAutomatica(conversa, quem).catch((err) =>
@@ -328,7 +329,7 @@ export class ConversaService {
       .slice(0, LIMITES_CONVERSA.maxConteudo);
     if (!conteudo) return;
 
-    await this.conversas.addMensagem(
+    const resposta = await this.conversas.addMensagem(
       {
         conversaId: conversa.id,
         autorId: dp.id,
@@ -340,7 +341,7 @@ export class ConversaService {
       },
       new Date().toISOString(),
     );
-    await this.avisarParticipantes(conversa.id);
+    await this.avisarParticipantes(conversa.id, this.avisoDaMensagem(conversa, resposta));
     this.log.info(`Resposta automática de ${dp.name} para ${autor.nome}`);
   }
 
@@ -360,12 +361,25 @@ export class ConversaService {
     await this.avisarParticipantes(mensagem.conversaId);
   }
 
-  private async avisarParticipantes(conversaId: string): Promise<void> {
+  private async avisarParticipantes(conversaId: string, aviso?: AvisoDeMensagem): Promise<void> {
     const membros = await this.conversas.membros(conversaId, false);
     this.realtime.conversaAtualizada(
       membros.map((m) => m.userId),
       conversaId,
+      aviso,
     );
+  }
+
+  /** Resumo que vai no aviso, para o aplicativo montar o alerta na tela. */
+  private avisoDaMensagem(conversa: Conversa, mensagem: MensagemConversa): AvisoDeMensagem {
+    return {
+      mensagemId: mensagem.id,
+      autorId: mensagem.autorId,
+      autorNome: mensagem.autorNome,
+      resumo: mensagem.tipo === 'MIDIA' ? mensagem.conteudo || 'enviou um arquivo' : mensagem.conteudo,
+      createdAt: mensagem.createdAt,
+      grupo: conversa.tipo === 'GRUPO' ? (conversa.nome ?? 'Grupo') : null,
+    };
   }
 
   // ---------------------------------------------------------------- participantes do grupo

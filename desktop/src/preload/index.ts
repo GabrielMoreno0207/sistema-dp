@@ -17,6 +17,8 @@ const api: DesktopApi = {
   onConnectionChange: (listener) => subscribe(IpcChannels.ConnectionChanged, listener),
   onMessagesChange: (listener) => subscribe(IpcChannels.MessagesChanged, listener),
   onOpenMessage: (listener) => subscribe(IpcChannels.OpenMessage, listener),
+  onOpenConversa: (listener) => subscribe(IpcChannels.OpenConversa, listener),
+  conversaEmFoco: (conversaId) => ipcRenderer.send(IpcChannels.ConversaEmFoco, conversaId),
 
   openAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentOpen, attachmentId),
   saveAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentSave, attachmentId),

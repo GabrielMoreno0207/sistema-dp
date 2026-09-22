@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ConversaResumo, Participante } from '../../../shared/types';
-import { iniciais } from './conversa-comuns';
+import { Avatar } from './conversa-comuns';
 
 interface NovoGrupoProps {
   contatos: Participante[];
@@ -92,9 +92,7 @@ export function NovoGrupo({ contatos, onFechar, onCriado }: NovoGrupoProps) {
                 onClick={() => alternar(pessoa.id)}
                 disabled={salvando}
               >
-                <span className="escolha-pessoa__avatar" aria-hidden>
-                  {iniciais(pessoa.nome)}
-                </span>
+                <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} classe="escolha-pessoa__avatar" />
                 <span className="escolha-pessoa__texto">
                   <strong>{pessoa.nome}</strong>
                   <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>

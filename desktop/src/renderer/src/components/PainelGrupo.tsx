@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ConversaResumo, Participante } from '../../../shared/types';
-import { iniciais } from './conversa-comuns';
+import { Avatar } from './conversa-comuns';
 
 interface PainelGrupoProps {
   conversa: ConversaResumo;
@@ -105,9 +105,7 @@ export function PainelGrupo({ conversa, contatos, euId, onMudou, onSaiu, onErro,
       <ul className="grupo__lista">
         {conversa.participantes.map((pessoa) => (
           <li key={pessoa.id} className="grupo__pessoa">
-            <span className="escolha-pessoa__avatar" aria-hidden>
-              {iniciais(pessoa.nome)}
-            </span>
+            <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} classe="escolha-pessoa__avatar" />
             <span className="escolha-pessoa__texto">
               <strong>
                 {pessoa.nome}
@@ -129,9 +127,7 @@ export function PainelGrupo({ conversa, contatos, euId, onMudou, onSaiu, onErro,
           {deFora.length === 0 && <li className="escolha-pessoas__vazio">Todo mundo já está no grupo.</li>}
           {deFora.map((pessoa) => (
             <li key={pessoa.id} className="grupo__pessoa">
-              <span className="escolha-pessoa__avatar" aria-hidden>
-                {iniciais(pessoa.nome)}
-              </span>
+              <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} classe="escolha-pessoa__avatar" />
               <span className="escolha-pessoa__texto">
                 <strong>{pessoa.nome}</strong>
                 <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>

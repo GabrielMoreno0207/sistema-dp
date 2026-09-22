@@ -41,7 +41,7 @@ import { Atualizador } from './atualizador';
 import { ChatStore } from './chat-store';
 import { getComputerIdentity } from './computer-identity';
 import { loadConfig, normalizeServerUrl, saveConfig } from './config';
-import { ServerConnection } from './connection';
+import { ServerConnection, type AvisoDoServidor } from './connection';
 import { setupFileLogging } from './logger';
 import { MessageStore } from './message-store';
 import { ATTACHMENT_ID_REGEX, MESSAGE_ID_REGEX, UUID_REGEX } from './message-validation';
@@ -316,6 +316,38 @@ function start(): void {
 
   /** Mensagens não lidas no chat novo (todas as conversas), para a bandeja */
   let naoLidasConversas = 0;
+
+  /** Conversa aberta na tela (a própria tela avisa): não alerta o que já está à vista. */
+  let conversaEmFoco: string | null = null;
+
+  ipcMain.on(IpcChannels.ConversaEmFoco, (event, conversaId: unknown) => {
+    if (!isTrustedSender(event as unknown as IpcMainInvokeEvent)) return;
+    conversaEmFoco = typeof conversaId === 'string' ? conversaId : null;
+    // Ao abrir a conversa, os alertas dela deixam de fazer sentido
+    if (conversaEmFoco) popup.limparConversa(conversaEmFoco);
+  });
+
+  /**
+   * Alerta de mensagem nova, igual ao dos comunicados. Fica de fora o que a
+   * própria pessoa escreveu e a conversa que já está aberta na tela.
+   */
+  function alertarMensagem(conversaId: string, aviso: AvisoDoServidor | null): void {
+    if (!aviso || !employee || aviso.autorId === employee.id) return;
+    const janelaAtiva = mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && mainWindow.isFocused();
+    if (janelaAtiva && conversaEmFoco === conversaId) return;
+
+    popup.enfileirarMensagem({
+      id: `${conversaId}#${aviso.mensagemId}`,
+      conversaId,
+      autorNome: aviso.autorNome,
+      grupo: aviso.grupo,
+      resumo: aviso.resumo || 'enviou uma mensagem',
+      createdAt: aviso.createdAt,
+    });
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isFocused()) {
+      mainWindow.flashFrame(true);
+    }
+  }
 
   function updateUnreadIndicators(): void {
     const announcements = store.getState().unreadCount;
@@ -1303,6 +1335,12 @@ function start(): void {
     void markAsRead(messageId);
   });
 
+  // "Responder" no alerta de mensagem: abre o aplicativo já na conversa
+  popup.on('conversa', (conversaId) => {
+    showMainWindow();
+    sendToMain(IpcChannels.OpenConversa, conversaId);
+  });
+
   connection.on('change', (state) => {
     console.log(`[conexão] ${state.status}${state.lastError ? ` (${state.lastError})` : ''}`);
     sendToMain(IpcChannels.ConnectionChanged, state);
@@ -1338,9 +1376,10 @@ function start(): void {
   });
 
   // Chat novo: a tela de mensagens recarrega a conversa e a lista
-  connection.on('conversa', (conversaId) => {
+  connection.on('conversa', (conversaId, aviso) => {
     sendToMain(IpcChannels.ConversasChanged, conversaId);
     void syncNaoLidasConversas();
+    alertarMensagem(conversaId, aviso);
   });
 
   // Chat: só atualiza o contador e a conversa (sem popup nem som)

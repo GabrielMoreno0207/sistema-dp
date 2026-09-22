@@ -39,6 +39,8 @@ body.popup-body {
 
 .toast--announcement { --accent: #2563eb; --accent-soft: #e8efff; }
 .toast--info { --accent: #0891b2; --accent-soft: #e0f6fa; }
+/* Mensagem do chat: mesmo formato, no verde-água do sistema */
+.toast--mensagem { --accent: #12968a; --accent-soft: #e0f5f2; }
 .toast--warning { --accent: #d97706; --accent-soft: #fff4e0; }
 .toast--urgent {
   --accent: #dc2626;

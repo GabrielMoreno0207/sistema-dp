@@ -1,22 +1,27 @@
 import { app, screen, type BrowserWindow } from 'electron';
 import { EventEmitter } from 'node:events';
 import { PopupChannels } from '../shared/popup-channels';
-import type { DpMessage, PopupState } from '../shared/types';
+import type { AvisoMensagem, DpMessage, ItemAlerta, PopupState } from '../shared/types';
 
 /** Tamanho de notificação (o card tem 380x150; o resto é margem para a sombra) */
 const POPUP_SIZE = { width: 400, height: 170 };
 const MARGIN = 6;
 
+/** Chave única do alerta na fila. */
+function chaveDo(item: ItemAlerta): string {
+  return item.tipo === 'COMUNICADO' ? item.comunicado.id : item.mensagem.id;
+}
+
 /**
- * Fila de alertas de novas mensagens.
- * Mostra uma mensagem por vez, no tamanho de uma notificação, no canto inferior direito,
+ * Fila de alertas: comunicados do DP e mensagens novas do chat.
+ * Mostra um por vez, no tamanho de uma notificação, no canto inferior direito,
  * sempre por cima das outras janelas e com som (tocado pela interface do popup).
- * URGENTE fura a fila.
+ * Comunicado URGENTE fura a fila.
  */
-export class PopupManager extends EventEmitter<{ view: [string] }> {
+export class PopupManager extends EventEmitter<{ view: [string]; conversa: [string] }> {
   private win: BrowserWindow | null = null;
   private loaded = false;
-  private queue: DpMessage[] = [];
+  private queue: ItemAlerta[] = [];
   /** Quantas mensagens já saíram da fila no lote atual (para mostrar "2 de 3") */
   private handledInBatch = 0;
   private quitting = false;
@@ -39,16 +44,26 @@ export class PopupManager extends EventEmitter<{ view: [string] }> {
   enqueue(messages: DpMessage[]): void {
     let added = false;
     for (const message of messages) {
-      if (message.read || this.queue.some((m) => m.id === message.id)) continue;
+      if (message.read || this.queue.some((item) => chaveDo(item) === message.id)) continue;
+      const item: ItemAlerta = { tipo: 'COMUNICADO', comunicado: message };
       if (message.type === 'URGENTE') {
-        const firstNonUrgent = this.queue.findIndex((m) => m.type !== 'URGENTE');
-        this.queue.splice(firstNonUrgent === -1 ? this.queue.length : firstNonUrgent, 0, message);
+        const primeiroNaoUrgente = this.queue.findIndex(
+          (naFila) => !(naFila.tipo === 'COMUNICADO' && naFila.comunicado.type === 'URGENTE'),
+        );
+        this.queue.splice(primeiroNaoUrgente === -1 ? this.queue.length : primeiroNaoUrgente, 0, item);
       } else {
-        this.queue.push(message);
+        this.queue.push(item);
       }
       added = true;
     }
     if (added) this.render();
+  }
+
+  /** Mensagem nova do chat: entra no fim da fila, sem furar a dos comunicados. */
+  enfileirarMensagem(aviso: AvisoMensagem): void {
+    if (this.queue.some((item) => chaveDo(item) === aviso.id)) return;
+    this.queue.push({ tipo: 'MENSAGEM', mensagem: aviso });
+    this.render();
   }
 
   /** Esvazia a fila (ex.: funcionário saiu; os alertas eram da pessoa anterior). */
@@ -58,18 +73,27 @@ export class PopupManager extends EventEmitter<{ view: [string] }> {
     this.render();
   }
 
-  /** Tira a mensagem da fila (fechada no popup ou lida na janela principal). */
+  /** Tira o alerta da fila (fechado no popup ou lido na janela principal). */
   remove(messageId: string): void {
-    const before = this.queue.length;
-    this.queue = this.queue.filter((m) => m.id !== messageId);
-    if (this.queue.length === before) return;
+    const antes = this.queue.length;
+    this.queue = this.queue.filter((item) => chaveDo(item) !== messageId);
+    if (this.queue.length === antes) return;
     this.handledInBatch += 1;
     this.render();
   }
 
+  /** Tira da fila os alertas de uma conversa (ex.: a pessoa abriu a conversa). */
+  limparConversa(conversaId: string): void {
+    const antes = this.queue.length;
+    this.queue = this.queue.filter((item) => item.tipo !== 'MENSAGEM' || item.mensagem.conversaId !== conversaId);
+    if (this.queue.length !== antes) this.render();
+  }
+
   view(messageId: string): void {
+    const item = this.queue.find((naFila) => chaveDo(naFila) === messageId);
     this.remove(messageId);
-    this.emit('view', messageId);
+    if (item?.tipo === 'MENSAGEM') this.emit('conversa', item.mensagem.conversaId);
+    else this.emit('view', messageId);
   }
 
   private render(): void {
@@ -100,8 +124,8 @@ export class PopupManager extends EventEmitter<{ view: [string] }> {
     win.on('close', (event) => {
       if (this.quitting) return;
       event.preventDefault();
-      const current = this.queue[0];
-      if (current) this.remove(current.id);
+      const atual = this.queue[0];
+      if (atual) this.remove(chaveDo(atual));
       else win.hide();
     });
     win.on('closed', () => {

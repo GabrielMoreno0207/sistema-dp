@@ -1,7 +1,10 @@
 import type { ConversaResumo } from '../../../shared/types';
+import { Avatar } from './conversa-comuns';
 
 interface HistoricoConversasProps {
   conversas: ConversaResumo[];
+  /** Id de quem está no aplicativo: define de quem é a foto na conversa direta */
+  meuId: string | null;
   disponivel: boolean;
   onAbrir(): void;
   onEntrar(): void;
@@ -18,7 +21,7 @@ function quando(iso: string): string {
 }
 
 /** As conversas mais recentes da pessoa (colegas, DP e grupos), abaixo do mural. */
-export function HistoricoConversas({ conversas, disponivel, onAbrir, onEntrar }: HistoricoConversasProps) {
+export function HistoricoConversas({ conversas, meuId, disponivel, onAbrir, onEntrar }: HistoricoConversasProps) {
   const comConversa = conversas.filter((conversa) => conversa.ultimaMensagem !== null).slice(0, 6);
 
   return (
@@ -40,9 +43,12 @@ export function HistoricoConversas({ conversas, disponivel, onAbrir, onEntrar }:
         <div className="historico__lista">
           {comConversa.map((conversa) => (
             <button key={conversa.id} className="conversa" onClick={onAbrir}>
-              <span className="conversa__avatar" aria-hidden>
-                {conversa.tipo === 'GRUPO' ? '#' : conversa.titulo.trim().charAt(0).toUpperCase()}
-              </span>
+              <Avatar
+                nome={conversa.titulo}
+                fotoMidiaId={conversa.participantes.find((pessoa) => pessoa.id !== meuId)?.fotoMidiaId}
+                grupo={conversa.tipo === 'GRUPO'}
+                classe="conversa__avatar"
+              />
               <span className="conversa__texto">
                 <strong>{conversa.titulo}</strong>
                 <span className="conversa__previa">

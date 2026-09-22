@@ -326,9 +326,29 @@ export interface OperationResult {
 }
 
 /** Estado do popup de alerta */
+/** Aviso de mensagem nova no chat, para o alerta na tela. */
+export interface AvisoMensagem {
+  /** Chave do alerta: conversa + número da mensagem */
+  id: string;
+  conversaId: string;
+  autorNome: string;
+  /** Nome do grupo, ou null em conversa direta */
+  grupo: string | null;
+  resumo: string;
+  createdAt: string;
+}
+
+/**
+ * O que está no alerta: um comunicado do DP ou uma mensagem do chat.
+ * Os dois usam a mesma janelinha do canto da tela.
+ */
+export type ItemAlerta =
+  | { tipo: 'COMUNICADO'; comunicado: DpMessage }
+  | { tipo: 'MENSAGEM'; mensagem: AvisoMensagem };
+
 export interface PopupState {
-  current: DpMessage | null;
-  /** Posição da mensagem atual no lote ("2 de 3") */
+  current: ItemAlerta | null;
+  /** Posição do alerta atual no lote ("2 de 3") */
   position: number;
   total: number;
 }
@@ -341,6 +361,10 @@ export interface DesktopApi {
   onMessagesChange(listener: (state: MessagesState) => void): () => void;
   /** Pedido para abrir uma mensagem na janela principal (ex.: "Visualizar" no popup) */
   onOpenMessage(listener: (messageId: string) => void): () => void;
+  /** Pedido para abrir uma conversa do chat (alerta de mensagem nova) */
+  onOpenConversa(listener: (conversaId: string) => void): () => void;
+  /** A tela avisa qual conversa está aberta: enquanto ela estiver à vista, não alerta */
+  conversaEmFoco(conversaId: string | null): void;
 
   // Anexos dos comunicados (o download é sempre feito pelo processo main)
   /** Abre o anexo no programa padrão do Windows (baixa para uma pasta temporária) */
@@ -456,6 +480,8 @@ export const IpcChannels = {
   ConnectionChanged: 'connection:changed',
   MessagesChanged: 'messages:changed',
   OpenMessage: 'ui:open-message',
+  OpenConversa: 'ui:open-conversa',
+  ConversaEmFoco: 'conversas:em-foco',
   AttachmentOpen: 'attachment:open',
   AttachmentSave: 'attachment:save',
   AttachmentImage: 'attachment:image',
