@@ -191,7 +191,18 @@ async function publicar() {
       mostrarAviso(resultado.erro);
       return;
     }
-    mostrarAviso(`Versão ${versao} publicada. Os aplicativos recebem na próxima verificação.`, true);
+    if (alvo === 'backend') {
+      // O servidor aplica o pacote e reinicia: aqui esperamos ele voltar
+      mostrarAviso(`Versão ${versao} enviada. O servidor está aplicando e reiniciando…`);
+      const voltou = await api.esperarServidor({ servidor: servidor() });
+      if (!voltou.ok) {
+        mostrarAviso(voltou.erro);
+        return;
+      }
+      mostrarAviso(`Servidor na versão ${versao}. Voltou em ${voltou.tentativas} tentativa(s).`, true);
+    } else {
+      mostrarAviso(`Versão ${versao} publicada. Os aplicativos recebem em segundos.`, true);
+    }
     arquivo = null;
     el('arquivo-escolhido').textContent = 'nenhum arquivo escolhido';
     el('versao').value = '';

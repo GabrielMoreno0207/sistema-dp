@@ -53,6 +53,9 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-}
 
     volumes:
+      # Código do servidor. Fica fora da imagem para o versionador poder trocar
+      # a versão sem reconstruir nada (ver backend/docker/entrypoint.sh).
+      - comunicacao-dp-aplicativo:/app/aplicativo
       # Anexos dos comunicados, mídias e credenciais iniciais.
       #
       # Ficam em um volume do Docker, e NÃO em uma pasta do servidor: no Docker Desktop do
@@ -91,3 +94,5 @@ volumes:
     name: comunicacao-dp-dados
     # criado antes do compose atual; não deve ser recriado nem apagado
     external: true
+  comunicacao-dp-aplicativo:
+    name: comunicacao-dp-aplicativo

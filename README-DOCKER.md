@@ -80,6 +80,48 @@ docker compose exec -T sistema-dp-postgres psql -U sistema_dp -d sistema_dp -c '
 O Adminer (`http://localhost:8081`) mostra as mesmas tabelas pelo navegador. Havendo dano,
 pare o container e volte o backup mais recente com o `pg_restore` acima.
 
+## Atualizar o servidor pelo versionador
+
+O backend se atualiza sozinho com o pacote publicado no versionador — não é
+preciso entrar na maquina para cada versao.
+
+**Como funciona.** O container nao roda o codigo de dentro da imagem: ele roda o
+que esta no volume `comunicacao-dp-aplicativo`. Ao publicar na aba `[ backend ]`,
+o servidor confere o SHA-256 do pacote, deixa a versao nova pronta em
+`proximo` e sai; o Docker reinicia o container (parada de alguns segundos) e o
+`entrypoint.sh` faz a troca, guardando a anterior. Se a versao nova nao subir,
+a anterior volta sozinha na reinicializacao seguinte.
+
+**Gerar o pacote** (na maquina de desenvolvimento):
+
+```bash
+cd backend
+# suba o numero da versao em package.json antes
+npm run empacotar      # gera backend/publicar/servidor-<versao>.tar.gz
+```
+
+**Publicar**: abra o versionador, va na aba `[ backend ]`, escolha o
+`servidor-<versao>.tar.gz`, informe a mesma versao do `package.json` e publique.
+A tela espera o servidor voltar e mostra a versao em uso.
+
+**O que fica guardado no volume**
+
+| Pasta | O que e |
+| --- | --- |
+| `dist`, `node_modules`, `public`, `package.json` | a versao em uso |
+| `anterior/` | a versao de antes, usada na volta automatica |
+| `proximo/` | a versao recebida, esperando a reinicializacao |
+| `em-teste` | marca que some quando a versao nova sobe inteira |
+
+**Reconstruir a imagem continua valendo.** `./dp.sh atualizar` (build + up)
+passa por cima do volume: o entrypoint percebe que o conteudo da imagem mudou e
+leva a versao da imagem para o volume. Use esse caminho quando quiser voltar a
+um estado conhecido, ou quando mudar algo que nao esta no pacote (Dockerfile,
+variaveis de ambiente, versao do Node).
+
+> A migracao do banco roda na subida, de um jeito ou de outro: publicar pelo
+> versionador tambem aplica as migracoes novas.
+
 ## O dia a dia
 
 Tudo pelo `dp.sh`:

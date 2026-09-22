@@ -2,7 +2,9 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import type { Readable } from 'node:stream';
 import { AppError } from '../../errors/app-error';
 import { requireAdmin, requireSuperAdmin } from '../auth/principal';
+import type { ServerUpdateService } from './server-update.service';
 import type { UpdateService } from './update.service';
+import type { UpdateStorage } from './update.storage';
 import { APPS, isAppName, LIMITES, type AppName } from './update.types';
 
 const appParamsSchema = {
@@ -46,9 +48,15 @@ function appDaRota(request: FastifyRequest): AppName {
 
 export interface UpdateRoutesOptions {
   updates: UpdateService;
+  /** Aplica no próprio servidor o pacote publicado para o "backend" */
+  atualizacaoDoServidor: ServerUpdateService;
+  armazem: UpdateStorage;
 }
 
-export const updateRoutes: FastifyPluginAsync<UpdateRoutesOptions> = async (app, { updates }) => {
+export const updateRoutes: FastifyPluginAsync<UpdateRoutesOptions> = async (
+  app,
+  { updates, atualizacaoDoServidor, armazem },
+) => {
   /**
    * O app pergunta se existe versão mais nova que a dele.
    * Vale para computador registrado e para quem está logado na Central.
@@ -105,7 +113,14 @@ export const updateRoutes: FastifyPluginAsync<UpdateRoutesOptions> = async (app,
       },
       corpo,
     );
-    return reply.code(201).send(release);
+    // Publicar o pacote do servidor já aplica: a resposta sai e o processo
+    // reinicia em seguida, com o Docker subindo a versão nova.
+    const { arquivo: _nomeNoServidor, ...publico } = release;
+    if (alvo === 'backend') {
+      await atualizacaoDoServidor.aplicar(armazem.caminhoArquivo('backend', release.arquivo), release.versao);
+      return reply.code(201).send({ ...publico, aplicando: true });
+    }
+    return reply.code(201).send(publico);
   });
 
   /** Tira uma versão do ar (o arquivo é apagado do servidor). */

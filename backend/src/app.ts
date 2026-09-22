@@ -25,6 +25,7 @@ import { TicketService } from './modules/tickets/ticket.service';
 import { updateRoutes } from './modules/updates/update.routes';
 import { UpdateService } from './modules/updates/update.service';
 import { UpdateStorage } from './modules/updates/update.storage';
+import { ServerUpdateService } from './modules/updates/server-update.service';
 import { ATTACHMENT_LIMITS } from './modules/attachments/attachment.types';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
@@ -170,7 +171,10 @@ export function buildApp({
     app.log,
   );
 
-  const updates = new UpdateService(new UpdateStorage(updatesPath), app.log, realtime);
+  const armazemDeAtualizacoes = new UpdateStorage(updatesPath);
+  const updates = new UpdateService(armazemDeAtualizacoes, app.log, realtime);
+  // Atualização do próprio servidor: só funciona dentro do container (APP_PATH)
+  const atualizacaoDoServidor = new ServerUpdateService(env.appPath, app.log);
   const content = new ContentService(
     repositories.midias,
     repositories.mural,
@@ -207,7 +211,7 @@ export function buildApp({
       await api.register(adminRoutes, { admin });
       await api.register(messageRoutes, { messages });
       await api.register(attachmentRoutes, { attachments, messages });
-      await api.register(updateRoutes, { updates });
+      await api.register(updateRoutes, { updates, atualizacaoDoServidor, armazem: armazemDeAtualizacoes });
       await api.register(contentRoutes, { content });
       await api.register(ticketRoutes, { tickets });
       await api.register(conversaRoutes, { conversas, employees, users: repositories.users });

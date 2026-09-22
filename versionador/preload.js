@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('versionador', {
   sair: () => ipcRenderer.invoke('sessao:sair'),
   listar: (dados) => ipcRenderer.invoke('versoes:listar', dados),
   escolherArquivo: (alvo) => ipcRenderer.invoke('arquivo:escolher', alvo),
+  esperarServidor: (dados) => ipcRenderer.invoke('servidor:esperar', dados),
   publicar: (dados) => ipcRenderer.invoke('versoes:publicar', dados),
   remover: (dados) => ipcRenderer.invoke('versoes:remover', dados),
   aoProgredir: (callback) => ipcRenderer.on('publicacao:progresso', (_evento, valor) => callback(valor)),

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { env } from './config/env';
 import { buildApp } from './app';
 import { openDatabase, type OpenedDatabase } from './database/open';
+import { ServerUpdateService } from './modules/updates/server-update.service';
 
 async function main(): Promise<void> {
   let database: OpenedDatabase;
@@ -42,6 +43,8 @@ async function main(): Promise<void> {
       app.log.warn('Produção sem HTTPS: senhas e tokens trafegam sem cifra. Veja "HTTPS" no README.');
     }
     console.log(`Servidor DP rodando em ${protocol}://${env.host}:${env.port}`);
+    // Subiu inteiro (banco, migrações e porta): a atualização em teste está aprovada
+    await new ServerUpdateService(env.appPath, app.log).confirmarSubida();
   } catch (err) {
     app.log.fatal({ err }, 'Falha ao iniciar o backend');
     process.exit(1);

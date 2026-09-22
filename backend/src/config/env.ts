@@ -24,6 +24,11 @@ export interface Env {
   uploadsPath: string;
   /** Pasta com os instaladores das versões publicadas (desktop, mobile, backend) */
   updatesPath: string;
+  /**
+   * Pasta de onde o backend roda (volume no container). Com ela definida, o
+   * servidor consegue se atualizar sozinho com o pacote do versionador.
+   */
+  appPath: string | null;
   /** Pasta com as imagens e vídeos do mural e as fotos de perfil */
   midiasPath: string;
   /** Primeiro usuário do DP, criado na inicialização se ainda não existir nenhum */
@@ -145,6 +150,7 @@ export const env: Env = Object.freeze({
   databaseSchema: readDatabaseSchema(),
   uploadsPath: readUploadsPath(),
   updatesPath: readUpdatesPath(),
+  appPath: process.env.APP_PATH?.trim() || null,
   midiasPath: readMidiasPath(),
   admin: readAdmin(),
   sessionTtlHours: readInteger('SESSION_TTL_HOURS', 12, 1, 720),

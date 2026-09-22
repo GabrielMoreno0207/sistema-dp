@@ -123,4 +123,21 @@ async function remover(servidor, token, alvo, versao) {
   return { ok: true };
 }
 
-module.exports = { entrar, listar, publicar, remover };
+/**
+ * Espera o servidor responder de novo. Usada depois de publicar o pacote do
+ * backend: ele aplica a versão e reinicia, então some por alguns segundos.
+ */
+async function esperarServidor(servidor, { tentativas = 40, intervaloMs = 1500 } = {}) {
+  for (let tentativa = 1; tentativa <= tentativas; tentativa += 1) {
+    try {
+      const resposta = await pedirJson(servidor, '/api/health');
+      if (resposta.ok) return { ok: true, tentativas: tentativa };
+    } catch {
+      // ainda subindo
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervaloMs));
+  }
+  return { ok: false, erro: 'O servidor não voltou a responder. Veja os logs do container.' };
+}
+
+module.exports = { entrar, listar, publicar, remover, esperarServidor };

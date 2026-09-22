@@ -98,6 +98,8 @@ ipcMain.handle('versoes:publicar', async (evento, { servidor, alvo, caminho, ver
   ),
 );
 
+ipcMain.handle('servidor:esperar', async (_evento, { servidor }) => api.esperarServidor(servidor));
+
 ipcMain.handle('versoes:remover', async (_evento, { servidor, alvo, versao }) => {
   const confirmacao = await dialog.showMessageBox(janela, {
     type: 'warning',

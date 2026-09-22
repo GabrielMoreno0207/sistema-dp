@@ -4,6 +4,11 @@
 # uma imagem enxuta. O banco é o PostgreSQL (container próprio); em /app/data ficam os
 # anexos e as mídias, em um volume: derrubar e recriar o container não perde nada.
 #
+# O código roda de /app/aplicativo (também um volume), e não de dentro da imagem:
+# assim o versionador consegue trocar a versão do servidor sem reconstruir nada.
+# A imagem guarda uma cópia em /app/imagem, usada na primeira subida e como
+# ponto de partida de uma instalação nova.
+#
 # Build:  docker build -t comunicacao-dp-backend .
 # Uso:    veja o docker-compose.yml e o README-DOCKER.md
 
@@ -35,24 +40,31 @@ RUN apk add --no-cache tzdata
 ENV NODE_ENV=production \
     SERVER_HOST=0.0.0.0 \
     SERVER_PORT=3000 \
-    UPLOADS_PATH=/app/data/uploads
+    UPLOADS_PATH=/app/data/uploads \
+    APP_PATH=/app/aplicativo
 
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY public ./public
-COPY package.json ./
+# A imagem guarda uma copia em /app/imagem; o container roda o que esta no
+# volume /app/aplicativo, semeado pelo entrypoint na primeira subida.
+COPY --from=deps /app/node_modules /app/imagem/node_modules
+COPY --from=build /app/dist /app/imagem/dist
+COPY public /app/imagem/public
+COPY package.json /app/imagem/
+COPY docker/entrypoint.sh /app/entrypoint.sh
 
 # O container roda como o usuário "node" (uid 1000), nunca como root
-RUN mkdir -p /app/data/uploads && chown -R node:node /app/data
+RUN chmod +x /app/entrypoint.sh \
+ && mkdir -p /app/data/uploads /app/aplicativo \
+ && chown -R node:node /app/data /app/aplicativo
 USER node
 
-VOLUME ["/app/data"]
+VOLUME ["/app/data", "/app/aplicativo"]
 EXPOSE 3000
 
 # O próprio Docker avisa quando o backend para de responder
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.SERVER_PORT || 3000) + '/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
-# server.ts trata SIGTERM/SIGINT: "docker compose down" encerra sem perder gravações
-CMD ["node", "--disable-warning=ExperimentalWarning", "dist/server.js"]
+# O entrypoint troca a versão quando há uma preparada e devolve a anterior se a
+# nova não subir; ele repassa o SIGTERM ao node, que encerra sem perder gravações.
+ENTRYPOINT ["/app/entrypoint.sh"]

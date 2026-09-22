@@ -52,7 +52,7 @@ export class UpdateService {
     return { temAtualizacao, versaoInstalada, release: temAtualizacao ? ultima : null };
   }
 
-  async publicar(app: AppName, input: PublicarInput, dados: Readable): Promise<ReleasePublico> {
+  async publicar(app: AppName, input: PublicarInput, dados: Readable): Promise<ReleasePublico & { arquivo: string }> {
     if (!versaoValida(input.versao)) {
       throw new AppError(`Versão inválida: "${input.versao}". Use o formato 1.2.3.`, 400, 'VERSAO_INVALIDA');
     }
@@ -106,7 +106,8 @@ export class UpdateService {
     );
     // Sem este aviso, cada PC só descobriria na verificação seguinte (na abertura ou às 03:00)
     this.realtime?.atualizacaoPublicada(app, release.versao);
-    return paraPublico(release);
+    // O nome do arquivo vai junto: quem publica o pacote do servidor precisa dele para aplicar
+    return { ...paraPublico(release), arquivo: release.arquivo };
   }
 
   async remover(app: AppName, versao: string, quem: string): Promise<void> {

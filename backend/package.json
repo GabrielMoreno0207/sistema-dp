@@ -1,12 +1,13 @@
 {
   "name": "sistema-dp-backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Backend do sistema de comunicação interna do Departamento Pessoal",
   "private": true,
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch --disable-warning=ExperimentalWarning src/server.ts",
     "build": "tsc",
+    "empacotar": "node scripts/empacotar-servidor.mjs",
     "start": "node --disable-warning=ExperimentalWarning dist/server.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --disable-warning=ExperimentalWarning --test test/*.test.ts",
