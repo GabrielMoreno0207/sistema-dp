@@ -41,6 +41,8 @@ export class Atualizador {
   private timerInicial: NodeJS.Timeout | null = null;
   private timerEmUso: NodeJS.Timeout | null = null;
   private verificando = false;
+  /** Quando terminou a última verificação (evita repetir a cada reconexão) */
+  private ultimaVerificacao = 0;
   /** Instalador já baixado e conferido, esperando a hora de instalar */
   private pendente: { versao: string; caminho: string; obrigatoria: boolean } | null = null;
 
@@ -111,7 +113,17 @@ export class Atualizador {
       this.log(`${origem}: falha ao verificar/baixar (${(err as Error).message})`);
     } finally {
       this.verificando = false;
+      this.ultimaVerificacao = Date.now();
     }
+  }
+
+  /**
+   * Verificação fora de hora (aviso do servidor, volta da conexão). Só vale se
+   * a última já tiver um tempo: reconexão é comum e não precisa consultar toda vez.
+   */
+  async verificarSeVelha(origem: string, intervaloMinimoMs: number): Promise<void> {
+    if (Date.now() - this.ultimaVerificacao < intervaloMinimoMs) return;
+    await this.verificar(origem);
   }
 
   /**

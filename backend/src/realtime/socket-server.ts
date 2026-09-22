@@ -19,6 +19,8 @@ export interface ServerToClientEvents {
   'chat:message': (message: ChatMessage) => void;
   /** O recado do mural mudou: o app busca o novo (o conteúdo não vai no evento) */
   'mural:atualizado': () => void;
+  /** Saiu versão nova de um aplicativo: quem estiver conectado confere na hora */
+  'atualizacao:publicada': (payload: { app: string; versao: string }) => void;
   /** Um chamado de quem está logado neste PC mudou (resposta do TI, status novo) */
   'chamado:atualizado': (payload: { chamadoId: string }) => void;
   /** Uma conversa de quem está logado neste PC mudou (mensagem, grupo, leitura) */
@@ -74,6 +76,7 @@ export interface RealtimeGateway
   extends MessageNotifier,
     ChatNotifier,
     MuralNotifier,
+    AtualizacaoNotifier,
     ChamadoNotifier,
     ConversaNotifier {
   /** Derruba as conexões de um PC (ex.: credencial liberada pelo DP) */
@@ -83,6 +86,11 @@ export interface RealtimeGateway
 /** Avisa os PCs conectados de que o mural mudou. */
 export interface MuralNotifier {
   muralAtualizado(): void;
+}
+
+/** Avisa os PCs conectados de que saiu uma versão nova. */
+export interface AtualizacaoNotifier {
+  atualizacaoPublicada(app: string, versao: string): void;
 }
 
 /** Avisa quem abriu o chamado de que houve resposta ou mudança de status. */
@@ -203,6 +211,10 @@ export function createSocketServer(
      * Vai só o aviso, sem o conteúdo: assim o app usa a mesma rota de sempre
      * e não existe uma segunda versão do recado circulando.
      */
+    atualizacaoPublicada(aplicativo: string, versao: string): void {
+      io.to(Rooms.all).emit('atualizacao:publicada', { app: aplicativo, versao });
+    },
+
     muralAtualizado(): void {
       io.to(Rooms.all).emit('mural:atualizado');
     },

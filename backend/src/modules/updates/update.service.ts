@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger } from 'fastify';
+import type { AtualizacaoNotifier } from '../../realtime/socket-server';
 import type { Readable } from 'node:stream';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import type { UpdateStorage } from './update.storage';
@@ -30,6 +31,8 @@ export class UpdateService {
   constructor(
     private readonly storage: UpdateStorage,
     private readonly log: FastifyBaseLogger,
+    /** Avisa os PCs conectados; sem ele, cada um só descobre na verificação seguinte */
+    private readonly realtime: AtualizacaoNotifier | null = null,
   ) {}
 
   async listar(app: AppName): Promise<ReleasePublico[]> {
@@ -101,6 +104,8 @@ export class UpdateService {
     this.log.info(
       `Versão publicada: ${app} ${release.versao} (${(release.tamanho / 1024 / 1024).toFixed(1)} MB) por ${release.publicadoPor}`,
     );
+    // Sem este aviso, cada PC só descobriria na verificação seguinte (na abertura ou às 03:00)
+    this.realtime?.atualizacaoPublicada(app, release.versao);
     return paraPublico(release);
   }
 

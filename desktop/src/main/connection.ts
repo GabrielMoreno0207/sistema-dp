@@ -22,6 +22,8 @@ export interface ServerConnectionEvents {
   mural: [];
   /** Mexeram em uma conversa do chat (mensagem nova, grupo alterado): a tela recarrega */
   conversa: [string];
+  /** Saiu versão nova no servidor: o atualizador confere na hora */
+  atualizacao: [string];
 }
 
 export interface ConnectionCredentials {
@@ -183,6 +185,13 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
       if (this.isStale(generation)) return;
       const id = (payload as { conversaId?: unknown } | null)?.conversaId;
       this.emit('conversa', typeof id === 'string' ? id : '');
+    });
+
+    // Publicaram uma versão nova pelo versionador
+    socket.on('atualizacao:publicada', (payload: unknown) => {
+      if (this.isStale(generation)) return;
+      const versao = (payload as { versao?: unknown } | null)?.versao;
+      this.emit('atualizacao', typeof versao === 'string' ? versao : '');
     });
 
     socket.on('message:new', (payload: unknown) => {

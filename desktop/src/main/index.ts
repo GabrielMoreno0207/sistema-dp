@@ -1398,6 +1398,16 @@ function start(): void {
       log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
     });
     atualizador.iniciar();
+
+    // Publicaram pelo versionador: confere na hora, em vez de esperar as 03:00
+    connection.on('atualizacao', (versao) => {
+      void atualizador.verificarSeVelha(`aviso do servidor (versão ${versao})`, 10_000);
+    });
+    // Conexão de volta: cobre a verificação que caiu por estar offline
+    connection.on('connected', () => {
+      void atualizador.verificarSeVelha('conexão restabelecida', 60 * 60_000);
+    });
+
     app.on('before-quit', () => atualizador.parar());
   }
 }

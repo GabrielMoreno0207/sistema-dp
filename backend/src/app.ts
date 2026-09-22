@@ -168,7 +168,7 @@ export function buildApp({
     app.log,
   );
 
-  const updates = new UpdateService(new UpdateStorage(updatesPath), app.log);
+  const updates = new UpdateService(new UpdateStorage(updatesPath), app.log, realtime);
   const content = new ContentService(
     repositories.midias,
     repositories.mural,
