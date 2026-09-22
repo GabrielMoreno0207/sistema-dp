@@ -4,10 +4,10 @@ Backend do sistema **Comunicação DP**, a comunicação interna entre o Departa
 
 - API REST e WebSocket (Socket.IO) para entregar mensagens em tempo real aos computadores
 - **Central do DP**: página web para o DP escrever e enviar comunicados (`http://SERVIDOR:3000/central`)
-- Banco SQLite embutido (módulo nativo `node:sqlite`, sem instalar nada além do Node)
+- Banco PostgreSQL (container próprio; veja "Banco de dados")
 - Autenticação: login do DP com token e registro dos computadores com chave da empresa
 
-Stack: Node.js 22 + TypeScript + Fastify 5 + Socket.IO 4.
+Stack: Node.js 22 + TypeScript + Fastify 5 + Socket.IO 4 + PostgreSQL 17.
 
 ---
 
@@ -21,7 +21,7 @@ node -v    # v22.13.0 ou maior
 npm -v
 ```
 
-> Precisa ser a versão 22.13 ou superior por causa do banco SQLite nativo (`node:sqlite`).
+> A versão 22.13 ou superior é a testada; abaixo disso o projeto não foi verificado.
 
 ## 2. Instalação das dependências
 
@@ -46,7 +46,6 @@ notepad .env
 | `SERVER_HOST`             | `0.0.0.0`               | Endereço de escuta. `0.0.0.0` aceita conexões da rede interna |
 | `SERVER_PORT`             | `3000`                  | Porta HTTP e WebSocket |
 | `LOG_LEVEL`               | `info`                  | `fatal`, `error`, `warn`, `info`, `debug` ou `trace` |
-| `DATABASE_PATH`           | `./data/sistema-dp.db`  | Arquivo do banco SQLite (`:memory:` = temporário) |
 | `UPLOADS_PATH`            | `./data/uploads`        | Pasta dos anexos dos comunicados (arquivos e imagens). Entre no backup junto com o banco |
 | `ADMIN_USERNAME`          | `ti`                    | Login principal (do TI) criado na primeira execução. Os logins das pessoas do DP são criados depois com `npm run create-admin` |
 | `ADMIN_PASSWORD`          | *(obrigatória na 1ª vez)* | Senha desse usuário. Mínimo de 8 caracteres |
@@ -67,7 +66,7 @@ notepad .env
 npm run db:init
 ```
 
-O comando cria `data/sistema-dp.db`, aplica as migrações e cria o usuário do DP. Pode rodar quantas vezes quiser, porque não apaga nada. O `npm run dev` e o `npm start` também fazem isso sozinhos.
+O comando aplica as migrações no PostgreSQL e cria o usuário do DP. Pode rodar quantas vezes quiser, porque não apaga nada. O `npm run dev` e o `npm start` também fazem isso sozinhos.
 
 ### Trocar a senha do DP
 
@@ -99,7 +98,7 @@ O servidor reinicia sozinho a cada alteração no código. Saída esperada:
 
 ```
 Servidor DP rodando em http://0.0.0.0:3000
-[2026-09-14 10:00:00] INFO: Banco de dados SQLite: ./data/sistema-dp.db
+[2026-09-14 10:00:00] INFO: Banco de dados -> PostgreSQL: postgresql://servidor:5432/sistema_dp (schema dp)
 [2026-09-14 10:00:00] INFO: Server listening at http://192.168.1.50:3000
 [2026-09-14 10:00:00] INFO: Usuário inicial do DP criado: admin
 [2026-09-14 10:00:00] INFO: Backend iniciado na porta 3000 (ambiente: development)
@@ -381,7 +380,7 @@ Com **500 computadores** (chegando em 2 s) tudo continuou funcionando: comunicad
 O que foi feito para isso:
 
 - **Segredo do PC com SHA-256** (256 bits aleatórios gerados pelo app). O scrypt, lento de propósito, fica só para senhas de pessoas. Segredos antigos em scrypt são convertidos sozinhos no próximo registro do PC.
-- **SQLite em WAL com `synchronous = NORMAL`**: não faz um fsync a cada gravação e continua protegido contra corrupção.
+- **PostgreSQL com pool de conexões**: as consultas reaproveitam conexões abertas, sem pagar o custo de abrir uma por requisição.
 - **Índices** para a lista de conversas de cada pessoa do DP, para a contagem por setor/turno e para o PC de cada funcionário (migração 11).
 - **Envio em tempo real** conta os destinatários sem montar a lista de sockets.
 - **Fila de conexões** (`backlog`) maior.
@@ -391,23 +390,20 @@ Observações:
 
 - O login do funcionário usa scrypt (proteção da senha). Ele atende ~50 logins por segundo; se centenas entrarem no **mesmo segundo**, os últimos esperam alguns segundos, mas o servidor não trava. Na prática, os logins do início do turno se espalham em minutos.
 - Para o servidor definitivo, prefira **Windows Server** (ou Linux): o Windows 10/11 limita a fila de conexões pendentes e pode recusar parte de centenas de conexões abertas no mesmo milissegundo (o app tenta de novo sozinho).
-- Deixe o arquivo do banco (`data/sistema-dp.db`) em disco local (de preferência SSD), nunca em pasta de rede.
+- Deixe o volume do PostgreSQL em disco local (de preferência SSD), nunca em pasta de rede.
 
-## Banco de dados: SQLite ou PostgreSQL
+## Banco de dados: PostgreSQL
 
-O sistema roda nos dois bancos, e quem decide é o `.env`:
-
-| `.env` | Banco usado |
-| --- | --- |
-| sem `DATABASE_URL` | SQLite, no arquivo de `DATABASE_PATH` (padrão) |
-| com `DATABASE_URL` | PostgreSQL, no schema de `DATABASE_SCHEMA` (padrão `dp`) |
+O sistema usa **PostgreSQL**. A conexão vem do `.env` e é obrigatória — sem ela o
+servidor não sobe:
 
 ```env
 DATABASE_URL=postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp
 DATABASE_SCHEMA=dp
 ```
 
-As tabelas são criadas sozinhas na primeira execução, nos dois casos.
+As tabelas são criadas sozinhas na primeira execução (migrações em
+`src/database/migrations.postgres.ts`, aplicadas na ordem da versão).
 
 ### Subir o PostgreSQL
 
@@ -419,28 +415,14 @@ docker compose -f docker-compose.postgres.yml --env-file .env.postgres up -d
 
 Sobe o banco em `localhost:5433` e o Adminer (consulta pelo navegador) em `http://localhost:8081`.
 
-### Levar os dados do SQLite para o PostgreSQL
+### Testes
+
+Os testes rodam no mesmo PostgreSQL, cada arquivo em um schema próprio que é
+recriado do zero (`teste_*`). Informe a conexão em `TEST_DATABASE_URL`:
 
 ```bash
-npm run migrar-postgres -- --sqlite ./data/sistema-dp.db
+TEST_DATABASE_URL=postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp npm test
 ```
-
-O SQLite é aberto somente para leitura. O script copia as tabelas em uma única
-transação, mantém os IDs e as numerações automáticas, e no fim compara a contagem
-de linhas de cada tabela. Se o PostgreSQL já tiver dados, ele para e avisa; para
-apagar e importar do zero, use `--sobrescrever`.
-
-Para copiar o banco que está rodando em um container, gere antes uma cópia
-consistente (sem parar o serviço):
-
-```bash
-docker exec comunicacao-dp node -e "const {DatabaseSync}=require('node:sqlite');const db=new DatabaseSync('/app/data/sistema-dp.db',{readOnly:true});db.exec(\"VACUUM INTO '/tmp/copia.db'\");db.close()"
-docker cp comunicacao-dp:/tmp/copia.db ./copia.db
-npm run migrar-postgres -- --sqlite ./copia.db
-```
-
-Os anexos dos comunicados **não** ficam no banco: continuam na pasta de
-`UPLOADS_PATH` e devem ser copiados junto.
 
 ## Testes automatizados
 
@@ -510,14 +492,14 @@ src/
 ├── server.ts                   # ponto de entrada: abre o banco, sobe o servidor, encerra com segurança
 ├── app.ts                      # monta o Fastify: camadas, rotas, WebSocket, cabeçalhos
 ├── config/                     # leitura/validação do .env e configuração de logs
-├── database/                   # conexão SQLite, migrações versionadas e fábrica de repositórios
+├── database/                   # conexão PostgreSQL, migrações versionadas e fábrica de repositórios
 ├── scripts/                    # db:init (criar banco) e set-password (trocar senha do DP)
 ├── errors/                     # erros de negócio e tratamento centralizado
 ├── realtime/socket-server.ts   # WebSocket: handshake autenticado, salas e envio de mensagens
 └── modules/
     ├── auth/                   # login, tokens, registro de PCs, bloqueio de tentativas
-    ├── computers/              # computadores: types, repository, sqlite-repository, service, routes
-    ├── messages/               # mensagens e leituras: types, repository, sqlite-repository, service, routes
+    ├── computers/              # computadores: types, repository, postgres-repository, service, routes
+    ├── messages/               # mensagens e leituras: types, repository, postgres-repository, service, routes
     ├── attachments/            # anexos dos comunicados: armazenamento em disco, envio e download
     ├── employees/              # funcionários: cadastro pelo DP e sessão no app (login com matrícula)
     ├── users/                  # usuários (DP e funcionários): tipos e repositório
@@ -526,13 +508,13 @@ src/
 
 Cada módulo segue a mesma divisão em camadas:
 - `*.repository.ts` é a interface de dados;
-- `*.sqlite-repository.ts` é a implementação para SQLite;
+- `*.postgres-repository.ts` é a implementação para PostgreSQL;
 - `*.service.ts` guarda as regras de negócio;
 - `*.routes.ts` é a entrada HTTP.
 
 **Trocar para PostgreSQL ou Oracle:** crie novas classes que implementem as interfaces `*.repository.ts` e uma fábrica igual a `createSqliteRepositories()` (`src/database/repositories.ts`), e use essa fábrica em `src/server.ts`. O `buildApp()` só conhece as interfaces, então services, rotas e WebSocket continuam iguais.
 
 **Novos destinos** (setor, turno, departamento, funcionário): o modelo já prevê esses tipos. Para implementar um deles:
-1. Acrescente a regra em `isRecipient()` (`message.types.ts`) e no filtro SQL equivalente (`message.sqlite-repository.ts`).
+1. Acrescente a regra em `isRecipient()` (`message.types.ts`) e no filtro SQL equivalente (`message.postgres-repository.ts`).
 2. Crie a sala em `roomFor()` (`socket-server.ts`).
 3. Libere o destino em `IMPLEMENTED_TARGETS`.

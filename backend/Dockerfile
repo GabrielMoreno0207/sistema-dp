@@ -1,13 +1,12 @@
 # Imagem do backend do Comunicação DP.
 #
 # Três estágios: compila o TypeScript, resolve só as dependências de produção e monta
-# uma imagem enxuta. O banco (SQLite) e os anexos ficam em /app/data, que é um volume:
-# derrubar e recriar o container não perde nada.
+# uma imagem enxuta. O banco é o PostgreSQL (container próprio); em /app/data ficam os
+# anexos e as mídias, em um volume: derrubar e recriar o container não perde nada.
 #
 # Build:  docker build -t comunicacao-dp-backend .
 # Uso:    veja o docker-compose.yml e o README-DOCKER.md
 
-# Node 22: o backend usa o módulo nativo node:sqlite, que exige 22.13 ou superior.
 ARG NODE_VERSION=22-alpine
 
 # ---------------------------------------------------------------- compila o TypeScript
@@ -36,7 +35,6 @@ RUN apk add --no-cache tzdata
 ENV NODE_ENV=production \
     SERVER_HOST=0.0.0.0 \
     SERVER_PORT=3000 \
-    DATABASE_PATH=/app/data/sistema-dp.db \
     UPLOADS_PATH=/app/data/uploads
 
 WORKDIR /app

@@ -120,7 +120,7 @@ export function parseMessageId(id: string): number | null {
 }
 
 /**
- * Regra de destinatário (a mesma de RECIPIENT_FILTER em message.sqlite-repository.ts).
+ * Regra de destinatário (a mesma de RECIPIENT_FILTER no repositório de mensagens).
  * - "Todos": a partir de quando o leitor passou a existir (um PC instalado hoje não herda
  *   meses de histórico como "não lido");
  * - funcionário, setor e turno: valem para o funcionário logado no computador.

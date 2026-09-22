@@ -46,30 +46,16 @@ fi
 # ---------------------------------------------------------------- dados
 passo "Preparando o volume de dados"
 mkdir -p backups
-echo "Banco e anexos ficam no volume do Docker \"comunicacao-dp-dados\"."
+echo "Anexos e mídias ficam no volume do Docker \"comunicacao-dp-dados\"; o banco é o PostgreSQL."
 echo "Backups saem aqui em ./backups (veja o backup.sh)."
 
-# Sobra de instalacao antiga: antes o banco ficava numa pasta do servidor, o que nao e seguro
-# para SQLite (pasta compartilhada com o container nao tem as travas que ele precisa).
-if [ -f data/sistema-dp.db ]; then
-  echo "" >&2
-  echo "ATENCAO: existe um data/sistema-dp.db de uma instalacao anterior." >&2
-  echo "Agora o banco fica em um volume do Docker. Traga esse banco para o volume antes:" >&2
-  echo "  docker compose build" >&2
-  echo "  ./importar-banco.sh data/sistema-dp.db data/uploads" >&2
-  echo "  mv data data-antiga" >&2
-  echo "Depois rode o instalador de novo." >&2
-  exit 1
-fi
-
-# Banco que já existe no volume (reinstalação, ou banco trazido pelo importar-banco.sh):
-# nesse caso o servidor ignora o ADMIN_PASSWORD do .env, e anunciar a senha gerada enganaria.
-IMAGEM="comunicacao-dp-backend:1.1.0"
+# Banco que já tem dados (reinstalação): nesse caso o servidor ignora o ADMIN_PASSWORD
+# do .env, e anunciar a senha gerada enganaria.
 banco_ja_existia=nao
-if docker image inspect "$IMAGEM" >/dev/null 2>&1 && docker volume inspect comunicacao-dp-dados >/dev/null 2>&1; then
-  if docker run --rm -v comunicacao-dp-dados:/app/data "$IMAGEM" test -f /app/data/sistema-dp.db >/dev/null 2>&1; then
+if docker compose ps --status running --services 2>/dev/null | grep -qx backend; then
+  if docker compose exec -T backend node -e "process.exit(0)" >/dev/null 2>&1; then
     banco_ja_existia=sim
-    echo "Já existe um banco no volume: os logins e setores dele são mantidos."
+    echo "Já existe um banco em uso: os logins e setores dele são mantidos."
   fi
 fi
 

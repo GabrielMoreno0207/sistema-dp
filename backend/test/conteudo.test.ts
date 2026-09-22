@@ -14,7 +14,6 @@ const SENHA = 'senha-de-teste-123';
 const SENHA_FUNCIONARIO = 'Senha-Do-Joao-1';
 process.env.NODE_ENV = 'production';
 process.env.LOG_LEVEL = 'fatal';
-process.env.DATABASE_PATH = ':memory:';
 process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PASSWORD = SENHA;
 process.env.ADMIN_NAME = 'Departamento Pessoal';
@@ -23,10 +22,13 @@ process.env.MIDIAS_PATH = join(BASE, 'midias');
 process.env.UPLOADS_PATH = join(BASE, 'uploads');
 process.env.UPDATES_PATH = join(BASE, 'atualizacoes');
 
-// Os mesmos testes rodam no PostgreSQL quando TEST_DATABASE_URL é informada
-const POSTGRES_URL = process.env.TEST_DATABASE_URL?.trim() || null;
+const POSTGRES_URL = (process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL)?.trim();
+if (!POSTGRES_URL) {
+  throw new Error('Defina TEST_DATABASE_URL: os testes rodam no PostgreSQL, que é o banco do sistema.');
+}
 const TEST_SCHEMA = 'teste_conteudo';
-if (!POSTGRES_URL) delete process.env.DATABASE_URL;
+process.env.DATABASE_URL = POSTGRES_URL;
+process.env.DATABASE_SCHEMA = TEST_SCHEMA;
 
 let app: FastifyInstance;
 let fecharBanco: () => Promise<void>;
@@ -56,16 +58,12 @@ function enviarMidia(conteudo: Buffer, mimeType: string, token: string, nome = '
 }
 
 before(async () => {
-  if (POSTGRES_URL) {
-    // Schema só de teste, recriado do zero: nunca encosta nos dados reais
-    const { Client } = await import('pg');
-    const limpeza = new Client({ connectionString: POSTGRES_URL });
-    await limpeza.connect();
-    await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
-    await limpeza.end();
-    process.env.DATABASE_URL = POSTGRES_URL;
-    process.env.DATABASE_SCHEMA = TEST_SCHEMA;
-  }
+  // Cada arquivo de teste usa um schema próprio, recriado do zero
+  const { Client } = await import('pg');
+  const limpeza = new Client({ connectionString: POSTGRES_URL });
+  await limpeza.connect();
+  await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
+  await limpeza.end();
 
   const { buildApp } = await import('../src/app');
   const { openDatabase } = await import('../src/database/open');

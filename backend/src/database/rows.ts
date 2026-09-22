@@ -1,4 +1,4 @@
-/** Leitura de colunas de uma linha, igual para SQLite e PostgreSQL. */
+/** Leitura das colunas de uma linha, com conferência de tipo. */
 
 export type Row = Record<string, unknown>;
 

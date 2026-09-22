@@ -2,7 +2,7 @@ import type { Computer, ComputerInfo, ComputerStatus } from './computer.types';
 
 /**
  * Contrato de persistência dos computadores.
- * Trocar o banco (SQLite, PostgreSQL, Oracle) = criar outra implementação desta interface.
+ * Trocar o banco = criar outra implementação desta interface.
  */
 export interface ComputerRepository {
   /** Cria ou atualiza os dados do computador. Retorna o registro e se ele já existia. */

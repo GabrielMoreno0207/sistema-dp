@@ -13,7 +13,6 @@ import type { FastifyInstance } from 'fastify';
 const SENHA_TI = 'senha-de-teste-123';
 process.env.NODE_ENV = 'production';
 process.env.LOG_LEVEL = 'fatal';
-process.env.DATABASE_PATH = ':memory:';
 process.env.ADMIN_USERNAME = 'ti';
 process.env.ADMIN_PASSWORD = SENHA_TI;
 process.env.ADMIN_NAME = 'TI';
@@ -22,9 +21,13 @@ process.env.MIDIAS_PATH = join(BASE, 'midias');
 process.env.UPLOADS_PATH = join(BASE, 'uploads');
 process.env.UPDATES_PATH = join(BASE, 'atualizacoes');
 
-const POSTGRES_URL = process.env.TEST_DATABASE_URL?.trim() || null;
+const POSTGRES_URL = (process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL)?.trim();
+if (!POSTGRES_URL) {
+  throw new Error('Defina TEST_DATABASE_URL: os testes rodam no PostgreSQL, que é o banco do sistema.');
+}
 const TEST_SCHEMA = 'teste_conversas';
-if (!POSTGRES_URL) delete process.env.DATABASE_URL;
+process.env.DATABASE_URL = POSTGRES_URL;
+process.env.DATABASE_SCHEMA = TEST_SCHEMA;
 
 let app: FastifyInstance;
 let fecharBanco: () => Promise<void>;
@@ -65,15 +68,12 @@ async function criarFuncionario(nome: string, matricula: string, senha: string):
 }
 
 before(async () => {
-  if (POSTGRES_URL) {
-    const { Client } = await import('pg');
-    const limpeza = new Client({ connectionString: POSTGRES_URL });
-    await limpeza.connect();
-    await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
-    await limpeza.end();
-    process.env.DATABASE_URL = POSTGRES_URL;
-    process.env.DATABASE_SCHEMA = TEST_SCHEMA;
-  }
+  // Cada arquivo de teste usa um schema próprio, recriado do zero
+  const { Client } = await import('pg');
+  const limpeza = new Client({ connectionString: POSTGRES_URL });
+  await limpeza.connect();
+  await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
+  await limpeza.end();
 
   const { buildApp } = await import('../src/app');
   const { openDatabase } = await import('../src/database/open');

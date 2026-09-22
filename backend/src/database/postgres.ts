@@ -10,7 +10,7 @@ export interface PostgresExecutor {
   all(sql: string, params?: readonly unknown[]): Promise<Row[]>;
   /** A primeira linha, ou null se a consulta não retornou nada. */
   one(sql: string, params?: readonly unknown[]): Promise<Row | null>;
-  /** Executa e devolve quantas linhas foram afetadas (equivale ao "changes" do SQLite). */
+  /** Executa e devolve quantas linhas foram afetadas. */
   run(sql: string, params?: readonly unknown[]): Promise<number>;
 }
 

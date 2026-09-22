@@ -4,7 +4,7 @@ O backend roda em um container. O programa vai dentro dele; o banco e os anexos 
 **volume do Docker** (`comunicacao-dp-dados`), separado do container — derrubar, recriar ou
 atualizar o container não perde nada.
 
-> **Por que um volume e não uma pasta do servidor:** o SQLite grava em três arquivos e precisa de
+> **Por que um volume e não uma pasta do servidor:** arquivos grandes e permissões
 > travas e memória compartilhada de verdade. Em pasta compartilhada com o container (bind mount) —
 > em especial no Docker Desktop do Windows, mas também em NFS e SMB — essas travas não funcionam
 > direito: dá para o banco corromper, e até para o arquivo sumir, **sem nenhuma mensagem de erro**.
@@ -25,7 +25,7 @@ Na máquina Linux, com Docker e o plugin `docker compose` instalados:
 cd /opt/comunicacao-dp
 
 # 2. garanta que os scripts são executáveis (o bit some ao copiar do Windows)
-chmod +x instalar.sh dp.sh backup.sh importar-banco.sh
+chmod +x instalar.sh dp.sh backup.sh
 
 # 3. rode o instalador
 ./instalar.sh
@@ -49,45 +49,36 @@ o instalador mostrou. A Central pede para trocar a senha no primeiro acesso.
 
 ## Trazer um banco que já existe
 
-Se você já tem um banco rodando em outro lugar (outro servidor, um backup, a instalação do
-Windows), **não copie a pasta `data/` inteira**. Use o importador:
+O banco é o PostgreSQL, e o backup do `backup.sh` sai em formato `custom` (`pg_dump -Fc`).
+Para levantar esse banco em outra máquina:
 
 ```bash
-docker compose build                                              # precisa da imagem
-./importar-banco.sh /caminho/do/sistema-dp.db /caminho/do/uploads # banco + anexos
+docker compose -f docker-compose.postgres.yml --env-file .env.postgres up -d   # sobe o PostgreSQL
+docker compose exec -T sistema-dp-postgres pg_restore -U sistema_dp -d sistema_dp --clean --if-exists \
+  < backups/sistema-dp-DATA.dump
 ./instalar.sh
 ```
 
-O segundo argumento é a pasta `uploads` do servidor antigo — os anexos **não** estão dentro do
-banco. Sem ela, os comunicados aparecem sem os arquivos.
+Os anexos e as mídias **não estão dentro do banco**: eles vêm no `anexos-DATA.tar.gz` do mesmo
+backup e voltam para o volume:
 
-**Por que não dá para copiar direto:** o SQLite grava em três arquivos — `sistema-dp.db` e mais
-`sistema-dp.db-wal` e `sistema-dp.db-shm` ao lado dele. Os dois auxiliares **valem apenas na
-máquina onde foram criados**. Levados para outra, acontecem duas coisas ruins, nenhuma delas com
-mensagem de erro: o servidor passa a ler dados antigos e as gravações novas se perdem em silêncio
-(o sintoma clássico é *"troquei a senha e o login continua não funcionando"*); e, se alguém abrir
-esse banco para escrita, o `-wal` que não combina é aplicado por cima e **corrompe o arquivo**.
-
-O `importar-banco.sh` usa **somente o arquivo `.db`**, confere a integridade antes e depois, e
-nunca toca no original. Se encontrar um `-wal` ao lado da origem, ele avisa e pede confirmação —
-o certo, nesse caso, é gerar um arquivo já consolidado na máquina de origem (`backup.sh` no Linux,
-`backup-banco.cmd` no Windows) e trazer esse. O `instalar.sh` também barra a instalação se
-encontrar `-wal`/`-shm` em `data/`.
-
-Melhor ainda: para levar um banco de um lugar para outro, use sempre o arquivo que o `backup.sh`
-produz. Ele sai de um `VACUUM INTO`, é um arquivo único e pode ser copiado à vontade.
+```bash
+mkdir -p /tmp/restaurar && tar -xzf backups/anexos-DATA.tar.gz -C /tmp/restaurar
+docker run --rm -v comunicacao-dp-dados:/app/data -v /tmp/restaurar:/entrada alpine \
+  sh -c "cp -a /entrada/uploads /app/data/ && cp -a /entrada/midias /app/data/"
+```
 
 ### Desconfiou que o banco está estranho?
 
 Setores, funcionários ou comunicados sumindo, ou erros de validação em telas que sempre
-funcionaram, são sinal de banco danificado. Para conferir:
+funcionaram. Para olhar o banco por dentro:
 
 ```bash
-docker compose exec backend node -e "const {DatabaseSync}=require('node:sqlite');   console.log(new DatabaseSync(process.env.DATABASE_PATH,{readOnly:true}).prepare('PRAGMA integrity_check').get())"
+docker compose exec -T sistema-dp-postgres psql -U sistema_dp -d sistema_dp -c '\dt dp.*'
 ```
 
-Qualquer coisa diferente de `ok` significa banco corrompido: pare o container e volte o backup
-mais recente com o `importar-banco.sh`.
+O Adminer (`http://localhost:8081`) mostra as mesmas tabelas pelo navegador. Havendo dano,
+pare o container e volte o backup mais recente com o `pg_restore` acima.
 
 ## O dia a dia
 
@@ -103,7 +94,6 @@ Tudo pelo `dp.sh`:
 | `./dp.sh reiniciar` / `parar` / `subir` | Controla o container |
 | `./dp.sh atualizar` | Backup + reconstrói a imagem + sobe a versão nova |
 | `./backup.sh` | Backup do banco **e dos anexos** |
-| `./importar-banco.sh <arquivo.db>` | Traz um banco de outra máquina do jeito certo |
 
 Com `--gerar`, a senha inicial fica em `credenciais-iniciais.txt` dentro do volume — para lê-la:
 `docker compose exec backend cat /app/data/credenciais-iniciais.txt`. Passe para a pessoa e
@@ -140,14 +130,17 @@ No cron, diariamente às 2h:
 ```
 
 > Os anexos dos comunicados **não ficam dentro do banco**: eles estão em `data/uploads`. Um backup
-> só do `.db` deixaria os comunicados sem os arquivos.
+> só do dump deixaria os comunicados sem os arquivos.
 
 Para restaurar:
 
 ```bash
 ./dp.sh parar
+docker compose exec -T sistema-dp-postgres pg_restore -U sistema_dp -d sistema_dp --clean --if-exists \
+  < backups/sistema-dp-DATA.dump
 mkdir -p /tmp/restaurar && tar -xzf backups/anexos-DATA.tar.gz -C /tmp/restaurar
-./importar-banco.sh backups/sistema-dp-DATA.db /tmp/restaurar/uploads
+docker run --rm -v comunicacao-dp-dados:/app/data -v /tmp/restaurar:/entrada alpine \
+  sh -c "cp -a /entrada/uploads /app/data/"
 ./dp.sh subir
 ```
 
@@ -232,7 +225,7 @@ docker compose up -d --no-build
 
 - **Imagem**: `node:22-alpine` em três estágios (compila o TypeScript, resolve só as dependências
   de produção, monta a imagem final). Roda como o usuário `node` (uid 1000), nunca como root.
-- **Node 22**: o banco usa o módulo nativo `node:sqlite`, que exige Node 22.13 ou superior.
+- **Node 22**: é a versão em que o backend é compilado e testado.
 - **Volume**: `comunicacao-dp-dados` → `/app/data` (banco, anexos e credenciais iniciais).
   Para olhar: `docker compose exec backend ls -la /app/data`. Para tirar um arquivo de lá:
   `docker compose cp backend:/app/data/credenciais-iniciais.txt .`

@@ -5,7 +5,7 @@ Sistema de comunicação interna do Departamento Pessoal com os computadores da 
 ```
 DP (Central do DP, no navegador)
   ↓  POST /api/messages
-Backend (Node + Fastify + SQLite)  ── servidor interno da empresa
+Backend (Node + Fastify + PostgreSQL) ── servidor interno da empresa
   ↓  WebSocket (Socket.IO)
 Computadores dos funcionários (app Electron na bandeja)
   ↓

@@ -1,7 +1,6 @@
 import { env } from '../config/env';
-import { createPostgresRepositories, createSqliteRepositories, type Repositories } from './repositories';
+import { createPostgresRepositories, type Repositories } from './repositories';
 import { openPostgresDatabase } from './postgres';
-import { openSqliteDatabase } from './sqlite';
 
 export interface OpenedDatabase {
   repositories: Repositories;
@@ -11,26 +10,15 @@ export interface OpenedDatabase {
 }
 
 /**
- * Abre o banco configurado e devolve os repositórios prontos.
- *
- * Com DATABASE_URL definida usa PostgreSQL; sem ela, o SQLite de sempre
- * (DATABASE_PATH). Serve para o servidor e para os scripts de manutenção.
+ * Abre o banco e devolve os repositórios prontos, para o servidor e para os
+ * scripts de manutenção. O sistema usa PostgreSQL: sem DATABASE_URL não sobe.
  */
 export async function openDatabase(): Promise<OpenedDatabase> {
-  if (env.databaseUrl) {
-    const db = await openPostgresDatabase(env.databaseUrl, { schema: env.databaseSchema });
-    return {
-      repositories: createPostgresRepositories(db),
-      description: `PostgreSQL: ${hideCredentials(env.databaseUrl)} (schema ${env.databaseSchema})`,
-      close: () => db.close(),
-    };
-  }
-
-  const db = openSqliteDatabase(env.databasePath);
+  const db = await openPostgresDatabase(env.databaseUrl, { schema: env.databaseSchema });
   return {
-    repositories: createSqliteRepositories(db),
-    description: `SQLite: ${env.databasePath}`,
-    close: async () => db.close(),
+    repositories: createPostgresRepositories(db),
+    description: `PostgreSQL: ${hideCredentials(env.databaseUrl)} (schema ${env.databaseSchema})`,
+    close: () => db.close(),
   };
 }
 

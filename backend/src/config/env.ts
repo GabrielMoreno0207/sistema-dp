@@ -15,10 +15,9 @@ export interface Env {
   host: string;
   port: number;
   logLevel: string;
-  /** Caminho absoluto do banco SQLite (ou :memory:), usado quando não há DATABASE_URL */
-  databasePath: string;
   /** Conexão PostgreSQL (postgresql://usuario:senha@servidor:5432/banco). Definida = usa PostgreSQL */
-  databaseUrl: string | null;
+  /** Conexão do PostgreSQL (obrigatória) */
+  databaseUrl: string;
   /** Schema onde ficam as tabelas no PostgreSQL */
   databaseSchema: string;
   /** Pasta onde ficam os arquivos e imagens anexados aos comunicados */
@@ -72,14 +71,14 @@ function projectPath(path: string): string {
   return isAbsolute(path) ? path : resolve(PROJECT_ROOT, path);
 }
 
-function readDatabasePath(): string {
-  const value = process.env.DATABASE_PATH ?? './data/sistema-dp.db';
-  return value === ':memory:' ? value : projectPath(value);
-}
-
-function readDatabaseUrl(): string | null {
+/** O sistema usa PostgreSQL: sem uma conexão válida o servidor não sobe. */
+function readDatabaseUrl(): string {
   const value = process.env.DATABASE_URL?.trim();
-  if (!value) return null;
+  if (!value) {
+    throw new Error(
+      'DATABASE_URL não definida. O sistema usa PostgreSQL: informe postgresql://usuario:senha@servidor:5432/banco.',
+    );
+  }
   if (!/^postgres(ql)?:\/\//i.test(value)) {
     throw new Error(`DATABASE_URL inválida: "${value}". Use postgresql://usuario:senha@servidor:5432/banco.`);
   }
@@ -142,7 +141,6 @@ export const env: Env = Object.freeze({
   host: process.env.SERVER_HOST ?? '0.0.0.0',
   port: readInteger('SERVER_PORT', 3000, 1, 65535),
   logLevel: readLogLevel(),
-  databasePath: readDatabasePath(),
   databaseUrl: readDatabaseUrl(),
   databaseSchema: readDatabaseSchema(),
   uploadsPath: readUploadsPath(),

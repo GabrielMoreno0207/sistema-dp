@@ -32,13 +32,12 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: ${TZ:-America/Sao_Paulo}
 
-      # Banco: com DATABASE_URL preenchida (veja .env) usa o PostgreSQL do
-      # docker-compose.postgres.yml; vazia, cai no SQLite do volume.
-      DATABASE_URL: ${DATABASE_URL:-}
+      # Banco: PostgreSQL do docker-compose.postgres.yml (a conexão vem do .env).
+      # Sem DATABASE_URL o backend não sobe.
+      DATABASE_URL: ${DATABASE_URL:?defina DATABASE_URL no .env (PostgreSQL)}
       DATABASE_SCHEMA: ${DATABASE_SCHEMA:-dp}
 
-      # Banco SQLite e anexos: dentro do volume, nunca na imagem
-      DATABASE_PATH: /app/data/sistema-dp.db
+      # Anexos e mídias: dentro do volume, nunca na imagem
       UPLOADS_PATH: /app/data/uploads
 
       # Primeiro login da Central, criado só se o banco ainda não tiver nenhum
@@ -54,13 +53,11 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-}
 
     volumes:
-      # Banco, anexos dos comunicados e credenciais iniciais.
+      # Anexos dos comunicados, mídias e credenciais iniciais.
       #
-      # Fica em um volume do Docker, e NÃO em uma pasta do servidor. O SQLite grava em três
-      # arquivos que precisam de travas e memória compartilhada de verdade; em pasta compartilhada
-      # (bind mount) — principalmente no Docker Desktop do Windows, mas também em rede, NFS e SMB —
-      # essas travas não funcionam direito e o banco chega a corromper ou sumir, sem dar erro.
-      # No volume, o banco fica no sistema de arquivos do próprio Docker, onde tudo funciona.
+      # Ficam em um volume do Docker, e NÃO em uma pasta do servidor: no Docker Desktop do
+      # Windows (e em rede, NFS ou SMB) a pasta compartilhada troca permissões e datas, e
+      # arquivo grande chega a falhar no meio da escrita.
       #
       # Para chegar nos arquivos:  docker compose exec backend ls -la /app/data
       # Para tirar cópia:          ./backup.sh   (sai aqui em ./backups)

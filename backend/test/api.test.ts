@@ -16,7 +16,6 @@ import type { FastifyInstance } from 'fastify';
 const PASSWORD = 'senha-de-teste-123';
 process.env.NODE_ENV = 'production';
 process.env.LOG_LEVEL = 'fatal';
-process.env.DATABASE_PATH = ':memory:';
 process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PASSWORD = PASSWORD;
 // Fixo aqui: o .env da máquina não pode mudar o resultado dos testes (ex.: ADMIN_NAME diferente)
@@ -27,9 +26,13 @@ process.env.UPLOADS_PATH = UPLOADS_PATH;
 delete process.env.TLS_CERT_FILE;
 delete process.env.TLS_KEY_FILE;
 
-// Mesmo conjunto de testes rodando no PostgreSQL quando TEST_DATABASE_URL é informada
-const POSTGRES_URL = process.env.TEST_DATABASE_URL?.trim() || null;
+const POSTGRES_URL = (process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL)?.trim();
+if (!POSTGRES_URL) {
+  throw new Error('Defina TEST_DATABASE_URL: os testes rodam no PostgreSQL, que é o banco do sistema.');
+}
 const TEST_SCHEMA = 'teste_automatizado';
+process.env.DATABASE_URL = POSTGRES_URL;
+process.env.DATABASE_SCHEMA = TEST_SCHEMA;
 
 let app: FastifyInstance;
 let fecharBanco: () => Promise<void>;
@@ -39,19 +42,12 @@ let repos: import('../src/database/repositories').Repositories;
 const secret = (c: string) => c.repeat(40);
 
 before(async () => {
-  if (POSTGRES_URL) {
-    // Schema só de teste, recriado do zero: nunca encosta nos dados reais
-    const { Client } = await import('pg');
-    const limpeza = new Client({ connectionString: POSTGRES_URL });
-    await limpeza.connect();
-    await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
-    await limpeza.end();
-    process.env.DATABASE_URL = POSTGRES_URL;
-    process.env.DATABASE_SCHEMA = TEST_SCHEMA;
-  } else {
-    delete process.env.DATABASE_URL;
-    process.env.DATABASE_PATH = ':memory:';
-  }
+  // Cada arquivo de teste usa um schema próprio, recriado do zero
+  const { Client } = await import('pg');
+  const limpeza = new Client({ connectionString: POSTGRES_URL });
+  await limpeza.connect();
+  await limpeza.query(`DROP SCHEMA IF EXISTS ${TEST_SCHEMA} CASCADE`);
+  await limpeza.end();
 
   const { buildApp } = await import('../src/app');
   const { openDatabase } = await import('../src/database/open');

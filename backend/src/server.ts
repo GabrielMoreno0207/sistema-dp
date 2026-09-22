@@ -7,7 +7,6 @@ async function main(): Promise<void> {
   let database: OpenedDatabase;
   let https: { cert: Buffer; key: Buffer } | null = null;
   try {
-    // PostgreSQL quando há DATABASE_URL; SQLite caso contrário
     database = await openDatabase();
     if (env.tls) https = { cert: readFileSync(env.tls.certFile), key: readFileSync(env.tls.keyFile) };
   } catch (err) {

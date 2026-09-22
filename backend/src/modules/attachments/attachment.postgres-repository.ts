@@ -76,7 +76,7 @@ export class PostgresAttachmentRepository implements AttachmentRepository {
   async listForMessages(messageSeqs: number[]): Promise<Map<number, Attachment[]>> {
     const result = new Map<number, Attachment[]>();
     if (messageSeqs.length === 0) return result;
-    // created_at + id no lugar do rowid do SQLite: mantém a ordem de envio
+    // created_at + id mantêm a ordem de envio
     const rows = await this.db.all(
       `SELECT * FROM attachments WHERE message_seq = ANY($1::bigint[]) ORDER BY message_seq, created_at, id`,
       [messageSeqs],
