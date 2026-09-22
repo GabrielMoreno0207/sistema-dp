@@ -169,7 +169,7 @@ export function Calendario({ meuId, ehTi, podePublicar, disponivel }: Calendario
               <Icone nome="anterior" tamanho={15} />
             </button>
             <strong className="agenda__nome-do-mes">
-              {MESES[mes]} de {ano}
+              {MESES[mes][0].toUpperCase() + MESES[mes].slice(1)} de {ano}
             </strong>
             <button className="btn btn--sm" onClick={() => irParaMes(1)} aria-label="Próximo mês">
               <Icone nome="proximo" tamanho={15} />

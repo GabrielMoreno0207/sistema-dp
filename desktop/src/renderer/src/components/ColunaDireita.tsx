@@ -46,21 +46,23 @@ export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerT
             <Icone nome="perfil" tamanho={34} />
           </span>
         )}
-        {employee ? (
-          <>
-            <strong className="cartao-perfil__nome">{employee.name}</strong>
-            <small className="cartao-perfil__cargo">
-              {[employee.sector, employee.registration && `mat. ${employee.registration}`].filter(Boolean).join(' · ')}
-            </small>
-          </>
-        ) : (
-          <>
-            <strong className="cartao-perfil__nome">Sem identificação</strong>
-            <button className="cartao-perfil__entrar" onClick={onEntrar}>
-              entrar com a matrícula
-            </button>
-          </>
-        )}
+        {/* Com a conta do DP/TI aberta o nome dela já aparece acima: nada do funcionário aqui */}
+        {!admin &&
+          (employee ? (
+            <>
+              <strong className="cartao-perfil__nome">{employee.name}</strong>
+              <small className="cartao-perfil__cargo">
+                {[employee.sector, employee.registration && `mat. ${employee.registration}`].filter(Boolean).join(' · ')}
+              </small>
+            </>
+          ) : (
+            <>
+              <strong className="cartao-perfil__nome">Sem identificação</strong>
+              <button className="cartao-perfil__entrar" onClick={onEntrar}>
+                entrar com a matrícula
+              </button>
+            </>
+          ))}
       </div>
 
       <div className="coluna-direita__cabecalho">
