@@ -79,7 +79,7 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
         <div className="login-card__brand">
           <span className="sidebar__logo">DP</span>
           <div>
-            <h1>Entrar no Comunicação DP</h1>
+            <h1>Entrar no Comunica Trinys</h1>
             <p>
               {modo === 'FUNCIONARIO'
                 ? 'Use a matrícula e a senha fornecidas pelo Departamento Pessoal.'

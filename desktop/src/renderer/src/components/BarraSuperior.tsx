@@ -69,7 +69,7 @@ export function BarraSuperior({
     <header className="barra-superior">
       <div className="barra-superior__marca">
         <span className="barra-superior__logo">DP</span>
-        <span className="barra-superior__sistema">Comunicação DP</span>
+        <span className="barra-superior__sistema">Comunica Trinys</span>
       </div>
 
       <div className="barra-superior__direita">

@@ -21,7 +21,6 @@ export function ColunaDireita({ employee, foto, messages, onAbrir, onVerTodos, o
   return (
     <aside className="coluna-direita">
       <div className="cartao-perfil">
-        <span className="cartao-perfil__empresa">Comunicação DP</span>
         {employee ? (
           <button
             className="cartao-perfil__foto cartao-perfil__foto--editavel"

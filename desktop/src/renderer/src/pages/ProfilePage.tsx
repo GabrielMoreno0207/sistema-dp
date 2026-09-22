@@ -88,7 +88,7 @@ export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
       <header className="page__header">
         <div>
           <h1>Meu perfil</h1>
-          <p className="page__subtitle">Sua identificação e os dados desta instalação do Comunicação DP.</p>
+          <p className="page__subtitle">Sua identificação e os dados desta instalação.</p>
         </div>
       </header>
 

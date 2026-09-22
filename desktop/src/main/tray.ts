@@ -37,7 +37,7 @@ export class AppTray {
 
     this.tray.setImage(unreadAnnouncements + unreadChat > 0 ? this.icons.unread : this.icons.normal);
     this.tray.setToolTip(
-      `Comunicação DP\n${employeeName ?? 'Sem identificação'}\n${announcementsLabel}\n${chatLabel}\n${connectionLabel}`,
+      `Comunica Trinys\n${employeeName ?? 'Sem identificação'}\n${announcementsLabel}\n${chatLabel}\n${connectionLabel}`,
     );
     this.tray.setContextMenu(
       Menu.buildFromTemplate([
@@ -46,7 +46,7 @@ export class AppTray {
         { label: chatLabel, enabled: false },
         { label: connectionLabel, enabled: false },
         { type: 'separator' },
-        { label: 'Abrir Comunicação DP', click: this.handlers.open },
+        { label: 'Abrir Comunica Trinys', click: this.handlers.open },
         { type: 'separator' },
         { label: 'Sair', click: this.handlers.quit },
       ]),

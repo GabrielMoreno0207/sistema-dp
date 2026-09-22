@@ -32,6 +32,6 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Comunicação DP
+  shortcutName: Comunica Trinys
   runAfterFinish: true
   deleteAppDataOnUninstall: false

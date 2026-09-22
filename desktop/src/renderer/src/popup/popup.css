@@ -1,3 +1,39 @@
+/*
+ * Fonte do sistema: Ubuntu (licença UFL, ver fontes/LICENCA-UBUNTU.txt).
+ * Vai junto no aplicativo, então não depende do que estiver instalado no PC.
+ */
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('../fontes/Ubuntu-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('../fontes/Ubuntu-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('../fontes/Ubuntu-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Ubuntu';
+  src: url('../fontes/Ubuntu-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -8,7 +44,7 @@ body.popup-body {
   height: 100%;
   background: transparent;
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif;
   user-select: none;
 }
 

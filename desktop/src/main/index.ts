@@ -126,7 +126,7 @@ async function testServer(rawUrl: unknown): Promise<OperationResult> {
     if (response.ok && body.status === 'ok' && body.service === 'sistema-dp-backend') {
       return { ok: true, message: `Servidor respondeu corretamente (${serverUrl}).` };
     }
-    return { ok: false, message: 'O endereço respondeu, mas não é o servidor do Comunicação DP.' };
+    return { ok: false, message: 'O endereço respondeu, mas não é o servidor do Comunica Trinys.' };
   } catch {
     return { ok: false, message: `Não foi possível conectar em ${serverUrl}. Verifique o endereço e a rede.` };
   }
@@ -193,7 +193,7 @@ function start(): void {
   // Voltou da suspensão: a conexão antiga provavelmente morreu; registra de novo já
   powerMonitor.on('resume', () => connection.reconnectNow('retorno da suspensão do Windows'));
 
-  console.log(`[app] Comunicação DP v${computer.appVersion} | ${computer.computerId} (${computer.hostname})`);
+  console.log(`[app] Comunica Trinys v${computer.appVersion} | ${computer.computerId} (${computer.hostname})`);
 
   // ---------------------------------------------------------------- janela principal
 
@@ -355,7 +355,7 @@ function start(): void {
     const total = announcements + chatUnread;
     tray.update(announcements, chatUnread, CONNECTION_LABELS[connection.getState().status], employee?.name ?? null);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.setTitle(total > 0 ? `(${total}) Comunicação DP` : 'Comunicação DP');
+      mainWindow.setTitle(total > 0 ? `(${total}) Comunica Trinys` : 'Comunica Trinys');
       mainWindow.setOverlayIcon(total > 0 ? badge : null, total > 0 ? `${total} não lidas` : '');
     }
   }

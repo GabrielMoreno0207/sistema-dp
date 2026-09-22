@@ -31,7 +31,7 @@ export function createMainWindow(): BrowserWindow {
     height: 720,
     minWidth: 860,
     minHeight: 560,
-    title: 'Comunicação DP',
+    title: 'Comunica Trinys',
     show: false,
     autoHideMenuBar: true,
     webPreferences: secureWebPreferences('index'),

@@ -75,8 +75,7 @@ export function MenuLateral({
       <div className="menu-lateral__marca">
         <span className="menu-lateral__logo">DP</span>
         <div className="menu-lateral__titulo">
-          <strong>Comunicação DP</strong>
-          <small>Departamento Pessoal</small>
+          <strong>Departamento Pessoal</strong>
         </div>
       </div>
 
