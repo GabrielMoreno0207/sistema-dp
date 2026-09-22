@@ -11,6 +11,7 @@ import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
 import { Avatar, MensagemDaConversa, dataDoDia, juntarMensagens, outraPessoa } from '../components/conversa-comuns';
 import { Icone } from '../lib/icones';
+import { EncaminharMensagem } from '../components/EncaminharMensagem';
 
 /** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
 interface ConversasPageProps {
@@ -36,6 +37,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [criandoGrupo, setCriandoGrupo] = useState(false);
+  const [encaminhando, setEncaminhando] = useState<MensagemConversa | null>(null);
   const [busca, setBusca] = useState('');
   const [verGrupo, setVerGrupo] = useState(false);
   const [temMais, setTemMais] = useState(false);
@@ -464,6 +466,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       minha={mensagem.autorId === identidade.id}
                       emGrupo={aberta.tipo === 'GRUPO'}
                       onApagar={() => void apagar(mensagem.id)}
+                      onEncaminhar={() => setEncaminhando(mensagem)}
                       onErro={setErro}
                     />
                   </Fragment>
@@ -520,6 +523,21 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
           </>
         )}
       </section>
+
+      {encaminhando && (
+        <EncaminharMensagem
+          mensagem={encaminhando}
+          conversas={conversas}
+          contatos={contatos}
+          meuId={identidade.id}
+          onFechar={() => setEncaminhando(null)}
+          onEncaminhada={(quantos) => {
+            setEncaminhando(null);
+            setAviso(`Encaminhada para ${quantos} ${quantos === 1 ? 'conversa' : 'conversas'}.`);
+            void carregarLista();
+          }}
+        />
+      )}
 
       {criandoGrupo && (
         <NovoGrupo

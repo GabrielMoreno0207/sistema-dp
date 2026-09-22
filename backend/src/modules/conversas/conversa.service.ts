@@ -239,6 +239,7 @@ export class ConversaService {
         conteudo: texto,
         midiaId: null,
         automatica: false,
+        encaminhada: false,
       },
       new Date().toISOString(),
     );
@@ -276,7 +277,14 @@ export class ConversaService {
     return mensagens.map((m) => ({ ...m, midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null }));
   }
 
-  async enviar(quem: Pessoa, conversaId: string, conteudo: string, midiaId: string | null): Promise<MensagemComMidia> {
+  async enviar(
+    quem: Pessoa,
+    conversaId: string,
+    conteudo: string,
+    midiaId: string | null,
+    /** true quando a mensagem está sendo repassada de outra conversa */
+    encaminhada = false,
+  ): Promise<MensagemComMidia> {
     const { conversa } = await this.exigirMembro(conversaId, quem);
     const texto = conteudo.trim();
     if (!texto && !midiaId) throw new AppError('Escreva uma mensagem ou anexe um arquivo.', 400, 'MENSAGEM_VAZIA');
@@ -300,6 +308,7 @@ export class ConversaService {
         conteudo: texto,
         midiaId,
         automatica: false,
+        encaminhada,
       },
       agora,
     );
@@ -348,6 +357,7 @@ export class ConversaService {
         conteudo,
         midiaId: null,
         automatica: true,
+        encaminhada: false,
       },
       new Date().toISOString(),
     );

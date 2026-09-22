@@ -355,6 +355,53 @@ describe('grupos', () => {
   });
 });
 
+describe('encaminhar', () => {
+  test('a mensagem repassada chega na outra conversa com a marca', async () => {
+    const midia = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: { ...comToken(pcMaria), 'content-type': 'image/png', 'x-nome': encodeURIComponent('aviso.png') },
+      payload: IMAGEM,
+    });
+
+    const paraCarla = await app.inject({
+      method: 'POST',
+      url: '/api/conversas/direta',
+      headers: comToken(pcMaria),
+      payload: { comUsuarioId: carlaId },
+    });
+    const conversaComCarla = paraCarla.json().id;
+
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaComCarla}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'segue o aviso', midiaId: midia.json().id, encaminhada: true },
+    });
+    assert.equal(enviada.statusCode, 201);
+    assert.equal(enviada.json().mensagem.encaminhada, true);
+    // O arquivo é o mesmo: encaminhar não copia o anexo
+    assert.equal(enviada.json().mensagem.midiaId, midia.json().id);
+
+    const lista = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaComCarla}/mensagens`,
+      headers: comToken(pcMaria),
+    });
+    assert.equal(lista.json().mensagens.at(-1).encaminhada, true);
+  });
+
+  test('mensagem escrita na hora não vem marcada', async () => {
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'mensagem normal' },
+    });
+    assert.equal(enviada.json().mensagem.encaminhada, false);
+  });
+});
+
 describe('apagar mensagem', () => {
   test('cada um apaga só as próprias mensagens', async () => {
     const enviada = await app.inject({

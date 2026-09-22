@@ -47,6 +47,8 @@ const mensagemBody = {
   properties: {
     conteudo: { type: 'string', maxLength: LIMITES_CONVERSA.maxConteudo },
     midiaId: { type: ['string', 'null'], pattern: MIDIA_ID_PATTERN },
+    // mensagem repassada de outra conversa
+    encaminhada: { type: 'boolean' },
   },
 } as const;
 
@@ -132,8 +134,12 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
   app.post('/conversas/:id/mensagens', { schema: { params: conversaParams, body: mensagemBody } }, async (request, reply) => {
     const quem = await quemEstaAgindo(request);
     const { id } = request.params as { id: string };
-    const { conteudo, midiaId } = request.body as { conteudo?: string; midiaId?: string | null };
-    const mensagem = await conversas.enviar(quem, id, conteudo ?? '', midiaId ?? null);
+    const { conteudo, midiaId, encaminhada } = request.body as {
+      conteudo?: string;
+      midiaId?: string | null;
+      encaminhada?: boolean;
+    };
+    const mensagem = await conversas.enviar(quem, id, conteudo ?? '', midiaId ?? null, encaminhada === true);
     return reply.code(201).send({ mensagem });
   });
 

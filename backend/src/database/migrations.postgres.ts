@@ -394,4 +394,12 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       CREATE INDEX idx_eventos_dono ON eventos (criado_por, dia);
     `,
   },
+  {
+    version: 7,
+    name: 'mensagem encaminhada',
+    sql: `
+      -- Mensagem repassada de outra conversa: a tela mostra a etiqueta
+      ALTER TABLE conversa_mensagens ADD COLUMN encaminhada BOOLEAN NOT NULL DEFAULT FALSE;
+    `,
+  },
 ];

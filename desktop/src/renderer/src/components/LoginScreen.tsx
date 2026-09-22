@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { ConnectionState } from '../../../shared/types';
 import { ControlesJanela } from './ControlesJanela';
+import fotoDaEntrada from '../imagens/entrada.jpg';
 
 type Modo = 'FUNCIONARIO' | 'DP';
 
@@ -76,12 +77,21 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
 
   return (
     <div className="login-screen">
-      <div className="login-screen__barra">
-        <ControlesJanela onFechar={() => window.dp.janelaEsconder()} />
-      </div>
-      <form className="login-card" onSubmit={handleSubmit}>
-        <div className="login-card__brand">
+      <div className="login-screen__foto">
+        <img src={fotoDaEntrada} alt="" />
+        <div className="login-screen__marca-foto">
           <span className="sidebar__logo">DP</span>
+          <strong>Comunica Trinys</strong>
+        </div>
+      </div>
+
+      <div className="login-screen__lado">
+        <div className="login-screen__barra">
+          <ControlesJanela onFechar={() => window.dp.janelaEsconder()} />
+        </div>
+
+        <form className="login-card" onSubmit={handleSubmit}>
+        <div className="login-card__brand">
           <div>
             <h1>Entrar no Comunica Trinys</h1>
             <p>
@@ -169,7 +179,8 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
           </button>
           <small>Você continua recebendo os comunicados gerais enviados a todos os computadores.</small>
         </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }

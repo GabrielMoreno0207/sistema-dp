@@ -42,6 +42,7 @@ function toMensagem(row: Row): MensagemConversa {
     conteudo: text(row, 'conteudo'),
     midiaId: nullableText(row, 'midia_id'),
     automatica: Number(row.automatica ?? 0) === 1,
+    encaminhada: Number(row.encaminhada ?? 0) === 1,
     createdAt: text(row, 'created_at'),
     apagadaEm: nullableText(row, 'apagada_em'),
   };
@@ -174,8 +175,9 @@ export class PostgresConversaRepository implements ConversaRepository {
   async addMensagem(dados: NovaMensagemConversa, agora: string): Promise<MensagemConversa> {
     return this.db.transaction(async (tx) => {
       const row = await tx.one(
-        `INSERT INTO conversa_mensagens (conversa_id, autor_id, autor_nome, tipo, conteudo, midia_id, automatica, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        `INSERT INTO conversa_mensagens
+           (conversa_id, autor_id, autor_nome, tipo, conteudo, midia_id, automatica, encaminhada, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
           dados.conversaId,
           dados.autorId,
@@ -184,6 +186,7 @@ export class PostgresConversaRepository implements ConversaRepository {
           dados.conteudo,
           dados.midiaId,
           dados.automatica ? 1 : 0,
+          dados.encaminhada ? 1 : 0,
           agora,
         ],
       );

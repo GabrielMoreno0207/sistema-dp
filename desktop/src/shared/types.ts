@@ -256,6 +256,8 @@ export interface MensagemConversa {
   /** Dados do arquivo anexado (o servidor já manda junto) */
   midia: MidiaPublica | null;
   automatica: boolean;
+  /** Veio de outra conversa */
+  encaminhada: boolean;
   createdAt: string;
   apagadaEm: string | null;
 }

@@ -112,6 +112,8 @@ interface MensagemProps {
   emGrupo: boolean;
   /** Ausente na área do TI: lá a conversa é só leitura */
   onApagar?: () => void;
+  /** Ausente na área do TI: repassar a mensagem para outra conversa */
+  onEncaminhar?: () => void;
   onErro(mensagem: string): void;
 }
 
@@ -120,7 +122,7 @@ interface MensagemProps {
  * dpmidia://, que usa a credencial do aplicativo); documento vira um botão que
  * baixa e abre no programa padrão do Windows.
  */
-export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onErro }: MensagemProps) {
+export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onEncaminhar, onErro }: MensagemProps) {
   const [abrindo, setAbrindo] = useState(false);
 
   if (mensagem.tipo === 'SISTEMA') {
@@ -151,6 +153,12 @@ export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onErro 
         </span>
       )}
 
+      {mensagem.encaminhada && !mensagem.apagadaEm && (
+        <span className="bubble__encaminhada">
+          <Icone nome="encaminhar" tamanho={12} /> encaminhada
+        </span>
+      )}
+
       {mensagem.apagadaEm ? (
         <p className="bubble__text bubble__text--apagada">mensagem apagada</p>
       ) : (
@@ -178,6 +186,11 @@ export function MensagemDaConversa({ mensagem, minha, emGrupo, onApagar, onErro 
 
       <span className="bubble__meta">
         {horaDoDia(mensagem.createdAt)}
+        {!mensagem.apagadaEm && onEncaminhar && (
+          <button className="bubble__apagar" onClick={onEncaminhar} title="Encaminhar para outra conversa">
+            encaminhar
+          </button>
+        )}
         {minha && !mensagem.apagadaEm && onApagar && (
           <button className="bubble__apagar" onClick={onApagar} title="Apagar esta mensagem">
             apagar

@@ -1327,12 +1327,61 @@ input[type='radio'] {
 }
 
 /* ================= Login do funcionário ================= */
+/*
+ * Entrada em duas metades: a foto de um lado e a cor chapada do sistema do
+ * outro, com o cartão. Em janela estreita a foto sai e sobra só a cor.
+ */
 .login-screen {
   display: grid;
-  place-items: center;
   height: 100%;
+  grid-template-columns: 1fr 1fr;
+  background: var(--sidebar);
+}
+
+.login-screen__foto {
+  position: relative;
+  overflow: hidden;
+  background: #1b2d4f;
+}
+
+.login-screen__foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.login-screen__marca-foto {
+  position: absolute;
+  bottom: 26px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 12px;
+  border-radius: 999px;
+  background: rgba(10, 20, 28, 0.55);
+  color: #fff;
+  font-size: 15px;
+  backdrop-filter: blur(4px);
+}
+
+.login-screen__lado {
+  position: relative;
+  display: grid;
   padding: 24px;
-  background: linear-gradient(135deg, #1b2d4f, var(--sidebar));
+  background: linear-gradient(160deg, #23405c, var(--sidebar));
+  place-items: center;
+}
+
+@media (max-width: 900px) {
+  .login-screen {
+    grid-template-columns: 1fr;
+  }
+
+  .login-screen__foto {
+    display: none;
+  }
 }
 
 .login-card {
@@ -1340,7 +1389,7 @@ input[type='radio'] {
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   padding: 28px 28px 22px;
   background: var(--surface);
   border-radius: 14px;
@@ -3597,10 +3646,6 @@ svg {
 }
 
 /* A tela de entrada não tem a barra superior: ganha uma faixa para arrastar */
-.login-screen {
-  position: relative;
-}
-
 .login-screen__barra {
   position: absolute;
   top: 0;
@@ -3865,4 +3910,46 @@ svg {
     padding-top: 14px;
     padding-left: 0;
   }
+}
+
+/* Mensagem repassada de outra conversa */
+.bubble__encaminhada {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-style: italic;
+}
+
+/* Prévia do que está sendo encaminhado */
+.encaminhar__previa {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--acento);
+  border-radius: 8px;
+  background: var(--surface-alta);
+}
+
+.encaminhar__previa p {
+  margin: 0 0 4px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: 13px;
+}
+
+.encaminhar__previa small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.encaminhar__arquivo {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--link);
+  font-size: 12.5px;
+  font-weight: 600;
 }

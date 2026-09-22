@@ -39,6 +39,8 @@ export interface MensagemConversa {
   conteudo: string;
   midiaId: string | null;
   automatica: boolean;
+  /** Veio de outra conversa (a tela mostra "encaminhada") */
+  encaminhada: boolean;
   createdAt: string;
   apagadaEm: string | null;
 }
