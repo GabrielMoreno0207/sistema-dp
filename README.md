@@ -19,6 +19,8 @@ São dois projetos **independentes**:
 | [`backend/`](backend/README.md) | API REST + WebSocket + banco + **Central do DP** (`/central`) | [backend/README.md](backend/README.md) |
 | [`desktop/`](desktop/README.md) | Aplicativo Windows "Comunicação DP" | [desktop/README.md](desktop/README.md) |
 
+**Publicar uma versão nova:** veja [PUBLICAR.md](PUBLICAR.md).
+
 ## Colocar o backend no ar
 
 | Onde | Como | Documentação |
