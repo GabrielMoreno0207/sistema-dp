@@ -60,10 +60,10 @@ export function SettingsPage() {
           <input
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
-            placeholder="http://192.168.1.50:3000"
+            placeholder="https://comunica.trinys.com.br"
             spellCheck={false}
           />
-          <small>Informado pela TI. Exemplo: http://192.168.1.50:3000</small>
+          <small>Endereço da empresa: https://comunica.trinys.com.br</small>
         </label>
 
         <h2>Inicialização</h2>

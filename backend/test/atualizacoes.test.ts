@@ -238,3 +238,39 @@ describe('remoção', () => {
     assert.ok(versoes.includes('1.5.0'));
   });
 });
+
+describe('página pública e downloads', () => {
+  test('o endereço do servidor no navegador mostra a página do Comunica Trinys', async () => {
+    const resposta = await app.inject({ method: 'GET', url: '/', headers: { host: 'comunica.trinys.com.br', 'x-forwarded-proto': 'https' } });
+    assert.equal(resposta.statusCode, 200);
+    assert.match(String(resposta.headers['content-type']), /text\/html/);
+    assert.match(String(resposta.headers['content-security-policy']), /default-src 'none'/);
+    assert.match(resposta.body, /Comunica Trinys/);
+    // Desktop publicado: link com a versão mais nova; celular sem versão: aviso
+    assert.match(resposta.body, /href="\/baixar\/desktop"/);
+    assert.match(resposta.body, /Versão 1\.5\.0/);
+    assert.match(resposta.body, /Ainda não há versão publicada/);
+    assert.match(resposta.body, /https:\/\/comunica\.trinys\.com\.br/);
+  });
+
+  test('o download do desktop é público e entrega a versão mais nova', async () => {
+    const resposta = await app.inject({ method: 'GET', url: '/baixar/desktop' });
+    assert.equal(resposta.statusCode, 200);
+    assert.match(String(resposta.headers['content-disposition']), /ComunicacaoDP-Setup-1\.5\.0\.exe/);
+    assert.equal(createHash('sha256').update(resposta.rawPayload).digest('hex'), SHA_ESPERADO);
+  });
+
+  test('sem versão publicada, ou endereço desconhecido, responde 404 com a página', async () => {
+    const celular = await app.inject({ method: 'GET', url: '/baixar/celular' });
+    assert.equal(celular.statusCode, 404);
+    assert.match(celular.body, /aplicativo do celular/);
+    const outro = await app.inject({ method: 'GET', url: '/baixar/qualquer' });
+    assert.equal(outro.statusCode, 404);
+  });
+
+  test('a logo aparece', async () => {
+    const resposta = await app.inject({ method: 'GET', url: '/icone.png' });
+    assert.equal(resposta.statusCode, 200);
+    assert.equal(resposta.headers['content-type'], 'image/png');
+  });
+});

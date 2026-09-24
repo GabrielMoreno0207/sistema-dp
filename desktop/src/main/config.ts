@@ -13,6 +13,9 @@ interface StoredConfig {
 
 export type LoadedConfig = DesktopSettings;
 
+/** Endereço do servidor quando nada foi configurado (nem na tela, nem no .env) */
+export const SERVIDOR_PADRAO = 'https://comunica.trinys.com.br';
+
 function configFilePath(): string {
   return join(app.getPath('userData'), 'config.json');
 }
@@ -90,7 +93,7 @@ export function loadConfig(): LoadedConfig {
   }
 
   return {
-    serverUrl: savedUrl ?? envUrl,
+    serverUrl: savedUrl ?? envUrl ?? SERVIDOR_PADRAO,
     autoStart: typeof saved.autoStart === 'boolean' ? saved.autoStart : true,
   };
 }

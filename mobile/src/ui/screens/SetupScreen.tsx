@@ -10,7 +10,7 @@ import { useTheme } from '../theme';
 export function SetupScreen({ onBack }: { onBack?: () => void }) {
   const t = useTheme();
   const app = useApp();
-  const [serverUrl, setServerUrl] = useState(app.serverUrl ?? '');
+  const [serverUrl, setServerUrl] = useState(app.serverUrl ?? 'https://comunica.trinys.com.br');
   const [busy, setBusy] = useState<'test' | 'save' | null>(null);
   const [result, setResult] = useState<OperationResult | null>(null);
 
@@ -35,7 +35,7 @@ export function SetupScreen({ onBack }: { onBack?: () => void }) {
           <Card>
             <Field
               label="Endereço do servidor"
-              placeholder="http://servidor-dp:3000"
+              placeholder="https://comunica.trinys.com.br"
               value={serverUrl}
               onChangeText={setServerUrl}
               autoCapitalize="none"

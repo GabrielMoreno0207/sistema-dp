@@ -21,6 +21,7 @@ import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
 import { ticketRoutes } from './modules/tickets/ticket.routes';
 import { TicketService } from './modules/tickets/ticket.service';
+import { siteRoutes } from './modules/site/site.routes';
 import { updateRoutes } from './modules/updates/update.routes';
 import { UpdateService } from './modules/updates/update.service';
 import { UpdateStorage } from './modules/updates/update.storage';
@@ -176,10 +177,9 @@ export function buildApp({
 
   registerAuthentication(app, auth, employees);
 
-  // A Central web foi aposentada: o DP e o TI usam o próprio aplicativo
-  app.get('/', (_request, reply) =>
-    reply.type('text/plain; charset=utf-8').send('Servidor do Comunica Trinys. Use o aplicativo do computador ou do celular.'),
-  );
+  // Endereço aberto no navegador: página do Comunica Trinys com os downloads dos aplicativos
+  // (a Central web foi aposentada: o DP e o TI usam o próprio aplicativo)
+  app.register(siteRoutes, { updates });
 
   app.register(
     async (api) => {
