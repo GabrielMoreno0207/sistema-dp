@@ -74,6 +74,16 @@ export interface Spec extends TurboModule {
   /** Abre a tela de instalação do Android com o APK baixado (a pessoa confirma) */
   installApk(path: string): Promise<boolean>;
 
+  // ---------------------------------------------------------------- atualização rápida
+  /** JSON {runtime, ativa ("" = JavaScript do APK), ruins} */
+  otaInfo(): Promise<string>;
+  /** Instala o .zip baixado (vale na próxima abertura). Devolve a versão. Rejeita com mensagem para a pessoa */
+  otaInstall(path: string): Promise<string>;
+  /** O JavaScript abriu direito: a versão rápida fica (senão o app volta para a do APK) */
+  otaConfirm(): void;
+  /** Fecha e abre o app de novo */
+  otaRestart(): void;
+
   /** Uma notificação foi tocada com o app aberto (chame consumeLaunchPayload) */
   readonly onNotificationOpened: CodegenTypes.EventEmitter<string>;
 }

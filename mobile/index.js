@@ -9,8 +9,13 @@ import { AppRegistry } from 'react-native';
 import App from './App';
 import { name as appName } from './app.json';
 import { boot } from './src/core/connection';
+import DpNative from './src/specs/NativeDpNative';
 
 AppRegistry.registerComponent(appName, () => App);
+
+// Atualização rápida: o JavaScript carregou e ficou de pé. Se travar antes disso em
+// algumas aberturas seguidas, o app volta sozinho para a versão do APK (Ota.kt).
+setTimeout(() => DpNative.otaConfirm(), 5000);
 
 AppRegistry.registerHeadlessTask('DpConnectionTask', () => async () => {
   try {

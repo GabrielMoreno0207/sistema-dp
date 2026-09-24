@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { abrirMidia } from '../../core/arquivos';
-import { instalarAtualizacao } from '../../core/atualizacao';
+import { aplicarAtualizacaoRapida, instalarAtualizacao } from '../../core/atualizacao';
 import { chamar, syncConversas, syncMessages, syncMural, syncPerfil } from '../../core/connection';
 import { useApp } from '../../core/store';
 import type { Atalho, DadosAtalho, DestinoAtalho, MuralPost } from '../../core/types';
@@ -41,7 +41,7 @@ function abrirDestino(nav: Nav, destino: DestinoAtalho) {
 export function HomeScreen() {
   const t = useTheme();
   const nav = useNav();
-  const { employee, messages, conversas, conversasNaoLidas, mural, atualizacao } = useApp();
+  const { employee, messages, conversas, conversasNaoLidas, mural, atualizacao, atualizacaoRapida } = useApp();
   const checks = useDeviceChecks();
   const [atualizando, setAtualizando] = useState(false);
   const [instalando, setInstalando] = useState(false);
@@ -53,6 +53,11 @@ export function HomeScreen() {
     setAtualizando(true);
     await Promise.all([syncMessages(), syncConversas(), syncMural(), syncPerfil()]);
     setAtualizando(false);
+  }
+
+  async function atualizarAgora() {
+    const r = await aplicarAtualizacaoRapida();
+    setAvisoAtualizacao(r.ok ? '' : r.message);
   }
 
   async function instalar() {
@@ -86,6 +91,18 @@ export function HomeScreen() {
           />
         ) : atualizacao.etapa === 'baixando' ? (
           <Banner tone="info" text={`Baixando a versão ${atualizacao.versao?.versao ?? 'nova'} do app...`} />
+        ) : atualizacaoRapida.etapa === 'aplicando' ? (
+          <Banner tone="info" text={`Atualizando para a versão ${atualizacaoRapida.versao?.versao}. O app vai fechar e abrir de novo.`} />
+        ) : atualizacaoRapida.etapa === 'disponivel' || atualizacaoRapida.etapa === 'erro' ? (
+          <Banner
+            tone={atualizacaoRapida.etapa === 'erro' ? 'danger' : 'info'}
+            text={
+              atualizacaoRapida.etapa === 'erro'
+                ? atualizacaoRapida.erro ?? 'Não foi possível atualizar.'
+                : `Versão ${atualizacaoRapida.versao?.versao} do app disponível.${atualizacaoRapida.versao?.notas ? ` ${atualizacaoRapida.versao.notas}` : ''}`
+            }
+            action={{ title: atualizacaoRapida.etapa === 'erro' ? 'Tentar de novo' : 'Atualizar', onPress: () => void atualizarAgora() }}
+          />
         ) : null}
 
         {checks && !checks.allGood ? (

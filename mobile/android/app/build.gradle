@@ -80,6 +80,12 @@ if (releaseKeystoreFile.exists()) {
     releaseKeystoreFile.withInputStream { releaseKeystoreProps.load(it) }
 }
 
+/** package.json -> otaRuntime (suba quando mudar algo nativo: Kotlin, permissão, biblioteca nativa) */
+def otaRuntime() {
+    def pacote = new groovy.json.JsonSlurper().parse(file("../../package.json"))
+    return (pacote.otaRuntime ?: 1) as int
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -90,8 +96,14 @@ android {
         applicationId "br.com.comunicacaodp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 6
-        versionName "2.0.1"
+        versionCode 7
+        versionName "2.1.0"
+        // Versão da parte nativa, para a atualização rápida (package.json -> otaRuntime).
+        // O pacote rápido só é aceito por um APK com o mesmo número.
+        buildConfigField "int", "OTA_RUNTIME", otaRuntime().toString()
+    }
+    buildFeatures {
+        buildConfig true
     }
     signingConfigs {
         debug {

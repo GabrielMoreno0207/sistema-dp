@@ -9,7 +9,7 @@ import { AppState, Linking, Vibration, type AppStateStatus } from 'react-native'
 import { io, type Socket } from 'socket.io-client';
 import DpNative from '../specs/NativeDpNative';
 import { ApiClient, ApiError, normalizeServerUrl, testServer, type Metodo } from './api';
-import { verificarAtualizacao } from './atualizacao';
+import { lerAtualizacaoRapida, verificarAtualizacao } from './atualizacao';
 import { loadConfig, saveConfig } from './storage';
 import { getState, setState, type NavRequest } from './store';
 import {
@@ -56,11 +56,19 @@ async function doBoot(): Promise<void> {
     await saveConfig(config);
   }
   const device = await DpNative.getDeviceInfo();
+  // Com atualização rápida instalada, a versão em uso é a dela (é a que o TI vê em Aparelhos)
+  const versaoRapida = await lerAtualizacaoRapida();
   setState({
     booted: true,
     serverUrl: config.serverUrl,
     deviceId: config.deviceId,
-    device: { manufacturer: device.manufacturer, model: device.model, appVersion: device.appVersion, sdkInt: device.sdkInt },
+    device: {
+      manufacturer: device.manufacturer,
+      model: device.model,
+      appVersion: versaoRapida || device.appVersion,
+      apkVersion: device.appVersion,
+      sdkInt: device.sdkInt,
+    },
   });
 
   AppState.addEventListener('change', onAppStateChange);
@@ -227,7 +235,8 @@ function openSocket(serverUrl: string, token: string, current: number): void {
   });
   s.on('atualizacao:publicada', (payload: unknown) => {
     if (!valido()) return;
-    if ((payload as { app?: unknown } | null)?.app === 'mobile') void verificarAtualizacao();
+    const app = (payload as { app?: unknown } | null)?.app;
+    if (app === 'mobile' || app === 'mobile-ota') void verificarAtualizacao();
   });
   s.on('connect_error', (err) => {
     if (!valido()) return;

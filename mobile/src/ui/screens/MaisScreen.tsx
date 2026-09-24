@@ -1,7 +1,7 @@
 /** Aba "Mais": perfil, telas do DP/TI, configurações do celular e atualização do app */
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { instalarAtualizacao, verificarAtualizacao } from '../../core/atualizacao';
+import { aplicarAtualizacaoRapida, buscarAtualizacoes, instalarAtualizacao } from '../../core/atualizacao';
 import { useApp } from '../../core/store';
 import { Avatar, Banner, Button, Card, Feedback, Header, MenuRow, Page, SectionTitle } from '../components';
 import { useNav } from '../nav';
@@ -10,7 +10,7 @@ import { useTheme } from '../theme';
 export function MaisScreen() {
   const t = useTheme();
   const nav = useNav();
-  const { employee, foto, atualizacao, device } = useApp();
+  const { employee, foto, atualizacao, atualizacaoRapida, device } = useApp();
   const acesso = employee?.acessoAdmin ?? 'NENHUM';
   const ehDpOuTi = acesso !== 'NENHUM';
 
@@ -35,6 +35,12 @@ export function MaisScreen() {
           <Banner
             tone="info"
             text={`Versão ${atualizacao.versao?.versao} do app pronta para instalar.`}
+            action={{ title: 'Ver', onPress: () => nav.push({ name: 'sobre' }) }}
+          />
+        ) : atualizacaoRapida.etapa === 'disponivel' ? (
+          <Banner
+            tone="info"
+            text={`Versão ${atualizacaoRapida.versao?.versao} do app disponível.`}
             action={{ title: 'Ver', onPress: () => nav.push({ name: 'sobre' }) }}
           />
         ) : null}
@@ -69,7 +75,7 @@ export function MaisScreen() {
           icon="⬆️"
           label="Sobre e atualização"
           hint={`Versão ${device?.appVersion ?? ''}`}
-          badge={atualizacao.etapa === 'pronta' ? 1 : 0}
+          badge={atualizacao.etapa === 'pronta' || atualizacaoRapida.etapa === 'disponivel' ? 1 : 0}
           onPress={() => nav.push({ name: 'sobre' })}
         />
       </Page>
@@ -94,16 +100,23 @@ function MenuEmConstrucao({ icon, label }: { icon: string; label: string }) {
 export function SobreScreen() {
   const t = useTheme();
   const nav = useNav();
-  const { device, atualizacao, serverUrl, deviceId } = useApp();
+  const { device, atualizacao, atualizacaoRapida, serverUrl, deviceId } = useApp();
   const [verificando, setVerificando] = useState(false);
   const [instalando, setInstalando] = useState(false);
   const [resultado, setResultado] = useState<{ ok: boolean; message: string } | null>(null);
 
-  async function verificar() {
+  async function buscar() {
     setVerificando(true);
     setResultado(null);
-    await verificarAtualizacao();
+    const r = await buscarAtualizacoes();
     setVerificando(false);
+    setResultado(r.message ? r : null);
+  }
+
+  async function atualizarAgora() {
+    setResultado(null);
+    const r = await aplicarAtualizacaoRapida();
+    setResultado(r.ok ? null : r);
   }
 
   async function instalar() {
@@ -113,15 +126,25 @@ export function SobreScreen() {
     setResultado(r.ok ? null : r);
   }
 
-  const versao = atualizacao.versao;
-  const texto =
-    atualizacao.etapa === 'baixando'
+  // APK novo tem prioridade; sem ele, vale a atualização rápida
+  const usaApk = atualizacao.etapa !== 'nenhuma';
+  const rapida = atualizacaoRapida;
+  const versao = usaApk ? atualizacao.versao : rapida.versao;
+  const texto = !usaApk
+    ? rapida.etapa === 'aplicando'
+      ? `Atualizando para a versão ${rapida.versao?.versao}. O app vai fechar e abrir de novo sozinho.`
+      : rapida.etapa === 'disponivel'
+        ? `A versão ${rapida.versao?.versao} está disponível. Toque em Atualizar agora: o app fecha e abre de novo já atualizado.`
+        : rapida.etapa === 'erro'
+          ? rapida.erro ?? 'Não foi possível atualizar.'
+          : 'Você está com a versão mais recente.'
+    : atualizacao.etapa === 'baixando'
       ? `Baixando a versão ${versao?.versao}...`
       : atualizacao.etapa === 'pronta'
         ? `A versão ${versao?.versao} já foi baixada. Toque em Instalar e confirme na tela do Android.`
         : atualizacao.etapa === 'erro'
           ? atualizacao.erro ?? 'Falha ao baixar a atualização.'
-          : 'Você está com a versão mais recente.';
+          : '';
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
@@ -129,24 +152,39 @@ export function SobreScreen() {
       <Page>
         <Card style={styles.sobre}>
           <Text style={[styles.nome, { color: t.text }]}>Comunica Trinys</Text>
-          <Text style={[styles.detalhe, { color: t.muted }]}>Versão instalada: {device?.appVersion}</Text>
+          <Text style={[styles.detalhe, { color: t.muted }]}>
+            Versão instalada: {device?.appVersion}
+            {device && device.appVersion !== device.apkVersion ? ` (APK ${device.apkVersion})` : ''}
+          </Text>
           <Text style={[styles.detalhe, { color: t.muted }]}>Aparelho: {deviceId}</Text>
           <Text style={[styles.detalhe, { color: t.muted }]}>Servidor: {serverUrl}</Text>
         </Card>
         <Card style={styles.sobre}>
           <Text style={[styles.subtitulo, { color: t.text }]}>Atualização</Text>
           <Text style={[styles.texto, { color: t.textSoft }]}>{texto}</Text>
-          {versao?.notas && atualizacao.etapa !== 'nenhuma' ? (
+          {versao?.notas && (usaApk || rapida.etapa !== 'nenhuma') ? (
             <Text style={[styles.texto, { color: t.textSoft }]}>O que mudou: {versao.notas}</Text>
           ) : null}
           {atualizacao.etapa === 'pronta' || atualizacao.etapa === 'erro' ? (
             <Button title={atualizacao.etapa === 'erro' ? 'Tentar de novo' : 'Instalar'} onPress={() => void instalar()} loading={instalando} />
+          ) : !usaApk && (rapida.etapa === 'disponivel' || rapida.etapa === 'erro' || rapida.etapa === 'aplicando') ? (
+            <Button
+              title={rapida.etapa === 'erro' ? 'Tentar de novo' : 'Atualizar agora'}
+              onPress={() => void atualizarAgora()}
+              loading={rapida.etapa === 'aplicando'}
+            />
           ) : (
-            <Button title="Procurar atualização" variant="secondary" onPress={() => void verificar()} loading={verificando || atualizacao.etapa === 'baixando'} />
+            <Button
+              title="Buscar atualizações"
+              variant="secondary"
+              onPress={() => void buscar()}
+              loading={verificando || atualizacao.etapa === 'baixando'}
+            />
           )}
           <Feedback result={resultado} />
           <Text style={[styles.detalhe, { color: t.muted }]}>
-            O celular baixa as versões novas sozinho. A instalação precisa do seu “Instalar” (é uma regra do Android).
+            A maioria das atualizações é aplicada na hora: o app fecha e abre de novo sozinho. Quando a versão nova
+            precisa de um instalador, o celular baixa sozinho e pede o seu “Instalar” (é uma regra do Android).
           </Text>
         </Card>
       </Page>

@@ -159,6 +159,39 @@ describe('consulta e download', () => {
     assert.equal(resposta.json().temAtualizacao, false);
   });
 
+  test('atualização rápida do celular (mobile-ota) é um canal separado do APK', async () => {
+    const publicada = await app.inject({
+      method: 'POST',
+      url: '/api/atualizacoes/mobile-ota',
+      headers: {
+        authorization: `Bearer ${tokenTi}`,
+        'content-type': 'application/vnd.dp-atualizacao',
+        'x-versao': '2.1.1',
+        'x-arquivo': 'ComunicacaoDP-rapida-2.1.1.zip',
+        'x-notas': encodeURIComponent('Teste de atualização rápida'),
+      },
+      payload: INSTALADOR,
+    });
+    assert.equal(publicada.statusCode, 201);
+
+    const rapida = await app.inject({
+      method: 'GET',
+      url: '/api/atualizacoes/mobile-ota/verificar?versao=2.1.0',
+      headers: { authorization: `Bearer ${tokenTi}` },
+    });
+    assert.equal(rapida.json().temAtualizacao, true);
+    assert.equal(rapida.json().release.versao, '2.1.1');
+    assert.equal(rapida.json().release.url, '/api/atualizacoes/mobile-ota/download/2.1.1');
+
+    // O canal do APK não enxerga o pacote rápido
+    const apk = await app.inject({
+      method: 'GET',
+      url: '/api/atualizacoes/mobile/verificar?versao=2.1.0',
+      headers: { authorization: `Bearer ${tokenTi}` },
+    });
+    assert.equal(apk.json().temAtualizacao, false);
+  });
+
   test('verificar exige autenticação', async () => {
     const resposta = await app.inject({ method: 'GET', url: '/api/atualizacoes/desktop/verificar?versao=1.0.0' });
     assert.equal(resposta.statusCode, 401);

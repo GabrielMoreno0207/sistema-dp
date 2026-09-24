@@ -344,6 +344,23 @@ class DpModule(private val context: ReactApplicationContext) : NativeDpNativeSpe
     promise.resolve(tryStart(DpFiles.viewIntent(context, file, "application/vnd.android.package-archive")))
   }
 
+  // ---------------------------------------------------------------- atualização rápida (Ota.kt)
+
+  override fun otaInfo(promise: Promise) = background(promise, "OTA") { Ota.info(context).toString() }
+
+  override fun otaInstall(path: String, promise: Promise) = background(promise, "OTA") { Ota.install(context, File(path)) }
+
+  override fun otaConfirm() {
+    try {
+      Ota.confirm(context)
+    } catch (_: Exception) {
+    }
+  }
+
+  override fun otaRestart() {
+    Ota.restart(context)
+  }
+
   private fun tryStart(intent: Intent): Boolean =
       try {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

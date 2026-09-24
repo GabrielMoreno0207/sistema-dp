@@ -1,5 +1,6 @@
 /** Aplicativos que recebem atualização pelo servidor. */
-export const APPS = ['desktop', 'mobile', 'backend'] as const;
+// mobile = APK; mobile-ota = atualização rápida do celular (só o JavaScript, o app reinicia sozinho)
+export const APPS = ['desktop', 'mobile', 'mobile-ota', 'backend'] as const;
 export type AppName = (typeof APPS)[number];
 
 export function isAppName(value: string): value is AppName {

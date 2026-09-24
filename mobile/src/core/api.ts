@@ -187,10 +187,11 @@ export class ApiClient {
 
   // ---------------------------------------------------------------- atualização do app
 
-  async verificarAtualizacao(versaoAtual: string): Promise<VersaoDisponivel | null> {
+  /** app: "mobile" = APK; "mobile-ota" = atualização rápida (só o JavaScript) */
+  async verificarAtualizacao(versaoAtual: string, app: 'mobile' | 'mobile-ota' = 'mobile'): Promise<VersaoDisponivel | null> {
     const data = await this.request<{ temAtualizacao?: boolean; release?: unknown }>(
       'GET',
-      `/api/atualizacoes/mobile/verificar?versao=${encodeURIComponent(versaoAtual)}`,
+      `/api/atualizacoes/${app}/verificar?versao=${encodeURIComponent(versaoAtual)}`,
     );
     if (!data.temAtualizacao || !data.release) return null;
     const release = data.release as Partial<VersaoDisponivel>;

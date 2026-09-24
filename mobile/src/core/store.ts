@@ -21,12 +21,16 @@ export type NavRequest =
 /** Etapa da atualização do app (baixar → conferir → abrir o instalador) */
 export type EtapaAtualizacao = 'nenhuma' | 'disponivel' | 'baixando' | 'pronta' | 'erro';
 
+/** Atualização rápida (só o JavaScript): baixa, instala e o app reinicia sozinho */
+export type EtapaAtualizacaoRapida = 'nenhuma' | 'disponivel' | 'aplicando' | 'erro';
+
 export interface AppData {
   /** Configuração carregada do aparelho */
   booted: boolean;
   serverUrl: string | null;
   deviceId: string | null;
-  device: { manufacturer: string; model: string; appVersion: string; sdkInt: number } | null;
+  /** appVersion = versão em uso (a da atualização rápida, se houver); apkVersion = a do APK instalado */
+  device: { manufacturer: string; model: string; appVersion: string; apkVersion: string; sdkInt: number } | null;
 
   connection: { status: ConnectionStatus; lastError: string | null; nextRetryAt: number | null };
   /** Muda a cada novo registro no servidor: as imagens buscam de novo com o token novo */
@@ -63,6 +67,7 @@ export interface AppData {
   navRequest: NavRequest | null;
 
   atualizacao: { etapa: EtapaAtualizacao; versao: VersaoDisponivel | null; progresso: string; erro: string | null };
+  atualizacaoRapida: { etapa: EtapaAtualizacaoRapida; versao: VersaoDisponivel | null; erro: string | null };
 }
 
 let state: AppData = {
@@ -88,6 +93,7 @@ let state: AppData = {
   alertQueue: [],
   navRequest: null,
   atualizacao: { etapa: 'nenhuma', versao: null, progresso: '', erro: null },
+  atualizacaoRapida: { etapa: 'nenhuma', versao: null, erro: null },
 };
 
 const listeners = new Set<() => void>();

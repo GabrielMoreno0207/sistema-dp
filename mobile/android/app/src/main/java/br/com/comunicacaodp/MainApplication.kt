@@ -17,6 +17,8 @@ class MainApplication : Application(), ReactApplication {
           // Módulo nativo do próprio app (serviço, notificações, configurações do Android)
           add(DpPackage())
         },
+      // Atualização rápida baixada do servidor (Ota.kt); null = JavaScript que veio no APK
+      jsBundleFilePath = Ota.bundlePath(applicationContext),
     )
   }
 

@@ -50,6 +50,14 @@
         </intent-filter>
       </activity>
 
+      <!-- Reabre o app depois de uma atualização rápida (processo separado: o principal é encerrado) -->
+      <activity
+        android:name=".ReiniciarActivity"
+        android:process=":reiniciar"
+        android:theme="@android:style/Theme.Translucent.NoTitleBar"
+        android:excludeFromRecents="true"
+        android:exported="false" />
+
       <service
         android:name=".DpService"
         android:exported="false"

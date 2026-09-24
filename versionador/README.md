@@ -12,7 +12,10 @@ npm start
 ```
 
 1. Informe o endereço do servidor e entre com a conta do TI.
-2. Escolha a aba do aplicativo: **desktop**, **mobile** ou **backend**.
+2. Escolha a aba do aplicativo: **desktop**, **mobile apk**, **mobile ota** ou **backend**.
+   - **mobile ota** = atualização rápida do celular (`mobile/gerar-atualizacao-rapida.cmd` gera o `.zip`):
+     só o JavaScript; a pessoa toca em "Buscar atualizações" e o app fecha e abre já atualizado.
+     Mudou algo nativo? Aí é **mobile apk**.
 3. Clique em *escolher arquivo…* e selecione o instalador (`.exe`), o APK ou o
    pacote do servidor. A versão é preenchida sozinha a partir do nome do arquivo.
 4. Escreva o que mudou (esse texto aparece para quem vai atualizar) e publique.

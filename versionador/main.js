@@ -80,6 +80,7 @@ ipcMain.handle('arquivo:escolher', async (_evento, alvo) => {
   const filtros = {
     desktop: [{ name: 'Instalador do Windows', extensions: ['exe'] }],
     mobile: [{ name: 'Aplicativo Android', extensions: ['apk'] }],
+    'mobile-ota': [{ name: 'Atualização rápida do celular', extensions: ['zip'] }],
     backend: [{ name: 'Pacote do servidor', extensions: ['tar', 'gz', 'tgz', 'zip'] }],
   };
   const escolha = await dialog.showOpenDialog(janela, {
