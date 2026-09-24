@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { Server } from 'socket.io';
 import type { AuthService } from '../modules/auth/auth.service';
 import type { ComputerService } from '../modules/computers/computer.service';
-import { parseComputerInfo, type ComputerInfo } from '../modules/computers/computer.types';
+import { env } from '../config/env';
+import { limparIp, parseComputerInfo, type ComputerInfo } from '../modules/computers/computer.types';
 import type { EmployeeService } from '../modules/employees/employee.service';
 import type { MessageNotifier } from '../modules/messages/message.service';
 import type { Message, RecipientMessage } from '../modules/messages/message.types';
@@ -68,6 +69,19 @@ function roomFor(message: Message): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * IP de onde o aparelho se conectou. Atrás de um proxy confiável (TRUST_PROXY)
+ * vale o primeiro endereço do X-Forwarded-For; sem proxy, o da própria conexão.
+ */
+function ipDoAparelho(handshake: { address: string; headers: Record<string, string | string[] | undefined> }): string | null {
+  if (env.trustProxy) {
+    const encaminhado = handshake.headers['x-forwarded-for'];
+    const primeiro = (Array.isArray(encaminhado) ? encaminhado[0] : encaminhado)?.split(',')[0];
+    if (primeiro) return limparIp(primeiro);
+  }
+  return limparIp(handshake.address);
 }
 
 export interface RealtimeGateway
@@ -164,7 +178,7 @@ export function createSocketServer(
 
     try {
       await socket.join([Rooms.all, room]);
-      await deps.computers.markOnline(computer);
+      await deps.computers.markOnline(computer, ipDoAparelho(socket.handshake));
       const employee = await deps.employees.getSessionEmployee(computer.computerId);
       if (employee) await socket.join(employeeRooms(employee));
 

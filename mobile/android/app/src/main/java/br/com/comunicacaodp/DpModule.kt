@@ -316,6 +316,11 @@ class DpModule(private val context: ReactApplicationContext) : NativeDpNativeSpe
         Uri.fromFile(file).toString()
       }
 
+  override fun copyText(text: String) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Comunica Trinys", text))
+  }
+
   // ---------------------------------------------------------------- atualização
 
   override fun canInstallPackages(promise: Promise) {

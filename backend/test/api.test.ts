@@ -154,6 +154,29 @@ describe('registro de computadores', () => {
     assert.equal((await register('TAB-AAAA00000001')).statusCode, 400);
     assert.equal((await register('cel-aaaa00000001')).statusCode, 400);
   });
+
+  test('ao conectar pelo WebSocket, o aparelho fica online com o IP de onde veio', async () => {
+    const { io } = await import('socket.io-client');
+    const token = (await register('CEL-AAAA00000002')).json().token;
+    const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
+    const socket = io(endereco, {
+      transports: ['websocket'],
+      reconnection: false,
+      auth: { computerId: 'CEL-AAAA00000002', hostname: 'HOST-CEL', appVersion: '2.0.0', platform: 'android', token },
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        socket.on('session:ready', () => resolve());
+        socket.on('connect_error', reject);
+      });
+      const lista = (await app.inject({ method: 'GET', url: '/api/computers', headers: as(adminToken) })).json().computers;
+      const celular = lista.find((c: { computerId: string }) => c.computerId === 'CEL-AAAA00000002');
+      assert.equal(celular.status, 'ONLINE');
+      assert.equal(celular.ip, '127.0.0.1');
+    } finally {
+      socket.disconnect();
+    }
+  });
 });
 
 describe('mensagens', () => {

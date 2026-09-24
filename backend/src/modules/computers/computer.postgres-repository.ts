@@ -13,6 +13,7 @@ function toComputer(row: Row): Computer {
     lastSeenAt: text(row, 'last_seen_at'),
     currentUserId: nullableText(row, 'current_user_id'),
     currentUserSince: nullableText(row, 'current_user_since'),
+    ip: nullableText(row, 'last_ip'),
   };
 }
 
@@ -70,6 +71,10 @@ export class PostgresComputerRepository implements ComputerRepository {
 
   async findAll(): Promise<Computer[]> {
     return (await this.db.all('SELECT * FROM computers ORDER BY hostname')).map(toComputer);
+  }
+
+  async setIp(computerId: string, ip: string): Promise<void> {
+    await this.db.run('UPDATE computers SET last_ip = $1 WHERE computer_id = $2', [ip, computerId]);
   }
 
   async updateStatus(computerId: string, status: ComputerStatus, now: Date): Promise<void> {

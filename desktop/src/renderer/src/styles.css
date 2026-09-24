@@ -3408,6 +3408,38 @@ input[type='radio'] {
   background: var(--surface-alta);
 }
 
+/* ---------------- Cadastros: computadores e celulares ---------------- */
+.aparelhos + .aparelhos {
+  margin-top: 22px;
+}
+
+.aparelhos__titulo {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.aparelhos__contagem {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.aparelhos__ip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aparelhos__ip code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+}
+
+.aparelhos__sem-ip {
+  color: var(--muted);
+}
+
 .tabela__vazia {
   color: var(--muted);
   text-align: center;

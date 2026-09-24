@@ -424,4 +424,12 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       ALTER TABLE users ADD COLUMN mensagens_so_dp_ti BOOLEAN NOT NULL DEFAULT FALSE;
     `,
   },
+  {
+    version: 10,
+    name: 'ip do aparelho',
+    sql: `
+      -- Último endereço de onde o aparelho se conectou (tela Cadastros -> Aparelhos)
+      ALTER TABLE computers ADD COLUMN last_ip TEXT;
+    `,
+  },
 ];

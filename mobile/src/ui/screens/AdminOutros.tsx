@@ -5,6 +5,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import DpNative from '../../specs/NativeDpNative';
 import { abrirMidia, enviarMidia, escolherArquivo, TIPOS_MIDIA_IMAGEM, TIPOS_MIDIA_VIDEO } from '../../core/arquivos';
 import { chamar, syncMural } from '../../core/connection';
 import { useApp } from '../../core/store';
@@ -231,6 +232,8 @@ interface Computador {
   lastSeenAt: string;
   appVersion: string;
   currentUserId: string | null;
+  /** Último IP de onde o aparelho se conectou */
+  ip?: string | null;
 }
 
 type Aba = 'funcionarios' | 'setores' | 'aparelhos';
@@ -369,26 +372,65 @@ export function AdminCadastrosScreen() {
 
         {aba === 'aparelhos' ? (
           <>
-            {computadores.length === 0 ? <Empty icon="💻" text="Nenhum aparelho registrado." /> : null}
-            {computadores.map((c) => (
-              <Card key={c.computerId} style={styles.linhaCard}>
-                <View style={[styles.ponto, { backgroundColor: c.status === 'ONLINE' ? t.success : t.muted }]} />
-                <View style={styles.flex}>
-                  <Text style={[styles.titulo, { color: t.text }]} numberOfLines={1}>
-                    {c.computerId.startsWith('CEL-') ? '📱 ' : '💻 '}
-                    {c.hostname}
-                  </Text>
-                  <Text style={[styles.detalhe, { color: t.muted }]}>
-                    {c.computerId} · versão {c.appVersion} · {c.status === 'ONLINE' ? 'online' : `visto ${formatDate(c.lastSeenAt)}`}
-                  </Text>
-                </View>
-              </Card>
-            ))}
+            <ListaAparelhos
+              titulo="Computadores"
+              aparelhos={computadores.filter((c) => !c.computerId.startsWith('CEL-'))}
+              onCopiado={(ip) => setResultado({ ok: true, message: `IP ${ip} copiado.` })}
+            />
+            <ListaAparelhos
+              titulo="Celulares"
+              aparelhos={computadores.filter((c) => c.computerId.startsWith('CEL-'))}
+              onCopiado={(ip) => setResultado({ ok: true, message: `IP ${ip} copiado.` })}
+            />
           </>
         ) : null}
       </Page>
       {dialogo}
     </View>
+  );
+}
+
+/** Computadores ou celulares, com o IP e o botão de copiar */
+function ListaAparelhos({ titulo, aparelhos, onCopiado }: { titulo: string; aparelhos: Computador[]; onCopiado: (ip: string) => void }) {
+  const t = useTheme();
+  const online = aparelhos.filter((a) => a.status === 'ONLINE').length;
+  return (
+    <>
+      <SectionTitle>
+        {titulo} · {aparelhos.length} ({online} online)
+      </SectionTitle>
+      {aparelhos.length === 0 ? (
+        <Text style={[styles.detalhe, { color: t.muted }]}>Nenhum {titulo === 'Celulares' ? 'celular' : 'computador'} registrado.</Text>
+      ) : null}
+      {aparelhos.map((c) => (
+        <Card key={c.computerId} style={styles.linhaCard}>
+          <View style={[styles.ponto, { backgroundColor: c.status === 'ONLINE' ? t.success : t.muted }]} />
+          <View style={styles.flex}>
+            <Text style={[styles.titulo, { color: t.text }]} numberOfLines={1}>
+              {c.computerId.startsWith('CEL-') ? '📱 ' : '💻 '}
+              {c.hostname}
+            </Text>
+            <Text style={[styles.detalhe, { color: t.muted }]}>
+              {c.computerId} · versão {c.appVersion} · {c.status === 'ONLINE' ? 'online' : `visto ${formatDate(c.lastSeenAt)}`}
+            </Text>
+            <Text style={[styles.detalhe, styles.ip, { color: c.ip ? t.text : t.muted }]} selectable>
+              IP: {c.ip ?? '—'}
+            </Text>
+          </View>
+          {c.ip ? (
+            <Button
+              title="Copiar"
+              small
+              variant="secondary"
+              onPress={() => {
+                DpNative.copyText(c.ip!);
+                onCopiado(c.ip!);
+              }}
+            />
+          ) : null}
+        </Card>
+      ))}
+    </>
   );
 }
 
@@ -898,6 +940,7 @@ const styles = StyleSheet.create({
   play: { fontSize: 36, color: '#fff' },
   acaoPerigo: { fontSize: 13.5, fontWeight: '700' },
   ponto: { width: 10, height: 10, borderRadius: 5 },
+  ip: { fontFamily: 'monospace', marginTop: 2 },
   area: { borderWidth: 1, borderRadius: 12, minHeight: 110, padding: 12, fontSize: 15, textAlignVertical: 'top' },
   campos: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginVertical: 10 },
   campoChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },

@@ -64,6 +64,9 @@ export interface Spec extends TurboModule {
   /** Recorta o retângulo (px da imagem preparada) num quadrado outSize. Devolve o uri file:// do JPEG */
   cropImage(uri: string, x: number, y: number, width: number, height: number, outSize: number): Promise<string>;
 
+  /** Copia o texto para a área de transferência do Android */
+  copyText(text: string): void;
+
   // ---------------------------------------------------------------- atualização
   /** O Android permite que este app instale APKs (Android 8+ pede autorização uma vez) */
   canInstallPackages(): Promise<boolean>;

@@ -17,10 +17,11 @@ export class ComputerService {
     return computer;
   }
 
-  async markOnline(info: ComputerInfo): Promise<void> {
+  async markOnline(info: ComputerInfo, ip: string | null = null): Promise<void> {
     const now = new Date();
     await this.repository.upsert(info, now);
     await this.repository.updateStatus(info.computerId, 'ONLINE', now);
+    if (ip) await this.repository.setIp(info.computerId, ip);
   }
 
   async markOffline(computerId: string): Promise<void> {

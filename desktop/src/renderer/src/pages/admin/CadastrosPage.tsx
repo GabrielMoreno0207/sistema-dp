@@ -25,6 +25,8 @@ interface Computador {
   lastSeenAt: string;
   appVersion: string;
   currentUserId: string | null;
+  /** Último IP de onde o aparelho se conectou (servidor 1.9.0+) */
+  ip?: string | null;
 }
 
 type Aba = 'funcionarios' | 'setores' | 'dispositivos';
@@ -128,7 +130,7 @@ export function CadastrosPage() {
       <header className="page__header">
         <div>
           <h1>Cadastros</h1>
-          <p className="page__subtitle">Funcionários, setores e computadores registrados.</p>
+          <p className="page__subtitle">Funcionários, setores e aparelhos (computadores e celulares) registrados.</p>
         </div>
         <div className="login-card__abas abas--linha">
           <button className={`login-aba ${aba === 'funcionarios' ? 'login-aba--ativa' : ''}`} onClick={() => setAba('funcionarios')}>
@@ -138,7 +140,7 @@ export function CadastrosPage() {
             Setores ({setores.length})
           </button>
           <button className={`login-aba ${aba === 'dispositivos' ? 'login-aba--ativa' : ''}`} onClick={() => setAba('dispositivos')}>
-            Dispositivos ({computadores.length})
+            Aparelhos ({computadores.length})
           </button>
         </div>
       </header>
@@ -290,34 +292,92 @@ export function CadastrosPage() {
       )}
 
       {aba === 'dispositivos' && (
-        <div className="tabela-caixa">
-          <table className="tabela">
-            <thead>
-              <tr>
-                <th>Computador</th>
-                <th>Identificador</th>
-                <th>Situação</th>
-                <th>Versão</th>
-                <th>Visto por último</th>
-              </tr>
-            </thead>
-            <tbody>
-              {computadores.map((computador) => (
-                <tr key={computador.computerId}>
-                  <td>{computador.hostname}</td>
-                  <td>{computador.computerId}</td>
-                  <td>
-                    <span className={`ponto ${computador.status === 'ONLINE' ? 'ponto--online' : ''}`} aria-hidden />
-                    {computador.status === 'ONLINE' ? 'Online' : 'Offline'}
-                  </td>
-                  <td>{computador.appVersion}</td>
-                  <td>{quando(computador.lastSeenAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <TabelaAparelhos
+            titulo="Computadores"
+            aparelhos={computadores.filter((c) => !c.computerId.startsWith('CEL-'))}
+            onCopiado={setAviso}
+          />
+          <TabelaAparelhos
+            titulo="Celulares"
+            aparelhos={computadores.filter((c) => c.computerId.startsWith('CEL-'))}
+            onCopiado={setAviso}
+          />
+        </>
       )}
     </div>
+  );
+}
+
+/** Uma lista de aparelhos (computadores ou celulares), com o IP e o botão de copiar. */
+function TabelaAparelhos({
+  titulo,
+  aparelhos,
+  onCopiado,
+}: {
+  titulo: string;
+  aparelhos: Computador[];
+  onCopiado(aviso: string): void;
+}) {
+  async function copiar(ip: string) {
+    const resultado = await window.dp.copiarTexto(ip);
+    onCopiado(resultado.ok ? `IP ${ip} copiado.` : resultado.message);
+  }
+
+  const online = aparelhos.filter((a) => a.status === 'ONLINE').length;
+  return (
+    <section className="aparelhos">
+      <h2 className="aparelhos__titulo">
+        {titulo} <span className="aparelhos__contagem">{aparelhos.length} · {online} online</span>
+      </h2>
+      <div className="tabela-caixa">
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>Identificador</th>
+              <th>IP</th>
+              <th>Situação</th>
+              <th>Versão</th>
+              <th>Visto por último</th>
+            </tr>
+          </thead>
+          <tbody>
+            {aparelhos.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="tabela__vazia">
+                  Nenhum {titulo === 'Celulares' ? 'celular' : 'computador'} registrado.
+                </td>
+              </tr>
+            ) : (
+              aparelhos.map((aparelho) => (
+                <tr key={aparelho.computerId}>
+                  <td>{aparelho.hostname}</td>
+                  <td>{aparelho.computerId}</td>
+                  <td>
+                    {aparelho.ip ? (
+                      <span className="aparelhos__ip">
+                        <code>{aparelho.ip}</code>
+                        <button className="link-btn" onClick={() => void copiar(aparelho.ip!)} title="Copiar o IP">
+                          copiar
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="aparelhos__sem-ip">—</span>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`ponto ${aparelho.status === 'ONLINE' ? 'ponto--online' : ''}`} aria-hidden />
+                    {aparelho.status === 'ONLINE' ? 'Online' : 'Offline'}
+                  </td>
+                  <td>{aparelho.appVersion}</td>
+                  <td>{quando(aparelho.lastSeenAt)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }

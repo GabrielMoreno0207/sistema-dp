@@ -16,6 +16,14 @@ export interface Computer extends ComputerInfo {
   currentUserId: string | null;
   /** Quando esse funcionário entrou (a sessão expira após EMPLOYEE_SESSION_HOURS) */
   currentUserSince: string | null;
+  /** Último IP de onde o aparelho se conectou (null = ainda não conectou desde que o campo existe) */
+  ip: string | null;
+}
+
+/** "::ffff:192.168.0.10" (IPv4 dentro de IPv6) → "192.168.0.10"; vazio → null */
+export function limparIp(bruto: string | undefined | null): string | null {
+  const ip = (bruto ?? '').trim().replace(/^::ffff:/i, '');
+  return ip && ip.length <= 64 ? ip : null;
 }
 
 /** PC- = aplicativo do computador; CEL- = aplicativo do celular (Android). Os dois funcionam igual. */
