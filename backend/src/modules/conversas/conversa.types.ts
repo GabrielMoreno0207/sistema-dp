@@ -109,9 +109,14 @@ export function tituloPara(conversa: Conversa, participantes: Participante[], me
  * Resumo curto para a lista. A última mensagem pode ser mídia ou aviso de
  * sistema; avisos de sistema aparecem, mas não contam como mensagem nova.
  */
-export function resumoDaMensagem(mensagem: MensagemConversa | null): string {
+/** Texto da prévia de uma mensagem de voz sem legenda */
+export const RESUMO_AUDIO = '🎤 Mensagem de voz';
+
+/** tipoDaMidia: quando já se sabe, a mensagem de voz aparece como tal */
+export function resumoDaMensagem(mensagem: MensagemConversa | null, tipoDaMidia?: string | null): string {
   if (!mensagem) return '';
   if (mensagem.apagadaEm) return 'mensagem apagada';
+  if (mensagem.tipo === 'MIDIA' && tipoDaMidia === 'AUDIO') return mensagem.conteudo || RESUMO_AUDIO;
   if (mensagem.tipo === 'MIDIA') return mensagem.conteudo || 'arquivo';
   return mensagem.conteudo;
 }

@@ -185,6 +185,25 @@ export class ConversaService {
     );
   }
 
+  /**
+   * Tipo da mídia das mensagens sem legenda (só essas precisam, para a prévia
+   * mostrar "Mensagem de voz" em vez de "arquivo"). midiaId -> tipo
+   */
+  private async tiposDasMidias(mensagens: (MensagemConversa | null | undefined)[]): Promise<Map<string, string>> {
+    const ids = [
+      ...new Set(
+        mensagens
+          .filter((m): m is MensagemConversa => !!m && m.tipo === 'MIDIA' && !m.conteudo && m.midiaId !== null && !m.apagadaEm)
+          .map((m) => m.midiaId as string),
+      ),
+    ];
+    const tipos = new Map<string, string>();
+    for (const midia of await Promise.all(ids.map((id) => this.midias.findById(id)))) {
+      if (midia) tipos.set(midia.id, midia.tipo);
+    }
+    return tipos;
+  }
+
   /** Monta os resumos reaproveitando uma busca por pessoa entre as conversas. */
   private async montarResumos(conversas: Conversa[], meuId: string): Promise<ConversaResumo[]> {
     const ids = conversas.map((c) => c.id);
@@ -193,6 +212,7 @@ export class ConversaService {
       this.conversas.ultimaMensagemDeVarias(ids),
       this.conversas.naoLidasDeVarias(ids, meuId),
     ]);
+    const tiposDasUltimas = await this.tiposDasMidias([...ultimas.values()]);
 
     const cache = new Map<string, Participante>();
     const resumos: ConversaResumo[] = [];
@@ -223,7 +243,7 @@ export class ConversaService {
         titulo: tituloPara(conversa, participantes, meuId),
         ultimaMensagem: ultima
           ? {
-              conteudo: resumoDaMensagem(ultima),
+              conteudo: resumoDaMensagem(ultima, ultima.midiaId ? tiposDasUltimas.get(ultima.midiaId) : null),
               autorNome: ultima.autorNome,
               tipo: ultima.tipo,
               createdAt: ultima.createdAt,
@@ -350,6 +370,7 @@ export class ConversaService {
 
     const porId = new Map<string, MidiaPublica>();
     for (const midia of encontradas) if (midia) porId.set(midia.id, midiaPublica(midia));
+    const tiposCitados = await this.tiposDasMidias([...citadas.values()]);
 
     return mensagens.map((m) => {
       const citada = m.respondeA === null ? null : citadas.get(m.respondeA);
@@ -360,7 +381,9 @@ export class ConversaService {
           ? {
               id: citada.id,
               autorNome: citada.autorNome,
-              resumo: citada.apagadaEm ? 'mensagem apagada' : resumoDaMensagem(citada),
+              resumo: citada.apagadaEm
+                ? 'mensagem apagada'
+                : resumoDaMensagem(citada, citada.midiaId ? tiposCitados.get(citada.midiaId) : null),
               apagada: citada.apagadaEm !== null,
             }
           : null,
@@ -418,7 +441,9 @@ export class ConversaService {
       citacao = {
         id: citada.id,
         autorNome: citada.autorNome,
-        resumo: citada.apagadaEm ? 'mensagem apagada' : resumoDaMensagem(citada),
+        resumo: citada.apagadaEm
+          ? 'mensagem apagada'
+          : resumoDaMensagem(citada, citada.midiaId ? (await this.tiposDasMidias([citada])).get(citada.midiaId) : null),
         apagada: citada.apagadaEm !== null,
       };
     }

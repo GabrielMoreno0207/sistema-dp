@@ -179,12 +179,18 @@ export class AdminClient {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  async enviarMidia(caminho: string, mimeType: string, nome: string): Promise<MidiaPublica> {
+  /** duracaoMs: só na mensagem de voz (o WEBM gravado não traz a duração no arquivo) */
+  async enviarMidia(caminho: string, mimeType: string, nome: string, duracaoMs?: number): Promise<MidiaPublica> {
     if (!this.token) throw new ApiError('Entre com a conta do DP para enviar arquivos', 401);
     const { size } = await stat(caminho);
     const response = await fetch(`${this.baseUrl}/api/midias`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': mimeType, 'X-Nome': encodeURIComponent(nome) },
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        'Content-Type': mimeType,
+        'X-Nome': encodeURIComponent(nome),
+        ...(duracaoMs ? { 'X-Duracao': String(Math.round(duracaoMs)) } : {}),
+      },
       body: corpoDoArquivo(caminho),
       duplex: 'half',
       signal: AbortSignal.timeout(tempoDeEnvio(size)),

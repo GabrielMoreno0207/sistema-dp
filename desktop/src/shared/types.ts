@@ -94,12 +94,14 @@ export interface EmployeeState {
 /** Imagem ou vídeo guardado no servidor */
 export interface MidiaPublica {
   id: string;
-  tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO';
+  tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO' | 'AUDIO';
   nome: string;
   mimeType: string;
   tamanho: number;
   /** Caminho no servidor; a tela usa dpmidia://<id> para exibir */
   url: string;
+  /** Mensagem de voz: duração da gravação (servidores antigos não mandam) */
+  duracaoMs?: number | null;
 }
 
 /** Recado que a Central do DP deixa fixado na tela inicial */
@@ -491,6 +493,12 @@ export interface DesktopApi {
   conversasAnexar(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
   /** Arquivo arrastado para dentro da conversa: envia pelo caminho no disco */
   conversasSoltarArquivo(caminho: string): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Mensagem de voz gravada na tela: sobe para o servidor como mídia de áudio */
+  conversasEnviarAudio(
+    dados: ArrayBuffer,
+    mimeType: string,
+    duracaoMs: number,
+  ): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
   /** Caminho no disco de um arquivo arrastado (o objeto File do navegador não traz) */
   caminhoDoArquivo(arquivo: File): string;
   /** Baixa o arquivo de uma mensagem e abre no programa padrão do Windows */
@@ -575,6 +583,7 @@ export const IpcChannels = {
   ConversasIdentidade: 'conversas:identidade',
   ConversasAnexar: 'conversas:anexar',
   ConversasSoltarArquivo: 'conversas:soltar-arquivo',
+  ConversasEnviarAudio: 'conversas:enviar-audio',
   ConversasAbrirArquivo: 'conversas:abrir-arquivo',
   ConversasChanged: 'conversas:changed',
   ConversasContador: 'conversas:contador',

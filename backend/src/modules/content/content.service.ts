@@ -28,6 +28,8 @@ export interface EnvioMidia {
   mimeType: string;
   nome: string;
   enviadoPor: string;
+  /** Mensagem de voz: duração da gravação (cabeçalho X-Duracao) */
+  duracaoMs?: number | null;
 }
 
 export interface DadosMural {
@@ -62,6 +64,12 @@ interface Ticket {
 /** Cinco minutos: tempo de sobra para carregar a página e começar o vídeo */
 const TICKET_TTL_MS = 5 * 60 * 1000;
 
+/** Duração informada pelo aplicativo: número inteiro, positivo e com teto */
+function duracaoValida(valor: number | null | undefined): number | null {
+  if (typeof valor !== 'number' || !Number.isFinite(valor) || valor <= 0) return null;
+  return Math.min(Math.round(valor), LIMITES_CONTEUDO.maxDuracaoMs);
+}
+
 export class ContentService {
   private readonly tickets = new Map<string, Ticket>();
 
@@ -83,7 +91,7 @@ export class ContentService {
     const aceito = tipoAceito(envio.mimeType);
     if (!aceito) {
       throw new AppError(
-        `Tipo de arquivo não aceito: ${envio.mimeType}. Envie imagem (JPG, PNG, WEBP, GIF), vídeo (MP4, WEBM) ou documento (PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP).`,
+        `Tipo de arquivo não aceito: ${envio.mimeType}. Envie imagem (JPG, PNG, WEBP, GIF), vídeo (MP4, WEBM), áudio (WEBM, M4A, OGG, MP3) ou documento (PDF, Word, Excel, PowerPoint, TXT, CSV, ZIP).`,
         415,
         'TIPO_NAO_ACEITO',
       );
@@ -117,6 +125,7 @@ export class ContentService {
       storedName,
       enviadoPor: envio.enviadoPor,
       createdAt: new Date().toISOString(),
+      duracaoMs: aceito.tipo === 'AUDIO' ? duracaoValida(envio.duracaoMs) : null,
     };
     await this.midias.create(midia);
     this.log.info(`Mídia enviada: ${midia.id} (${midia.tipo}, ${(midia.tamanho / 1024 / 1024).toFixed(1)} MB) por ${midia.enviadoPor}`);

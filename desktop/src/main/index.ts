@@ -1269,6 +1269,37 @@ function start(): void {
     return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
+  /**
+   * Mensagem de voz gravada na tela. O áudio chega em memória (é pequeno: uns
+   * 250 KB por minuto), vai para um arquivo temporário e sobe como as outras mídias.
+   */
+  handle(IpcChannels.ConversasEnviarAudio, async (bruto) => {
+    const entrada = bruto as { dados?: unknown; mimeType?: unknown; duracaoMs?: unknown } | null;
+    const dados = entrada?.dados instanceof ArrayBuffer ? Buffer.from(entrada.dados) : null;
+    const mimeType = typeof entrada?.mimeType === 'string' ? entrada.mimeType.split(';')[0].trim().toLowerCase() : '';
+    const duracaoMs = typeof entrada?.duracaoMs === 'number' && Number.isFinite(entrada.duracaoMs) ? entrada.duracaoMs : 0;
+    const extensao = ({ 'audio/webm': '.webm', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a' } as Record<string, string>)[mimeType];
+    if (!dados || dados.length === 0 || !extensao) return { ok: false, midia: null, message: 'Gravação inválida.' };
+    if (dados.length > 50 * 1024 * 1024) return { ok: false, midia: null, message: 'A gravação ficou grande demais.' };
+
+    const pasta = join(app.getPath('temp'), 'comunicacao-dp-conversas');
+    const nome = `mensagem-de-voz${extensao}`;
+    const arquivo = join(pasta, `audio-${Date.now()}-${Math.random().toString(16).slice(2)}${extensao}`);
+    try {
+      await mkdir(pasta, { recursive: true });
+      await writeFile(arquivo, dados);
+      const envio = usandoComoDp()
+        ? await comAdmin((client) => client.enviarMidia(arquivo, mimeType, nome, duracaoMs))
+        : await comApi((client) => client.enviarMidia(arquivo, mimeType, nome, duracaoMs));
+      return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
+    } catch (err) {
+      console.error('[conversas] falha ao enviar a mensagem de voz:', err);
+      return { ok: false, midia: null, message: 'Não foi possível enviar a mensagem de voz.' };
+    } finally {
+      await rm(arquivo, { force: true }).catch(() => undefined);
+    }
+  });
+
   /** Documento recebido no chat: baixa e abre no programa padrão do Windows. */
   handle(IpcChannels.ConversasAbrirArquivo, async (bruto): Promise<OperationResult> => {
     const entrada = bruto as { midiaId?: unknown; nome?: unknown } | null;

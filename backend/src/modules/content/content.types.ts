@@ -6,7 +6,7 @@
  */
 import { randomBytes } from 'node:crypto';
 
-export type MidiaTipo = 'IMAGEM' | 'VIDEO' | 'ARQUIVO';
+export type MidiaTipo = 'IMAGEM' | 'VIDEO' | 'ARQUIVO' | 'AUDIO';
 
 export interface Midia {
   id: string;
@@ -20,6 +20,8 @@ export interface Midia {
   storedName: string;
   enviadoPor: string;
   createdAt: string;
+  /** Áudio gravado na conversa: duração informada por quem gravou (null nos demais) */
+  duracaoMs: number | null;
 }
 
 /** A mídia como o aplicativo enxerga (sem o caminho no servidor). */
@@ -30,6 +32,7 @@ export interface MidiaPublica {
   mimeType: string;
   tamanho: number;
   url: string;
+  duracaoMs: number | null;
 }
 
 export interface MuralPost {
@@ -81,6 +84,10 @@ export const LIMITES_CONTEUDO = {
   maxVideoBytes: SEM_LIMITE,
   /** Documento anexado a uma conversa */
   maxArquivoBytes: 25 * 1024 * 1024,
+  /** Mensagem de voz (uma hora de gravação fica bem abaixo disso) */
+  maxAudioBytes: 50 * 1024 * 1024,
+  /** Duração máxima aceita no cabeçalho X-Duracao (4 horas) */
+  maxDuracaoMs: 4 * 60 * 60 * 1000,
   maxTitulo: 120,
   maxTexto: 4000,
   maxRotulo: 24,
@@ -111,6 +118,12 @@ export const TIPOS_ACEITOS: Record<string, { tipo: MidiaTipo; extensao: string }
   'text/plain': { tipo: 'ARQUIVO', extensao: '.txt' },
   'text/csv': { tipo: 'ARQUIVO', extensao: '.csv' },
   'application/zip': { tipo: 'ARQUIVO', extensao: '.zip' },
+  // Mensagens de voz: o desktop grava em WEBM (Opus), o celular em M4A (AAC)
+  'audio/webm': { tipo: 'AUDIO', extensao: '.webm' },
+  'audio/mp4': { tipo: 'AUDIO', extensao: '.m4a' },
+  'audio/aac': { tipo: 'AUDIO', extensao: '.aac' },
+  'audio/ogg': { tipo: 'AUDIO', extensao: '.ogg' },
+  'audio/mpeg': { tipo: 'AUDIO', extensao: '.mp3' },
 };
 
 export function tipoAceito(mimeType: string): { tipo: MidiaTipo; extensao: string } | null {
@@ -120,6 +133,7 @@ export function tipoAceito(mimeType: string): { tipo: MidiaTipo; extensao: strin
 export function limiteDoTipo(tipo: MidiaTipo): number {
   if (tipo === 'VIDEO') return LIMITES_CONTEUDO.maxVideoBytes;
   if (tipo === 'ARQUIVO') return LIMITES_CONTEUDO.maxArquivoBytes;
+  if (tipo === 'AUDIO') return LIMITES_CONTEUDO.maxAudioBytes;
   return LIMITES_CONTEUDO.maxImagemBytes;
 }
 
@@ -139,5 +153,6 @@ export function midiaPublica(midia: Midia): MidiaPublica {
     mimeType: midia.mimeType,
     tamanho: midia.tamanho,
     url: `/api/midias/${midia.id}`,
+    duracaoMs: midia.duracaoMs,
   };
 }

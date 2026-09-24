@@ -43,6 +43,7 @@ class DpModule(private val context: ReactApplicationContext) : NativeDpNativeSpe
   }
 
   private val io = Executors.newCachedThreadPool()
+  private val audio = DpAudio(context) { json -> emitOnAudioStatus(json) }
   /** Seletor de arquivo ou câmera aberto, esperando a resposta da outra tela */
   private var pickPromise: Promise? = null
   private var cameraFile: File? = null
@@ -342,6 +343,42 @@ class DpModule(private val context: ReactApplicationContext) : NativeDpNativeSpe
       return
     }
     promise.resolve(tryStart(DpFiles.viewIntent(context, file, "application/vnd.android.package-archive")))
+  }
+
+  // ---------------------------------------------------------------- mensagem de voz (DpAudio.kt)
+
+  override fun startRecording(promise: Promise) = background(promise, "MICROFONE") { audio.startRecording(); null }
+
+  override fun stopRecording(promise: Promise) = background(promise, "MICROFONE") { audio.stopRecording() }
+
+  override fun cancelRecording() {
+    io.execute { audio.cancelRecording() }
+  }
+
+  override fun recordingLevel(promise: Promise) {
+    promise.resolve(audio.level())
+  }
+
+  override fun playAudio(url: String, token: String, id: String, startMs: Double) {
+    audio.play(url, token, id, startMs.toInt())
+  }
+
+  override fun pauseAudio() {
+    audio.pause()
+  }
+
+  override fun seekAudio(positionMs: Double) {
+    audio.seek(positionMs.toInt())
+  }
+
+  override fun stopAudio() {
+    audio.stop()
+  }
+
+  override fun invalidate() {
+    audio.cancelRecording()
+    audio.stop()
+    super.invalidate()
   }
 
   // ---------------------------------------------------------------- atualização rápida (Ota.kt)

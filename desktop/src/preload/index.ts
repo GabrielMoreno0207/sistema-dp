@@ -84,6 +84,8 @@ const api: DesktopApi = {
   conversasIdentidade: () => ipcRenderer.invoke(IpcChannels.ConversasIdentidade),
   conversasAnexar: () => ipcRenderer.invoke(IpcChannels.ConversasAnexar),
   conversasSoltarArquivo: (caminho) => ipcRenderer.invoke(IpcChannels.ConversasSoltarArquivo, caminho),
+  conversasEnviarAudio: (dados, mimeType, duracaoMs) =>
+    ipcRenderer.invoke(IpcChannels.ConversasEnviarAudio, { dados, mimeType, duracaoMs }),
   // O objeto File do navegador não traz o caminho do arquivo; no Electron vem daqui
   caminhoDoArquivo: (arquivo) => webUtils.getPathForFile(arquivo),
   conversasAbrirArquivo: (midiaId, nome) => ipcRenderer.invoke(IpcChannels.ConversasAbrirArquivo, { midiaId, nome }),

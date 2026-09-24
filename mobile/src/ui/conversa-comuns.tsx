@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { abrirMidia, tamanhoLegivel } from '../core/arquivos';
 import type { ConversaResumo, MensagemConversa, Participante } from '../core/types';
+import { PlayerDeAudio } from './audio';
 import { MidiaImage } from './components';
 import { useNav } from './nav';
 import { formatDayLabel, formatTime, useTheme } from './theme';
@@ -23,6 +24,7 @@ export function juntarMensagens(atuais: MensagemConversa[], novas: MensagemConve
 export function resumoDaCitacao(mensagem: MensagemConversa): string {
   if (mensagem.apagadaEm) return 'mensagem apagada';
   if (mensagem.conteudo) return mensagem.conteudo.slice(0, 120);
+  if (mensagem.midia?.tipo === 'AUDIO') return '🎤 Mensagem de voz';
   if (mensagem.midia) return mensagem.midia.nome;
   return 'anexo';
 }
@@ -183,7 +185,8 @@ export function Balao({
                 <MidiaImage midiaId={midia.id} style={[styles.imagem, { backgroundColor: t.surface2 }]} />
               </Pressable>
             ) : null}
-            {midia && midia.tipo !== 'IMAGEM' ? (
+            {midia?.tipo === 'AUDIO' ? <PlayerDeAudio midia={midia} minha={minha} onLongPress={onAcoes} /> : null}
+            {midia && midia.tipo !== 'IMAGEM' && midia.tipo !== 'AUDIO' ? (
               <Pressable
                 onPress={() => void abrirArquivo()}
                 onLongPress={onAcoes}

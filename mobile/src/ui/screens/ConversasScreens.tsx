@@ -25,6 +25,7 @@ import {
   TIPOS_MIDIA_IMAGEM,
   TIPOS_MIDIA_VIDEO,
 } from '../../core/arquivos';
+import { comecarGravacao, descartarGravacao, pararAudio, tempoLegivel, terminarGravacao } from '../../core/audio';
 import { chamar, conversaEmFoco, syncConversas } from '../../core/connection';
 import { useApp } from '../../core/store';
 import { LIMITES, type ConversaResumo, type MensagemConversa, type MidiaPublica, type Participante } from '../../core/types';
@@ -346,6 +347,14 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
   const [texto, setTexto] = useState('');
   const [anexo, setAnexo] = useState<MidiaPublica | null>(null);
   const [enviandoAnexo, setEnviandoAnexo] = useState(false);
+  // Mensagem de voz: gravando = hora em que começou (null = não está gravando)
+  const [gravandoDesde, setGravandoDesde] = useState<number | null>(null);
+  const [decorrido, setDecorrido] = useState(0);
+  const [enviandoAudio, setEnviandoAudio] = useState(false);
+  const gravandoRef = useRef(false);
+  /** Hora em que a última gravação terminou (um toque duplo não começa outra) */
+  const fimDaGravacao = useRef(0);
+  const iniciandoRef = useRef(false);
   const [enviando, setEnviando] = useState(false);
   const [respondendo, setRespondendo] = useState<MensagemConversa | null>(null);
   const [acoesDe, setAcoesDe] = useState<MensagemConversa | null>(null);
@@ -485,6 +494,83 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
     void syncConversas();
   }
 
+  async function gravar() {
+    if (gravandoRef.current || iniciandoRef.current || Date.now() - fimDaGravacao.current < 800) return;
+    setErro('');
+    iniciandoRef.current = true;
+    const motivo = await comecarGravacao().finally(() => {
+      iniciandoRef.current = false;
+    });
+    if (motivo) {
+      setErro(motivo);
+      return;
+    }
+    gravandoRef.current = true;
+    setDecorrido(0);
+    setGravandoDesde(Date.now());
+  }
+
+  function descartar() {
+    gravandoRef.current = false;
+    fimDaGravacao.current = Date.now();
+    setGravandoDesde(null);
+    descartarGravacao();
+  }
+
+  /** Para a gravação, sobe o áudio e já envia a mensagem */
+  async function enviarGravacao() {
+    if (!gravandoRef.current) return;
+    gravandoRef.current = false;
+    fimDaGravacao.current = Date.now();
+    setGravandoDesde(null);
+    setEnviandoAudio(true);
+    setErro('');
+    try {
+      const envio = await terminarGravacao();
+      if (!envio.midia) {
+        if (envio.message) setErro(envio.message);
+        return;
+      }
+      const r = await chamar<{ mensagem: MensagemConversa }>('POST', `/api/conversas/${conversaId}/mensagens`, {
+        conteudo: '',
+        midiaId: envio.midia.id,
+        respondeA: respondendo?.id ?? null,
+      });
+      if (!r.ok || !r.dados) {
+        setErro(r.message);
+        return;
+      }
+      setRespondendo(null);
+      setMensagens((atuais) => juntarMensagens(atuais, [r.dados!.mensagem]));
+      lista.current?.scrollToOffset({ offset: 0, animated: true });
+      void syncConversas();
+    } finally {
+      setEnviandoAudio(false);
+    }
+  }
+
+  // Relógio da gravação; passou de 15 minutos, envia sozinho
+  useEffect(() => {
+    if (gravandoDesde === null) return;
+    const relogio = setInterval(() => {
+      const passou = Date.now() - gravandoDesde;
+      setDecorrido(passou);
+      if (passou >= 15 * 60 * 1000) void enviarGravacao();
+    }, 250);
+    return () => clearInterval(relogio);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gravandoDesde]);
+
+  // Saiu da conversa: descarta a gravação e para o áudio que estiver tocando
+  useEffect(
+    () => () => {
+      if (gravandoRef.current) descartarGravacao();
+      gravandoRef.current = false;
+      pararAudio();
+    },
+    [],
+  );
+
   async function apagar(mensagem: MensagemConversa) {
     const r = await chamar('DELETE', `/api/conversas/mensagens/${mensagem.id}`);
     setApagando(null);
@@ -506,6 +592,8 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
         : '';
   const lidaAte = conversa?.lidaAte ?? null;
   const podeEnviar = (texto.trim().length > 0 || anexo !== null) && !enviando && !enviandoAnexo;
+  // Campo vazio e sem anexo: o botão redondo grava mensagem de voz
+  const botaoGrava = texto.trim().length === 0 && anexo === null && !enviando;
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
@@ -625,6 +713,14 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
           </View>
         ) : null}
 
+        {enviandoAudio ? (
+          <View style={[styles.respondendo, { backgroundColor: t.surface, borderColor: t.border }]}>
+            <Text style={styles.iconeAnexo}>🎤</Text>
+            <Text style={[styles.previa, styles.flex, { color: t.text }]}>Enviando a mensagem de voz...</Text>
+            <ActivityIndicator color={t.primary} />
+          </View>
+        ) : null}
+
         {anexo || enviandoAnexo ? (
           <View style={[styles.respondendo, { backgroundColor: t.surface, borderColor: t.border }]}>
             {anexo?.tipo === 'IMAGEM' ? <MidiaImage midiaId={anexo.id} style={styles.previaAnexo} /> : <Text style={styles.iconeAnexo}>📎</Text>}
@@ -641,7 +737,32 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
           </View>
         ) : null}
 
-        <View style={[styles.escrever, { backgroundColor: t.surface, borderColor: t.border, paddingBottom: Math.max(insets.bottom, 8) }]}>
+        {gravandoDesde !== null ? (
+          <View
+            key="gravando"
+            style={[styles.escrever, styles.gravando, { backgroundColor: t.surface, borderColor: t.border, paddingBottom: Math.max(insets.bottom, 8) }]}
+            accessibilityLiveRegion="polite">
+            <Pressable
+              onPress={descartar}
+              style={[styles.botaoRedondo, { backgroundColor: t.surface2 }]}
+              accessibilityLabel="Descartar a gravação">
+              <Text style={styles.iconeBotao}>🗑️</Text>
+            </Pressable>
+            <View style={styles.gravandoInfo}>
+              <View style={[styles.pontoGravando, { backgroundColor: t.danger }]} />
+              <Text style={[styles.gravandoTexto, { color: t.text }]}>Gravando {tempoLegivel(decorrido)}</Text>
+            </View>
+            <Pressable
+              onPress={() => void enviarGravacao()}
+              style={[styles.botaoRedondo, { backgroundColor: t.primary }]}
+              accessibilityLabel="Parar e enviar a mensagem de voz">
+              <Text style={[styles.iconeEnviar, { color: t.onPrimary }]}>➤</Text>
+            </Pressable>
+          </View>
+        ) : (
+        // key diferente da barra de gravação: o ➤ e o 🎤 ficam no mesmo lugar, e reaproveitar
+        // o botão fazia o toque em "enviar" começar outra gravação
+        <View key="escrever" style={[styles.escrever, { backgroundColor: t.surface, borderColor: t.border, paddingBottom: Math.max(insets.bottom, 8) }]}>
           <Pressable
             onPress={() => setEscolhendoAnexo(true)}
             disabled={enviandoAnexo}
@@ -658,14 +779,25 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
             maxLength={LIMITES.conteudoMensagem}
             style={[styles.campo, { backgroundColor: t.bg, color: t.text, borderColor: t.fieldBorder }]}
           />
-          <Pressable
-            onPress={() => void enviar()}
-            disabled={!podeEnviar}
-            style={[styles.botaoRedondo, { backgroundColor: podeEnviar ? t.primary : t.surface2 }]}
-            accessibilityLabel="Enviar">
-            {enviando ? <ActivityIndicator color={t.onPrimary} /> : <Text style={[styles.iconeEnviar, { color: podeEnviar ? t.onPrimary : t.muted }]}>➤</Text>}
-          </Pressable>
+          {botaoGrava ? (
+            <Pressable
+              onPress={() => void gravar()}
+              disabled={enviandoAudio}
+              style={[styles.botaoRedondo, { backgroundColor: t.primary, opacity: enviandoAudio ? 0.5 : 1 }]}
+              accessibilityLabel="Gravar mensagem de voz">
+              <Text style={styles.iconeBotao}>🎤</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => void enviar()}
+              disabled={!podeEnviar}
+              style={[styles.botaoRedondo, { backgroundColor: podeEnviar ? t.primary : t.surface2 }]}
+              accessibilityLabel="Enviar">
+              {enviando ? <ActivityIndicator color={t.onPrimary} /> : <Text style={[styles.iconeEnviar, { color: podeEnviar ? t.onPrimary : t.muted }]}>➤</Text>}
+            </Pressable>
+          )}
         </View>
+        )}
       </KeyboardAvoidingView>
 
       <Sheet visible={escolhendoAnexo} onClose={() => setEscolhendoAnexo(false)} title="Anexar">
@@ -1073,6 +1205,10 @@ const styles = StyleSheet.create({
   iconeAnexo: { fontSize: 22 },
   escrever: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 8, paddingTop: 8, borderTopWidth: 1 },
   botaoRedondo: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  gravando: { alignItems: 'center' },
+  gravandoInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6 },
+  pontoGravando: { width: 10, height: 10, borderRadius: 5 },
+  gravandoTexto: { fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] },
   iconeBotao: { fontSize: 20 },
   iconeEnviar: { fontSize: 20, fontWeight: '800' },
   campo: { flex: 1, minHeight: 44, maxHeight: 130, borderWidth: 1, borderRadius: 22, paddingHorizontal: 14, paddingTop: 11, paddingBottom: 11, fontSize: 15.5 },

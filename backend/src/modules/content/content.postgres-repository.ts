@@ -13,6 +13,7 @@ function toMidia(row: Row): Midia {
     storedName: text(row, 'stored_name'),
     enviadoPor: text(row, 'enviado_por'),
     createdAt: text(row, 'created_at'),
+    duracaoMs: row.duracao_ms === null || row.duracao_ms === undefined ? null : Number(row.duracao_ms),
   };
 }
 
@@ -47,8 +48,8 @@ export class PostgresMidiaRepository implements MidiaRepository {
 
   async create(midia: Midia): Promise<Midia> {
     await this.db.run(
-      `INSERT INTO midias (id, tipo, nome, mime_type, tamanho, sha256, stored_name, enviado_por, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      `INSERT INTO midias (id, tipo, nome, mime_type, tamanho, sha256, stored_name, enviado_por, created_at, duracao_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
       [
         midia.id,
         midia.tipo,
@@ -59,6 +60,7 @@ export class PostgresMidiaRepository implements MidiaRepository {
         midia.storedName,
         midia.enviadoPor,
         midia.createdAt,
+        midia.duracaoMs,
       ],
     );
     return midia;

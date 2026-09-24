@@ -83,8 +83,8 @@ export function buildApp({
   // e vai direto para o disco, sem passar inteiro pela memória.
   app.addContentTypeParser('application/vnd.dp-atualizacao', (_request, payload, done) => done(null, payload));
 
-  // Imagens e vídeos do mural e fotos de perfil: mesmo caminho, pelo tipo real do arquivo
-  app.addContentTypeParser(/^(image|video)\//, (_request, payload, done) => done(null, payload));
+  // Imagens, vídeos e áudios (mural, fotos de perfil, mensagens de voz): mesmo caminho, pelo tipo real do arquivo
+  app.addContentTypeParser(/^(image|video|audio)\//, (_request, payload, done) => done(null, payload));
 
   // Documentos anexados às conversas (PDF, Word, Excel, TXT...): também como fluxo.
   // A lista é a mesma que o serviço aceita, para não abrir aqui um tipo que ele recusaria.

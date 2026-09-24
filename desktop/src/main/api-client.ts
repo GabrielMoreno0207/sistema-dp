@@ -278,9 +278,11 @@ export class ApiClient {
    * Envia uma imagem ou vídeo direto do disco, em partes. Não há limite de
    * tamanho: o arquivo nunca é carregado inteiro nem aqui nem no servidor.
    */
-  async enviarMidia(caminho: string, mimeType: string, nome: string): Promise<MidiaPublica> {
+  /** duracaoMs: só na mensagem de voz (o WEBM gravado não traz a duração no arquivo) */
+  async enviarMidia(caminho: string, mimeType: string, nome: string, duracaoMs?: number): Promise<MidiaPublica> {
     const headers: Record<string, string> = { 'Content-Type': mimeType, 'X-Nome': encodeURIComponent(nome) };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (duracaoMs) headers['X-Duracao'] = String(Math.round(duracaoMs));
     const { size } = await stat(caminho);
 
     const response = await fetch(`${this.baseUrl}/api/midias`, {

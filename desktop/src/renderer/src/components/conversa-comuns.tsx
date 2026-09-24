@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
 import { Icone } from '../lib/icones';
+import { PlayerDeAudio } from './audio';
 
 /** "Ana Paula" → "AP"; "Livia (DP)" → "L" */
 export function iniciais(nome: string): string {
@@ -105,6 +106,7 @@ export function juntarMensagens(atuais: MensagemConversa[], novas: MensagemConve
 export function resumoDaCitacao(mensagem: MensagemConversa): string {
   if (mensagem.apagadaEm) return 'mensagem apagada';
   if (mensagem.conteudo) return mensagem.conteudo.slice(0, 120);
+  if (mensagem.midia?.tipo === 'AUDIO') return 'Mensagem de voz';
   if (mensagem.midia) return mensagem.midia.nome;
   return 'anexo';
 }
@@ -442,6 +444,7 @@ export function MensagemDaConversa(props: MensagemProps) {
               onFechar={() => setImagemAberta(false)}
             />
           )}
+          {midia?.tipo === 'AUDIO' && <PlayerDeAudio midia={midia} />}
           {midia?.tipo === 'VIDEO' && (
             <video className="bubble__video" src={`dpmidia://m/${midia.id}`} controls preload="metadata" />
           )}

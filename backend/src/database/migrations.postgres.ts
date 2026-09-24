@@ -432,4 +432,15 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       ALTER TABLE computers ADD COLUMN last_ip TEXT;
     `,
   },
+  {
+    version: 11,
+    name: 'mensagens de voz',
+    sql: `
+      -- Áudio gravado nas conversas (desktop e celular), guardado como as outras mídias
+      ALTER TABLE midias DROP CONSTRAINT midias_tipo_check;
+      ALTER TABLE midias ADD CONSTRAINT midias_tipo_check CHECK (tipo IN ('IMAGEM', 'VIDEO', 'ARQUIVO', 'AUDIO'));
+      -- Duração da gravação (o WEBM gravado pelo navegador não traz a duração no arquivo)
+      ALTER TABLE midias ADD COLUMN duracao_ms INTEGER;
+    `,
+  },
 ];

@@ -27,6 +27,7 @@ import {
   resumoDaCitacao,
 } from '../components/conversa-comuns';
 import { Icone } from '../lib/icones';
+import { BarraDeGravacao, useGravador } from '../components/audio';
 import { EncaminharMensagem } from '../components/EncaminharMensagem';
 
 /** Sem funcionário logado no PC nem conta do DP, a tela não tem de quem falar. */
@@ -51,6 +52,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   const [anexo, setAnexo] = useState<MidiaPublica | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [enviandoAnexo, setEnviandoAnexo] = useState(false);
+  const [enviandoAudio, setEnviandoAudio] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [criandoGrupo, setCriandoGrupo] = useState(false);
@@ -297,6 +299,41 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     setProcurando(false);
     document.querySelector<HTMLTextAreaElement>('.chat__input')?.focus();
   }
+
+  /** Mensagem de voz: sobe o áudio e já envia (sem passar pelo campo de anexo) */
+  async function enviarAudio(dados: ArrayBuffer, mimeType: string, duracaoMs: number) {
+    const conversaId = abertaId;
+    if (!conversaId) return;
+    setErro(null);
+    setEnviandoAudio(true);
+    try {
+      const envio = await window.dp.conversasEnviarAudio(dados, mimeType, duracaoMs);
+      if (!envio.ok || !envio.midia) {
+        setErro(envio.message || 'Não foi possível enviar a mensagem de voz.');
+        return;
+      }
+      const resposta = await window.dp.conversasApi<{ mensagem: MensagemConversa }>(
+        'POST',
+        `/api/conversas/${conversaId}/mensagens`,
+        { conteudo: '', midiaId: envio.midia.id, respondeA: respondendo?.id ?? null },
+      );
+      if (!resposta.ok) {
+        setErro(resposta.message);
+        return;
+      }
+      setRespondendo(null);
+      const nova = resposta.dados?.mensagem;
+      if (nova && conversaId === abertaRef.current) setMensagens((atual) => juntarMensagens(atual, [nova]));
+      await carregarLista();
+    } finally {
+      setEnviandoAudio(false);
+    }
+  }
+
+  const gravador = useGravador(
+    (dados, mimeType, duracaoMs) => void enviarAudio(dados, mimeType, duracaoMs),
+    (mensagem) => setErro(mensagem),
+  );
 
   async function anexar() {
     setErro(null);
@@ -686,6 +723,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                 </div>
               )}
               {enviandoAnexo && <p className="chat__anexo">Enviando o arquivo...</p>}
+              {enviandoAudio && <p className="chat__anexo">Enviando a mensagem de voz...</p>}
               {anexo && (
                 <p className="chat__anexo">
                   <Icone nome="anexo" /> {anexo.nome}
@@ -694,6 +732,13 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                   </button>
                 </p>
               )}
+              {gravador.estado === 'gravando' ? (
+                <BarraDeGravacao
+                  decorrido={gravador.decorrido}
+                  onCancelar={() => gravador.terminar(false)}
+                  onEnviar={() => gravador.terminar(true)}
+                />
+              ) : (
               <div className="chat__input-row">
                 <button
                   type="button"
@@ -721,7 +766,18 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                 >
                   {enviando ? 'Enviando...' : 'Enviar'}
                 </button>
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  onClick={() => void gravador.comecar()}
+                  disabled={!online || enviandoAudio || gravador.estado !== 'parado'}
+                  title="Gravar mensagem de voz"
+                  aria-label="Gravar mensagem de voz"
+                >
+                  <Icone nome="microfone" />
+                </button>
               </div>
+              )}
             </form>
           </>
         )}

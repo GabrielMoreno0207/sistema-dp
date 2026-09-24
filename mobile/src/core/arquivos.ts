@@ -61,11 +61,17 @@ export async function tirarFoto(): Promise<{ arquivo: ArquivoLocal | null; erro?
 }
 
 /** Envia imagem, vídeo ou documento para /api/midias (chat, mural, chamados, foto) */
-export async function enviarMidia(arquivo: ArquivoLocal): Promise<{ midia: MidiaPublica | null; message: string }> {
+export async function enviarMidia(
+  arquivo: ArquivoLocal,
+  /** Só na mensagem de voz */
+  duracaoMs?: number,
+): Promise<{ midia: MidiaPublica | null; message: string }> {
   const api = getApi();
   if (!api) return { midia: null, message: 'Sem conexão com o servidor.' };
   try {
-    const midia = await api.upload<MidiaPublica>('/api/midias', arquivo, { 'X-Nome': encodeURIComponent(arquivo.name) });
+    const headers: Record<string, string> = { 'X-Nome': encodeURIComponent(arquivo.name) };
+    if (duracaoMs) headers['X-Duracao'] = String(Math.round(duracaoMs));
+    const midia = await api.upload<MidiaPublica>('/api/midias', arquivo, headers);
     return { midia, message: '' };
   } catch (err) {
     return { midia: null, message: friendly(err, 'Não foi possível enviar o arquivo.') };

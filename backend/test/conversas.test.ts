@@ -251,6 +251,53 @@ describe('conversa entre funcionários', () => {
     assert.ok(ultima.midia.tamanho > 0);
   });
 
+  test('mensagem de voz: vai como mídia de áudio, com a duração, e a lista mostra "Mensagem de voz"', async () => {
+    const midia = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: {
+        ...comToken(pcMaria),
+        // O navegador informa o codec junto: "audio/webm;codecs=opus"
+        'content-type': 'audio/webm;codecs=opus',
+        'x-nome': encodeURIComponent('mensagem-de-voz.webm'),
+        'x-duracao': '4250',
+      },
+      payload: Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 1, 2, 3, 4]),
+    });
+    assert.equal(midia.statusCode, 201);
+    assert.equal(midia.json().tipo, 'AUDIO');
+    assert.equal(midia.json().mimeType, 'audio/webm');
+    assert.equal(midia.json().duracaoMs, 4250);
+
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { midiaId: midia.json().id },
+    });
+    assert.equal(enviada.statusCode, 201);
+
+    const lista = await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcJoao) });
+    const conversa = lista.json().conversas.find((c: { id: string }) => c.id === conversaMariaJoao);
+    assert.equal(conversa.ultimaMensagem.conteudo, '🎤 Mensagem de voz');
+
+    const mensagens = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+    });
+    assert.equal(mensagens.json().mensagens.at(-1).midia.duracaoMs, 4250);
+
+    // Duração absurda é ignorada, e imagem nunca guarda duração
+    const imagem = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: { ...comToken(pcMaria), 'content-type': 'image/png', 'x-nome': 'a.png', 'x-duracao': '999' },
+      payload: IMAGEM,
+    });
+    assert.equal(imagem.json().duracaoMs, null);
+  });
+
   test('tipo de arquivo fora da lista é recusado', async () => {
     const midia = await app.inject({
       method: 'POST',

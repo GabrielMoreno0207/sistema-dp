@@ -1,7 +1,7 @@
 {
   "name": "comunicacao-dp-mobile",
-  "version": "2.1.0",
-  "otaRuntime": 1,
+  "version": "2.2.0",
+  "otaRuntime": 2,
   "private": true,
   "scripts": {
     "android": "react-native run-android",

@@ -74,6 +74,22 @@ export interface Spec extends TurboModule {
   /** Abre a tela de instalação do Android com o APK baixado (a pessoa confirma) */
   installApk(path: string): Promise<boolean>;
 
+  // ---------------------------------------------------------------- mensagem de voz
+  /** Começa a gravar pelo microfone (peça a permissão RECORD_AUDIO antes). Rejeita com mensagem para a pessoa */
+  startRecording(): Promise<void>;
+  /** Para e devolve JSON {uri, name, mimeType, size, durationMs} */
+  stopRecording(): Promise<string>;
+  cancelRecording(): void;
+  /** Volume do microfone agora, de 0 a 1 */
+  recordingLevel(): Promise<number>;
+  /** Toca o áudio (id volta em onAudioStatus). startMs: continuar de onde parou */
+  playAudio(url: string, token: string, id: string, startMs: number): void;
+  pauseAudio(): void;
+  seekAudio(positionMs: number): void;
+  stopAudio(): void;
+  /** JSON {id, estado: carregando|tocando|pausado|fim|parado|erro, posicaoMs, duracaoMs, mensagem} */
+  readonly onAudioStatus: CodegenTypes.EventEmitter<string>;
+
   // ---------------------------------------------------------------- atualização rápida
   /** JSON {runtime, ativa ("" = JavaScript do APK), ruins} */
   otaInfo(): Promise<string>;

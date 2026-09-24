@@ -58,6 +58,10 @@ import {
   LuSmile,
   LuVideo,
   LuX,
+  LuMic,
+  LuPlay,
+  LuPause,
+  LuTrash2,
   LuWrench,
 } from 'react-icons/lu';
 
@@ -84,6 +88,10 @@ export const ICONES = {
   aviso: LuTriangleAlert,
   informativo: LuInfo,
   anexo: LuPaperclip,
+  microfone: LuMic,
+  tocar: LuPlay,
+  pausar: LuPause,
+  lixeira: LuTrash2,
   arquivo: LuFileText,
   grupo: LuUsers,
   vazio: LuInbox,

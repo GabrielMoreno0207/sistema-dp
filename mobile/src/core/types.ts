@@ -65,11 +65,13 @@ export interface EmployeeProfile {
 /** Imagem, vídeo ou documento guardado no servidor */
 export interface MidiaPublica {
   id: string;
-  tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO';
+  tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO' | 'AUDIO';
   nome: string;
   mimeType: string;
   tamanho: number;
   url: string;
+  /** Mensagem de voz: duração da gravação (servidores antigos não mandam) */
+  duracaoMs?: number | null;
 }
 
 /** Recado que o DP deixa fixado na tela inicial */
