@@ -170,6 +170,14 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversaPedida, identidade]);
 
+  // Hook antes dos returns de "carregando"/"entrar": a ordem dos hooks não pode mudar entre um
+  // render e outro (colocado depois, a tela de Mensagens ficava em branco). enviarAudio é
+  // declarada mais abaixo e só é chamada quando a gravação termina.
+  const gravador = useGravador(
+    (dados, mimeType, duracaoMs) => void enviarAudio(dados, mimeType, duracaoMs),
+    (mensagem) => setErro(mensagem),
+  );
+
   if (identidade === undefined) return <div className="loading">Carregando...</div>;
 
   if (identidade === null) {
@@ -329,11 +337,6 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       setEnviandoAudio(false);
     }
   }
-
-  const gravador = useGravador(
-    (dados, mimeType, duracaoMs) => void enviarAudio(dados, mimeType, duracaoMs),
-    (mensagem) => setErro(mensagem),
-  );
 
   async function anexar() {
     setErro(null);
