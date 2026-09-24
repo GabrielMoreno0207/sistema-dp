@@ -61,8 +61,8 @@ O comando abre o aplicativo com recarga automática da interface. Em desenvolvim
 
 Para testar o fluxo completo:
 
-1. Abra a Central do DP: `http://localhost:3000/central`.
-2. Envie uma mensagem.
+1. No app, entre como DP/TI (ou com um funcionário do setor Departamento Pessoal).
+2. Envie um comunicado em **Comunicados**.
 3. O alerta aparece no canto da tela, com som, e a mensagem entra na lista.
 
 Outros comandos:
@@ -124,18 +124,18 @@ Funcionário clica em "Visualizar" → abre a mensagem → avisa o backend que f
 ### Mensagens (chat com as pessoas do DP)
 
 - A página **Mensagens** mostra, à esquerda, a **lista de contatos do DP** (ex.: Livia, Fabricio, Carol, Andressa) e, à direita, a **conversa individual** com a pessoa escolhida. Cada pessoa do DP tem as próprias conversas: o que você fala com a Livia só a Livia vê.
-- Qualquer funcionário pode falar com qualquer pessoa do DP, e os dois lados podem começar: a pessoa do DP escreve pela Central, e o funcionário escolhe o contato e escreve pelo app.
+- Qualquer funcionário pode falar com qualquer pessoa do DP, e os dois lados podem começar: a pessoa do DP escreve pelo app dela, e o funcionário escolhe o contato e escreve pelo app.
 - Cada contato mostra a prévia da última mensagem, o horário e quantas mensagens dele ainda não foram lidas.
-- O chat é **da pessoa**: é preciso entrar com a matrícula. Se ela entrar em outro PC, as conversas vão junto. Sem login, a página explica e oferece **Entrar com minha matrícula**.
+- O chat é **da pessoa**: é preciso entrar com o usuário. Se ela entrar em outro PC, as conversas vão junto. Sem login, a página explica e oferece **Entrar com meu usuário**.
 - **Enter** envia e **Shift+Enter** quebra a linha (até 2000 caracteres). As minhas mensagens mostram **✓ lida** quando a pessoa do DP já leu.
-- Se a pessoa do DP configurou uma **resposta automática** na Central, ela chega na hora, com a etiqueta **🤖 Resposta automática**. A pessoa do DP continua vendo a sua mensagem como não lida e responde depois.
+- Se a pessoa do DP configurou uma **resposta automática** (Ajustes), ela chega na hora, com a etiqueta **🤖 Resposta automática**. A pessoa do DP continua vendo a sua mensagem como não lida e responde depois.
 - Mensagem nova **não abre alerta nem toca som**: o aviso é só o **contador** (total de todas as conversas) no item **Mensagens**, no Início (com o nome de quem mandou), no título da janela e na bandeja. Abrir a conversa com uma pessoa marca como lidas as mensagens dela.
 - Enviar exige o servidor conectado (🟢). Sem conexão, o app avisa e a mensagem não é enviada.
 
 ### Login do funcionário
 
-- Ao abrir o app aparece a tela **Entrar no Comunicação DP**: matrícula e senha. Quem cadastra os funcionários (matrícula, senha inicial, setor, turno) é o **DP, na Central**.
-- O login é **opcional**. Em **Continuar sem identificação**, o computador segue recebendo os comunicados gerais enviados a todos. Para entrar depois: **Meu perfil → Entrar com minha matrícula**.
+- Ao abrir o app aparece a tela **Entrar no Comunicação DP**: usuário e senha. Quem cadastra os funcionários (usuário, senha inicial, setor, turno) é o **DP, em Cadastros**, no próprio app.
+- O login é **opcional**. Em **Continuar sem identificação**, o computador segue recebendo os comunicados gerais enviados a todos. Para entrar depois: **Meu perfil → Entrar com meu usuário**.
 - Logado, o funcionário recebe também os comunicados enviados para o seu setor ou turno, e usa o chat com o DP. O vínculo funcionário ↔ computador fica no servidor e sobrevive a reinícios do app, mas **expira** depois de algumas horas (padrão 12h, `EMPLOYEE_SESSION_HOURS` no backend). Ele também termina no **logoff do Windows**, para o próximo usuário de um PC compartilhado não herdar a sessão.
 - **Primeiro acesso:** com a senha inicial (ou uma senha redefinida pelo DP), o app mostra **Defina sua nova senha** antes de liberar o uso.
 - Se o DP desativar o funcionário, redefinir a senha ou mudar o setor ou turno, o app se atualiza na hora.
@@ -211,7 +211,7 @@ que instala na hora.
 **Se o download vier corrompido,** o hash não bate, o arquivo é descartado e nada
 é instalado; fica para a próxima verificação.
 
-**Mudar o horário:** `HORARIO_ATUALIZACAO=04:30` no `.env` ao lado do executável.
+**Mudar o horário:** `HORARIO_ATUALIZACAO=04:30` no `.env` ao lado do executável. Na primeira leitura o valor é copiado para o `config.json` da pessoa (`%APPDATA%\Comunicação DP`), então continua valendo depois das atualizações. Para trocar depois, edite `horarioAtualizacao` nesse `config.json`.
 Valor inválido cai no padrão de 03:00.
 
 Rodando pelo código-fonte (`npm run dev`) a atualização automática fica desligada,

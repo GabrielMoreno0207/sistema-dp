@@ -1,7 +1,6 @@
 import type { AttachmentRepository } from '../modules/attachments/attachment.repository';
 import type { AutoReplyRepository } from '../modules/auto-replies/auto-reply.repository';
 import type { TokenRepository } from '../modules/auth/token.repository';
-import type { ChatRepository } from '../modules/chat/chat.repository';
 import type { ComputerRepository } from '../modules/computers/computer.repository';
 import type { MessageRepository } from '../modules/messages/message.repository';
 import type { SectorRepository } from '../modules/sectors/sector.repository';
@@ -9,7 +8,6 @@ import type { UserRepository } from '../modules/users/user.repository';
 import { PostgresAttachmentRepository } from '../modules/attachments/attachment.postgres-repository';
 import { PostgresAutoReplyRepository } from '../modules/auto-replies/auto-reply.postgres-repository';
 import { PostgresTokenRepository } from '../modules/auth/token.postgres-repository';
-import { PostgresChatRepository } from '../modules/chat/chat.postgres-repository';
 import { PostgresComputerRepository } from '../modules/computers/computer.postgres-repository';
 import { PostgresMessageRepository } from '../modules/messages/message.postgres-repository';
 import { PostgresSectorRepository } from '../modules/sectors/sector.postgres-repository';
@@ -36,7 +34,6 @@ export interface Repositories {
   users: UserRepository;
   tokens: TokenRepository;
   sectors: SectorRepository;
-  chat: ChatRepository;
   autoReplies: AutoReplyRepository;
   /** Imagens e vídeos do mural e fotos de perfil */
   midias: MidiaRepository;
@@ -61,7 +58,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     users: new PostgresUserRepository(db),
     tokens: new PostgresTokenRepository(db),
     sectors: new PostgresSectorRepository(db),
-    chat: new PostgresChatRepository(db),
     autoReplies: new PostgresAutoReplyRepository(db),
     midias: new PostgresMidiaRepository(db),
     mural: new PostgresMuralRepository(db),

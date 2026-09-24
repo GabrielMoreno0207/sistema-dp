@@ -41,6 +41,8 @@ export interface MensagemConversa {
   automatica: boolean;
   /** Veio de outra conversa (a tela mostra "encaminhada") */
   encaminhada: boolean;
+  /** Id da mensagem que esta responde (null = mensagem solta) */
+  respondeA: number | null;
   createdAt: string;
   apagadaEm: string | null;
 }
@@ -51,7 +53,7 @@ export type NovaMensagemConversa = Omit<MensagemConversa, 'id' | 'createdAt' | '
 export interface Participante {
   id: string;
   nome: string;
-  /** Matrícula do funcionário, ou null para o DP */
+  /** Usuário do funcionário, ou null para o DP */
   matricula: string | null;
   setor: string | null;
   /** true = pessoa do DP (aparece com etiqueta na lista) */
@@ -66,6 +68,11 @@ export interface Participante {
 /** Como a conversa aparece na lista de cada pessoa */
 export interface ConversaResumo extends Conversa {
   participantes: Participante[];
+  /**
+   * Até quando todo mundo já leu. Serve para marcar "lida" nas mensagens que
+   * a pessoa mandou: é a leitura mais atrasada entre os outros participantes.
+   */
+  lidaAte: string | null;
   /** Nome a mostrar: o do grupo, ou o da outra pessoa na conversa direta */
   titulo: string;
   ultimaMensagem: { conteudo: string; autorNome: string; tipo: TipoMensagem; createdAt: string } | null;

@@ -1,0 +1,6 @@
+A Central web foi aposentada em 24/09/2026: o DP e o TI usam o aplicativo
+(computador ou celular), com as telas de administração liberadas pelo setor.
+
+Esta pasta continua existindo porque a atualização do servidor (versionador e
+docker/entrypoint.sh) confere e troca as partes "dist node_modules public
+package.json". Um pacote sem ela seria recusado pelos servidores já instalados.

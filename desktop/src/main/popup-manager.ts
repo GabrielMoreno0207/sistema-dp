@@ -91,9 +91,32 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
 
   view(messageId: string): void {
     const item = this.queue.find((naFila) => chaveDo(naFila) === messageId);
-    this.remove(messageId);
-    if (item?.tipo === 'MENSAGEM') this.emit('conversa', item.mensagem.conversaId);
-    else this.emit('view', messageId);
+    // Clique numa chave que já saiu da fila: vale para o alerta que está à vista,
+    // senão o botão não faria nada e o alerta ficaria parado na tela
+    const alvo = item ?? this.queue[0];
+    if (!alvo) {
+      this.render();
+      return;
+    }
+    this.remove(chaveDo(alvo));
+    if (alvo.tipo === 'MENSAGEM') this.emit('conversa', alvo.mensagem.conversaId);
+    else this.emit('view', chaveDo(alvo));
+  }
+
+  /** "Fechar" no alerta: tira da fila e, em último caso, tira o que está à vista. */
+  dispensar(messageId: string): void {
+    if (this.queue.some((naFila) => chaveDo(naFila) === messageId)) {
+      this.remove(messageId);
+      return;
+    }
+    this.dispensarAtual();
+  }
+
+  /** Rede de segurança: o clique sempre mexe em alguma coisa. */
+  dispensarAtual(): void {
+    const atual = this.queue[0];
+    if (atual) this.remove(chaveDo(atual));
+    else this.render();
   }
 
   private render(): void {
@@ -132,8 +155,31 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
       this.win = null;
       this.loaded = false;
     });
+    // Tela do alerta travada ou derrubada: descarta a janela para a próxima
+    // notificação abrir uma nova, em vez de ficar um cartão morto na tela
+    win.webContents.on('render-process-gone', (_evento, detalhe) => {
+      console.warn(`[alerta] a tela do alerta caiu (${detalhe.reason}); vai ser refeita na próxima`);
+      this.descartarJanela();
+    });
+    win.on('unresponsive', () => {
+      console.warn('[alerta] a tela do alerta parou de responder; refazendo');
+      this.descartarJanela();
+    });
     this.win = win;
     return win;
+  }
+
+  /** Fecha a janela do alerta de verdade (a fila continua como está). */
+  private descartarJanela(): void {
+    const win = this.win;
+    this.win = null;
+    this.loaded = false;
+    if (win && !win.isDestroyed()) {
+      win.removeAllListeners('close');
+      win.destroy();
+    }
+    // Ainda há alerta na fila: abre uma janela nova já com ele
+    if (this.queue.length > 0) this.render();
   }
 
   private reveal(win: BrowserWindow): void {

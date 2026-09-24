@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Atalho, DadosAtalho, DestinoAtalho } from '../../../shared/types';
-import { IconeDoAtalho, ICONES_DE_ATALHO } from '../lib/icones';
+import { IconeDoAtalho, ICONES_DE_ATALHO, nomeDeIconeDoAtalho } from '../lib/icones';
 
 
 const CORES = ['#17b3a3', '#3f8fd0', '#6c63c7', '#2ea36f', '#d98324', '#c0554d', '#e0a92b', '#d15c8a'];
@@ -23,7 +23,7 @@ interface EditorAtalhoProps {
 
 export function EditorAtalho({ atalho, onSalvar, onRemover, onFechar }: EditorAtalhoProps) {
   const [rotulo, setRotulo] = useState(atalho?.rotulo ?? '');
-  const [icone, setIcone] = useState<string>(atalho?.icone ?? ICONES_DE_ATALHO[0]);
+  const [icone, setIcone] = useState<string>(atalho ? nomeDeIconeDoAtalho(atalho.icone) : ICONES_DE_ATALHO[0]);
   const [cor, setCor] = useState(atalho?.cor ?? CORES[0]);
   const [destino, setDestino] = useState<DestinoAtalho>(atalho?.destino ?? 'COMUNICADOS');
   const [salvando, setSalvando] = useState(false);
@@ -79,8 +79,10 @@ export function EditorAtalho({ atalho, onSalvar, onRemover, onFechar }: EditorAt
                   className={`opcao-icone ${icone === opcao ? 'opcao-icone--ativa' : ''}`}
                   onClick={() => setIcone(opcao)}
                   aria-label={`Ícone ${opcao}`}
+                  title={opcao}
                 >
-                  {opcao}
+                  {/* Aqui ficava o nome do ícone escrito: quem escolhe precisa ver o desenho */}
+                  <IconeDoAtalho nome={opcao} tamanho={20} />
                 </button>
               ))}
             </div>

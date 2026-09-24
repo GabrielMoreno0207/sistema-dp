@@ -131,6 +131,15 @@ export const adminRoutes: FastifyPluginAsync<{ admin: AdminService }> = async (a
     },
   );
 
+  app.delete<{ Params: { id: string } }>(
+    '/admin/users/:id',
+    { ...superAdminOnly, schema: { params: userIdParams } },
+    async (request, reply) => {
+      await admin.removeUser(requireSuperAdmin(request).userId, request.params.id);
+      reply.status(204).send();
+    },
+  );
+
   app.post<{ Params: { id: string }; Body: { password: string } }>(
     '/admin/users/:id/password',
     { ...superAdminOnly, schema: { params: userIdParams, body: passwordBody } },

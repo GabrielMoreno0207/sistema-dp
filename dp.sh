@@ -1,7 +1,7 @@
 #!/bin/sh
 # Atalhos do dia a dia do Comunicação DP em container.
 #
-#   ./dp.sh criar-login livia "Livia Santos" --gerar   cria um login da Central para o DP
+#   ./dp.sh criar-login livia "Livia Santos" --gerar   cria uma conta própria do DP/TI
 #   ./dp.sh criar-login ti "TI" --gerar --sem-chat     login que não aparece no chat do app
 #   ./dp.sh trocar-senha ti                            troca a senha de um login
 #   ./dp.sh liberar-pc PC-1A2B3C4D5E6F                 libera um PC para registrar de novo
@@ -14,9 +14,15 @@ set -eu
 
 cd "$(dirname "$0")"
 
+# O código roda de /app/aplicativo (volume), e não de dentro da imagem: o caminho
+# do script tem de ser o de lá, senão o node não acha o arquivo.
+APP_NO_CONTAINER=/app/aplicativo
+
 executar_script() {
   script="$1"; shift
-  docker compose exec backend node --disable-warning=ExperimentalWarning "dist/scripts/$script" "$@"
+  # MSYS_NO_PATHCONV: no Git Bash do Windows, sem isso o /app/... vira caminho do
+  # Windows antes de chegar ao container. No Linux a variável é ignorada.
+  MSYS_NO_PATHCONV=1 docker compose exec backend node --disable-warning=ExperimentalWarning     "$APP_NO_CONTAINER/dist/scripts/$script" "$@"
 }
 
 comando="${1:-ajuda}"
@@ -42,7 +48,7 @@ case "$comando" in
     echo ""
     if docker compose exec -T backend node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
       ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-      echo "Backend respondendo: http://${ip:-localhost}:$porta/central"
+      echo "Backend respondendo: http://${ip:-localhost}:$porta"
     else
       echo "Backend NÃO está respondendo. Veja:  ./dp.sh logs"
       exit 1

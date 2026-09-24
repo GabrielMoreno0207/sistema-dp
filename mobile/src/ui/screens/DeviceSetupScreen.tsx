@@ -95,7 +95,7 @@ export function DeviceSetupScreen({ onBack }: { onBack: () => void }) {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.intro, { color: t.textSoft }]}>
           Faça estes ajustes uma vez. Assim o app liga sozinho junto com o celular e os avisos chegam mesmo com ele fechado. Uma
-          notificação fixa "Comunicação DP" indica que ele está ativo.
+          notificação fixa "Comunica Trinys" indica que ele está ativo.
         </Text>
 
         <Step
@@ -117,12 +117,12 @@ export function DeviceSetupScreen({ onBack }: { onBack: () => void }) {
           title="3. Início automático"
           text={
             brand.includes('xiaomi') || brand.includes('redmi') || brand.includes('poco')
-              ? 'Xiaomi: ative "Início automático" para Comunicação DP.'
+              ? 'Xiaomi: ative "Início automático" para Comunica Trinys.'
               : brand.includes('samsung')
                 ? 'Samsung: em Bateria, deixe o app "Sem restrições" e fora de "Apps em suspensão".'
                 : brand.includes('motorola')
                   ? 'Motorola: em Bateria, escolha "Sem restrições" para o app.'
-                  : 'Algumas marcas têm uma opção extra de "Início automático" ou "Apps protegidos". Ative para Comunicação DP.'
+                  : 'Algumas marcas têm uma opção extra de "Início automático" ou "Apps protegidos". Ative para Comunica Trinys.'
           }
           action="Abrir ajuste da marca"
           onPress={() =>

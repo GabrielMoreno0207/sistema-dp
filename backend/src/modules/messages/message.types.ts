@@ -31,6 +31,8 @@ export interface Message {
   target: TargetType;
   targetId: string | null;
   sender: string;
+  /** true = o comunicado pede "li e estou ciente" de cada destinatário */
+  exigeCiencia: boolean;
   createdAt: string;
   /** Arquivos e imagens que o DP mandou junto (lista vazia quando não há anexo) */
   attachments: Attachment[];
@@ -43,6 +45,8 @@ export type NewMessage = Omit<Message, 'id' | 'createdAt' | 'attachments'>;
 export interface RecipientMessage extends Message {
   read: boolean;
   readAt: string | null;
+  /** Quando esta pessoa confirmou a ciência (null = ainda não confirmou) */
+  cienteEm: string | null;
 }
 
 /** Mensagem do ponto de vista do DP (administração) */
@@ -56,9 +60,11 @@ export interface MessageWithStats extends Message {
 export interface MessageRead {
   readerId: string;
   readAt: string;
+  /** Quando confirmou a ciência, se o comunicado pedia */
+  cienteEm: string | null;
   /** Computador em que foi lida */
   computerId: string | null;
-  /** Preenchido quando quem leu é um funcionário (removed = já foi excluído; nome/matrícula guardados na leitura) */
+  /** Preenchido quando quem leu é um funcionário (removed = já foi excluído; nome/usuário guardados na leitura) */
   user: { name: string; registration: string | null; sector: string | null; removed: boolean } | null;
   /** Preenchido quando quem leu é o próprio computador (sem funcionário logado) */
   readerHostname: string | null;
@@ -77,6 +83,7 @@ export interface ReaderView {
   sector: string | null;
   computer: string | null;
   readAt: string;
+  cienteEm: string | null;
 }
 
 /** Quem ainda não leu (só para destinos com lista conhecida: funcionário, setor, turno, computador) */

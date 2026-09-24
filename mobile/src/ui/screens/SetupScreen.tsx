@@ -50,7 +50,7 @@ export function SetupScreen({ onBack }: { onBack?: () => void }) {
           </Card>
           {app.deviceId ? (
             <Text style={[styles.device, { color: t.muted }]}>
-              Este celular aparece na Central como {app.deviceId}
+              Este celular aparece em Cadastros → Aparelhos como {app.deviceId}
               {app.device ? ` (${app.device.manufacturer} ${app.device.model})` : ''}.
             </Text>
           ) : null}

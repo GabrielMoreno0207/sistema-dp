@@ -30,7 +30,7 @@ export interface NewEmployeeInput {
 
 export interface EmployeeUpdateInput {
   name?: string;
-  /** Nova matrícula (é também o login do funcionário no app) */
+  /** Novo usuário (é também o login do funcionário no app) */
   registration?: string;
   sector?: string | null;
   shift?: string | null;
@@ -63,18 +63,18 @@ function tooManyAttempts(blockedMs: number): AppError {
 }
 
 /**
- * Funcionários: cadastro (pelo DP) e sessão no aplicativo desktop (login com matrícula).
+ * Funcionários: cadastro (pelo DP) e sessão no aplicativo desktop (login com usuário).
  * O vínculo funcionário ↔ computador fica no servidor, sobrevive a reconexões e expira
  * após algumas horas (PCs compartilhados).
  */
 export class EmployeeService extends EventEmitter<EmployeeEvents> implements SectorChangeListener {
   /** Bloqueios de tentativas erradas, em três níveis */
   private readonly throttles = {
-    /** mesma matrícula no mesmo PC: 5 erros → 5 min */
+    /** mesmo usuário no mesmo PC: 5 erros → 5 min */
     pair: new LoginThrottle(),
-    /** um PC testando várias matrículas: 20 erros → 15 min */
+    /** um PC testando vários usuários: 20 erros → 15 min */
     computer: new LoginThrottle({ maxFailures: 20, windowMs: 15 * MINUTE, lockMs: 15 * MINUTE }),
-    /** uma matrícula atacada de vários PCs: 10 erros → 15 min */
+    /** um usuário atacado de vários PCs: 10 erros → 15 min */
     registration: new LoginThrottle({ maxFailures: 10, windowMs: 15 * MINUTE, lockMs: 15 * MINUTE }),
     /** senha atual errada na troca de senha: 5 erros → 5 min */
     password: new LoginThrottle(),
@@ -134,11 +134,11 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
   async create(input: NewEmployeeInput): Promise<Employee> {
     const name = optional(input.name);
     const registration = input.registration.trim();
-    if (!name || !registration) throw new AppError('Nome e matrícula são obrigatórios', 400, 'VALIDATION_ERROR');
+    if (!name || !registration) throw new AppError('Nome e usuário são obrigatórios', 400, 'VALIDATION_ERROR');
     checkPassword(input.password);
 
     if ((await this.users.findByRegistration(registration)) || (await this.users.findByUsername(registration))) {
-      throw new AppError(`A matrícula ${registration} já está cadastrada`, 409, 'REGISTRATION_TAKEN');
+      throw new AppError(`O usuário ${registration} já está cadastrado`, 409, 'REGISTRATION_TAKEN');
     }
 
     const user = await this.users.create(
@@ -157,7 +157,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
       },
       new Date(),
     );
-    this.log.info(`Funcionário cadastrado: ${name} (matrícula ${registration})`);
+    this.log.info(`Funcionário cadastrado: ${name} (usuário ${registration})`);
     return toEmployee(user);
   }
 
@@ -170,23 +170,23 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
       status: input.status ?? current.status,
     };
 
-    // Matrícula nova: precisa ser única (ela é o login do funcionário)
+    // Usuário novo: precisa ser único (ele é o login do funcionário)
     let registration = current.registration ?? current.username;
     if (input.registration !== undefined) {
       const wanted = input.registration.trim();
-      if (!wanted) throw new AppError('A matrícula não pode ficar em branco', 400, 'VALIDATION_ERROR');
+      if (!wanted) throw new AppError('O usuário não pode ficar em branco', 400, 'VALIDATION_ERROR');
       if (wanted !== registration) {
         const taken = (await this.users.findByRegistration(wanted)) ?? (await this.users.findByUsername(wanted));
-        if (taken && taken.id !== id) throw new AppError(`A matrícula ${wanted} já está cadastrada`, 409, 'REGISTRATION_TAKEN');
+        if (taken && taken.id !== id) throw new AppError(`O usuário ${wanted} já está cadastrado`, 409, 'REGISTRATION_TAKEN');
         await this.users.updateRegistration(id, wanted);
-        this.log.info(`Matrícula alterada: ${registration} → ${wanted} (${current.name})`);
+        this.log.info(`Usuário alterado: ${registration} → ${wanted} (${current.name})`);
         registration = wanted;
       }
     }
 
     await this.users.updateProfile(id, next);
     const updated = { ...current, ...next, registration, username: registration };
-    this.log.info(`Funcionário atualizado: ${updated.name} (matrícula ${updated.registration})`);
+    this.log.info(`Funcionário atualizado: ${updated.name} (usuário ${updated.registration})`);
 
     // Inativo: sai de todos os computadores. Setor/turno/nome mudou: o app e as salas do WebSocket se atualizam.
     if (updated.status === 'INACTIVE') await this.endSessions(id);
@@ -204,7 +204,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
     checkPassword(password);
     await this.users.updatePassword(id, await hashSecret(password), false);
     await this.endSessions(id);
-    this.log.info(`Senha redefinida pelo DP: ${user.name} (matrícula ${user.registration})`);
+    this.log.info(`Senha redefinida pelo DP: ${user.name} (usuário ${user.registration})`);
   }
 
   /** Tira o funcionário de todos os computadores (exceto, opcionalmente, um). */
@@ -221,7 +221,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
     const user = await this.getEmployeeUser(id);
     await this.endSessions(id);
     await this.users.delete(id);
-    this.log.info(`Funcionário excluído: ${user.name} (matrícula ${user.registration})`);
+    this.log.info(`Funcionário excluído: ${user.name} (usuário ${user.registration})`);
   }
 
   /** Setor renomeado: funcionários logados desse setor trocam de sala e o app atualiza o perfil */
@@ -283,18 +283,18 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
     if (blockedMs > 0) throw tooManyAttempts(blockedMs);
 
     const user = await this.users.findByRegistration(registration);
-    // Mesmo sem funcionário, calcula um hash: o tempo de resposta não revela quais matrículas existem
+    // Mesmo sem funcionário, calcula um hash: o tempo de resposta não revela quais usuários existem
     const passwordOk = await verifySecret(password, user?.passwordHash ?? DUMMY_SECRET_HASH);
     if (!user || !passwordOk || user.status !== 'ACTIVE') {
       for (const [throttle, key] of keys) throttle.registerFailure(key);
-      this.log.warn(`Falha de login de funcionário: matrícula "${registration}" no PC ${computerId}`);
-      throw new AppError('Matrícula ou senha inválidas', 401, 'INVALID_CREDENTIALS');
+      this.log.warn(`Falha de login de funcionário: usuário "${registration}" no PC ${computerId}`);
+      throw new AppError('Usuário ou senha inválidos', 401, 'INVALID_CREDENTIALS');
     }
 
     this.throttles.pair.reset(keys[0][1]);
     await this.computers.setCurrentUser(computerId, user.id);
     const profile = toEmployeeProfile(user);
-    this.log.info(`Funcionário entrou: ${user.name} (matrícula ${profile.registration}) no PC ${computerId}`);
+    this.log.info(`Funcionário entrou: ${user.name} (usuário ${profile.registration}) no PC ${computerId}`);
     this.emit('sessionChanged', computerId, profile);
     return profile;
   }
@@ -302,7 +302,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
   async logout(computerId: string): Promise<void> {
     const employee = await this.getSessionEmployee(computerId);
     await this.computers.setCurrentUser(computerId, null);
-    if (employee) this.log.info(`Funcionário saiu: ${employee.name} (matrícula ${employee.registration}) do PC ${computerId}`);
+    if (employee) this.log.info(`Funcionário saiu: ${employee.name} (usuário ${employee.registration}) do PC ${computerId}`);
     this.emit('sessionChanged', computerId, null);
   }
 
@@ -325,7 +325,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
     this.throttles.password.reset(employee.id);
     await this.users.updatePassword(user.id, await hashSecret(newPassword), false);
     await this.endSessions(user.id, computerId);
-    this.log.info(`Senha alterada pelo funcionário: ${user.name} (matrícula ${employee.registration})`);
+    this.log.info(`Senha alterada pelo funcionário: ${user.name} (usuário ${employee.registration})`);
   }
 
   /** Limpeza periódica dos bloqueios de tentativas */

@@ -53,6 +53,10 @@ export interface DpMessage {
   createdAt: string;
   read: boolean;
   readAt: string | null;
+  /** O DP pede "li e estou ciente" neste comunicado */
+  exigeCiencia: boolean;
+  /** Quando esta pessoa confirmou a ciência (null = ainda não confirmou) */
+  cienteEm: string | null;
   /** Anexos do comunicado (lista vazia quando não há) */
   attachments: DpAttachment[];
 }
@@ -61,6 +65,12 @@ export interface MessagesState {
   messages: DpMessage[];
   unreadCount: number;
 }
+
+/**
+ * Acesso administrativo que vem do setor: quem é do Departamento Pessoal ou do
+ * TI usa as telas de administração com o próprio login, sem conta à parte.
+ */
+export type AcessoAdmin = 'NENHUM' | 'DP' | 'TI';
 
 /** Funcionário identificado neste computador (login no app) */
 export interface EmployeeProfile {
@@ -71,6 +81,8 @@ export interface EmployeeProfile {
   shift: string | null;
   /** Senha inicial ou redefinida pelo DP: precisa trocar antes de usar o app */
   mustChangePassword: boolean;
+  /** 'DP' abre as telas do Departamento Pessoal; 'TI' abre também as do TI */
+  acessoAdmin: AcessoAdmin;
 }
 
 export interface EmployeeState {
@@ -78,47 +90,6 @@ export interface EmployeeState {
   /** Já perguntamos ao servidor quem está logado nesta execução (evita piscar a tela de login) */
   checked: boolean;
 }
-
-/** Mensagem do chat: a conversa é o par (funcionário logado, pessoa do DP) */
-export interface ChatMessage {
-  id: number;
-  employeeId: string;
-  /** Pessoa do DP desta conversa */
-  dpUserId: string;
-  senderType: 'DP' | 'EMPLOYEE';
-  senderName: string;
-  content: string;
-  createdAt: string;
-  /** Quando o outro lado leu (mensagem do DP: o funcionário; do funcionário: a pessoa do DP) */
-  readAt: string | null;
-  /** Enviada pela resposta automática da pessoa do DP */
-  automatic: boolean;
-}
-
-/** Pessoa do DP na lista de contatos do chat */
-export interface ChatContact {
-  id: string;
-  name: string;
-  /** Mensagens desta pessoa ainda não lidas pelo funcionário */
-  unreadCount: number;
-  lastMessage: { content: string; senderType: 'DP' | 'EMPLOYEE'; createdAt: string } | null;
-}
-
-export interface ChatState {
-  /** Pessoas do DP (conversa mais recente primeiro) */
-  contacts: ChatContact[];
-  /** Total de mensagens do DP não lidas (soma de todos os contatos) */
-  unreadCount: number;
-  /** Há funcionário logado (o chat é da pessoa, não do computador) */
-  available: boolean;
-  /** Conversa aberta na página Mensagens */
-  openContactId: string | null;
-  /** Mensagens da conversa aberta, em ordem cronológica */
-  messages: ChatMessage[];
-  loadingConversation: boolean;
-}
-
-export const CHAT_MESSAGE_MAX = 2000;
 
 /** Imagem ou vídeo guardado no servidor */
 export interface MidiaPublica {
@@ -258,8 +229,20 @@ export interface MensagemConversa {
   automatica: boolean;
   /** Veio de outra conversa */
   encaminhada: boolean;
+  /** Id da mensagem que esta responde (null = mensagem solta) */
+  respondeA: number | null;
+  /** Pedaço da mensagem citada, para desenhar o bloco da resposta */
+  respondida: CitacaoConversa | null;
   createdAt: string;
   apagadaEm: string | null;
+}
+
+/** Resumo da mensagem citada por uma resposta */
+export interface CitacaoConversa {
+  id: number;
+  autorNome: string;
+  resumo: string;
+  apagada: boolean;
 }
 
 /** Evento do calendário da tela inicial */
@@ -297,6 +280,11 @@ export interface ConversaResumo {
   /** Nome do grupo, ou da outra pessoa na conversa direta */
   titulo: string;
   ultimaMensagem: { conteudo: string; autorNome: string; tipo: TipoMensagemConversa; createdAt: string } | null;
+  /**
+   * Até quando todo mundo já leu: serve para marcar "lida" nas mensagens que
+   * esta pessoa enviou. null = alguém ainda não abriu a conversa.
+   */
+  lidaAte: string | null;
   naoLidas: number;
   meuPapel: PapelMembro;
 }
@@ -316,7 +304,6 @@ export interface AppState {
   connection: ConnectionState;
   /** Comunicados do DP (COMUNICADO, AVISO, INFORMATIVO, URGENTE) */
   messages: MessagesState;
-  chat: ChatState;
   employee: EmployeeProfile | null;
   employeeChecked: boolean;
   /** Recado em exibição no mural (null = nenhum) */
@@ -379,6 +366,8 @@ export interface PopupState {
 export interface DesktopApi {
   getState(): Promise<AppState>;
   markAsRead(messageId: string): Promise<void>;
+  /** "Li e estou ciente" de um comunicado que pede confirmação */
+  confirmarCiencia(messageId: string): Promise<OperationResult>;
   onConnectionChange(listener: (state: ConnectionState) => void): () => void;
   onMessagesChange(listener: (state: MessagesState) => void): () => void;
   /** Pedido para abrir uma mensagem na janela principal (ex.: "Visualizar" no popup) */
@@ -426,12 +415,6 @@ export interface DesktopApi {
   changePassword(currentPassword: string, newPassword: string): Promise<OperationResult>;
   onEmployeeChange(listener: (state: EmployeeState) => void): () => void;
 
-  // Chat com as pessoas do DP (página Mensagens): uma conversa por pessoa
-  /** Abre (e carrega) a conversa com uma pessoa do DP; null fecha */
-  chatOpen(dpUserId: string | null): Promise<OperationResult>;
-  chatSend(dpUserId: string, content: string): Promise<OperationResult>;
-  chatMarkRead(dpUserId: string): Promise<void>;
-  onChatChange(listener: (state: ChatState) => void): () => void;
 
   // ---- Tela inicial: atalhos, mural e foto de perfil ----
   criarAtalho(dados: DadosAtalho): Promise<OperationResult>;
@@ -440,8 +423,12 @@ export interface DesktopApi {
   reordenarAtalhos(ids: string[]): Promise<OperationResult>;
   onAtalhosChange(listener: (atalhos: Atalho[]) => void): () => void;
   onMuralChange(listener: (mural: MuralPost | null) => void): () => void;
-  /** Abre o seletor de arquivo, envia e passa a ser a foto da pessoa */
-  enviarFoto(): Promise<OperationResult>;
+  /** Abre o seletor de arquivo e devolve a imagem para a pessoa enquadrar (não envia ainda) */
+  escolherFoto(): Promise<{ ok: boolean; dataUrl: string | null; message: string }>;
+  /** A foto atual, para enquadrar de novo sem escolher outra */
+  fotoAtual(): Promise<{ ok: boolean; dataUrl: string | null; message: string }>;
+  /** Envia a foto já recortada (JPEG quadrado) e passa a ser a foto da pessoa */
+  salvarFoto(jpeg: Uint8Array): Promise<OperationResult>;
   removerFoto(): Promise<OperationResult>;
   onFotoChange(listener: (foto: MidiaPublica | null) => void): () => void;
 
@@ -502,9 +489,19 @@ export interface DesktopApi {
   conversasIdentidade(): Promise<IdentidadeChat | null>;
   /** Escolhe um arquivo no disco e envia; devolve a mídia para anexar à mensagem */
   conversasAnexar(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Arquivo arrastado para dentro da conversa: envia pelo caminho no disco */
+  conversasSoltarArquivo(caminho: string): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Caminho no disco de um arquivo arrastado (o objeto File do navegador não traz) */
+  caminhoDoArquivo(arquivo: File): string;
   /** Baixa o arquivo de uma mensagem e abre no programa padrão do Windows */
   conversasAbrirArquivo(midiaId: string, nome: string): Promise<OperationResult>;
   onConversasChange(listener: () => void): () => void;
+  /** As não lidas mudaram (a pessoa abriu uma conversa): só o contador */
+  onConversasContador(listener: () => void): () => void;
+  /** Abre um link (http/https) no navegador padrão do Windows */
+  abrirLink(url: string): Promise<OperationResult>;
+  /** Copia um texto para a área de transferência (usado no bloco de código) */
+  copiarTexto(texto: string): Promise<OperationResult>;
 }
 
 /** API do popup de alerta (preload próprio, só o necessário), em window.dpPopup */
@@ -518,6 +515,7 @@ export interface PopupApi {
 export const IpcChannels = {
   GetState: 'app:get-state',
   MarkAsRead: 'messages:mark-read',
+  ConfirmarCiencia: 'messages:ciencia',
   ConnectionChanged: 'connection:changed',
   MessagesChanged: 'messages:changed',
   OpenMessage: 'ui:open-message',
@@ -533,17 +531,15 @@ export const IpcChannels = {
   EmployeeLogout: 'employee:logout',
   EmployeeChangePassword: 'employee:change-password',
   EmployeeChanged: 'employee:changed',
-  ChatOpen: 'chat:open',
-  ChatSend: 'chat:send',
-  ChatMarkRead: 'chat:mark-read',
-  ChatChanged: 'chat:changed',
   MuralChanged: 'mural:changed',
   AtalhosChanged: 'atalhos:changed',
   AtalhoCreate: 'atalhos:create',
   AtalhoUpdate: 'atalhos:update',
   AtalhoDelete: 'atalhos:delete',
   AtalhoReorder: 'atalhos:reorder',
-  FotoUpload: 'perfil:foto-upload',
+  FotoEscolher: 'perfil:foto-escolher',
+  FotoAtual: 'perfil:foto-atual',
+  FotoSalvar: 'perfil:foto-salvar',
   FotoRemove: 'perfil:foto-remove',
   FotoChanged: 'perfil:foto-changed',
 
@@ -578,8 +574,12 @@ export const IpcChannels = {
   ConversasApi: 'conversas:api',
   ConversasIdentidade: 'conversas:identidade',
   ConversasAnexar: 'conversas:anexar',
+  ConversasSoltarArquivo: 'conversas:soltar-arquivo',
   ConversasAbrirArquivo: 'conversas:abrir-arquivo',
   ConversasChanged: 'conversas:changed',
+  ConversasContador: 'conversas:contador',
+  AbrirLink: 'ui:abrir-link',
+  CopiarTexto: 'ui:copiar-texto',
 
   // Janela: a barra de título é do próprio sistema
   JanelaMinimizar: 'janela:minimizar',

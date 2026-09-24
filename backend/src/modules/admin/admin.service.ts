@@ -5,7 +5,7 @@ import { hashSecret } from '../auth/crypto';
 import type { TokenRepository } from '../auth/token.repository';
 /**
  * O que a seção do TI precisa do chat: números e limpeza, nunca conteúdo.
- * Implementado hoje pelo ChatCompatService, sobre o modelo novo de conversas.
+ * Implementado por ConversasDoTi (conversas-do-ti.ts), sobre o modelo de conversas.
  */
 export interface AdminChatData {
   summaryByDpUser(): Promise<{ dpUserId: string; conversations: number; messages: number; lastAt: string | null }[]>;
@@ -176,5 +176,17 @@ export class AdminService {
     await this.users.updatePassword(userId, await hashSecret(password), false);
     await this.tokens.deleteBySubject('USER', userId); // a pessoa entra de novo com a senha nova
     this.log.info(`TI redefiniu a senha do login ${user.username}`);
+  }
+
+  /**
+   * Exclui o login do DP: derruba a sessão e libera o nome de usuário (ex.: para
+   * recadastrar a pessoa como funcionário). Conversas e comunicados continuam no
+   * histórico, com o nome guardado neles.
+   */
+  async removeUser(selfId: string, userId: string): Promise<void> {
+    const user = await this.otherAdmin(selfId, userId);
+    await this.tokens.deleteBySubject('USER', userId);
+    await this.users.delete(userId);
+    this.log.info(`TI excluiu o login do DP: ${user.username}`);
   }
 }

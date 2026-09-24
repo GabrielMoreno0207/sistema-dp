@@ -4,13 +4,9 @@ import { ControlesJanela } from './ControlesJanela';
 import fotoDaEntrada from '../imagens/entrada.jpg';
 import icone from '../imagens/icone.png';
 
-type Modo = 'FUNCIONARIO' | 'DP';
-
 interface LoginScreenProps {
   connection: ConnectionState;
   onSkip(): void;
-  /** Conta do DP/TI entrou: o aplicativo segue sem funcionário identificado */
-  onAdminEntrou(): void;
   /** Entra sem identificação e abre a tela Configurações (servidor/chave) */
   onOpenSettings(): void;
 }
@@ -39,14 +35,14 @@ function connectionNotice(connection: ConnectionState): { text: string; showSett
 }
 
 /**
- * Entrada no aplicativo, nos dois tipos de conta:
- * - funcionário, com a matrícula e a senha cadastradas pelo DP (opcional: sem
- *   login o computador continua recebendo os comunicados gerais);
- * - Departamento Pessoal e TI, com o mesmo usuário e senha da Central, que
- *   liberam as seções administrativas.
+ * Entrada no aplicativo: usuário e senha cadastrados pelo DP. O login é
+ * opcional — sem ele o computador continua recebendo os comunicados gerais.
+ *
+ * Quem é do Departamento Pessoal ou do TI entra por aqui também: o acesso às
+ * telas de administração vem do setor da pessoa. A conta da Central ainda pode
+ * ser aberta depois, pelo botão do canto superior direito.
  */
-export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings }: LoginScreenProps) {
-  const [modo, setModo] = useState<Modo>('FUNCIONARIO');
+export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenProps) {
   const [registration, setRegistration] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -59,18 +55,11 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
     setError(null);
     setBusy(true);
     try {
-      const result =
-        modo === 'FUNCIONARIO'
-          ? await window.dp.employeeLogin(registration.trim(), password)
-          : await window.dp.adminLogin(registration.trim(), password);
+      const result = await window.dp.employeeLogin(registration.trim(), password);
       if (!result.ok) {
         setError(result.message);
         setPassword('');
-        return;
       }
-      // A conta do DP não é um funcionário do PC: o aplicativo entra sem
-      // identificação de funcionário, já com as seções administrativas.
-      if (modo === 'DP') onAdminEntrou();
     } finally {
       setBusy(false);
     }
@@ -97,39 +86,8 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
         <div className="login-card__brand">
           <div>
             <h1>Entrar no Comunica Trinys</h1>
-            <p>
-              {modo === 'FUNCIONARIO'
-                ? 'Use a matrícula e a senha fornecidas pelo Departamento Pessoal.'
-                : 'Use o mesmo usuário e senha da Central do DP.'}
-            </p>
+            <p>Use o usuário e a senha fornecidos pelo Departamento Pessoal.</p>
           </div>
-        </div>
-
-        <div className="login-card__abas" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={modo === 'FUNCIONARIO'}
-            className={`login-aba ${modo === 'FUNCIONARIO' ? 'login-aba--ativa' : ''}`}
-            onClick={() => {
-              setModo('FUNCIONARIO');
-              setError(null);
-            }}
-          >
-            Sou funcionário
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={modo === 'DP'}
-            className={`login-aba ${modo === 'DP' ? 'login-aba--ativa' : ''}`}
-            onClick={() => {
-              setModo('DP');
-              setError(null);
-            }}
-          >
-            Sou do DP / TI
-          </button>
         </div>
 
         {notice && (
@@ -144,14 +102,14 @@ export function LoginScreen({ connection, onSkip, onAdminEntrou, onOpenSettings 
         )}
 
         <label className="field">
-          <span>{modo === 'FUNCIONARIO' ? 'Matrícula' : 'Usuário'}</span>
+          <span>Usuário</span>
           <input
             value={registration}
             onChange={(e) => setRegistration(e.target.value)}
             maxLength={64}
             autoFocus
             autoComplete="username"
-            inputMode={modo === 'FUNCIONARIO' ? 'numeric' : 'text'}
+            inputMode="numeric"
           />
         </label>
 

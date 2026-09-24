@@ -13,7 +13,7 @@ interface Entry {
   lockedUntil: number;
 }
 
-/** Limita tentativas erradas por chave (ex.: usuário + IP, matrícula + PC). */
+/** Limita tentativas erradas por chave (ex.: usuário + IP, usuário + PC). */
 export class LoginThrottle {
   private readonly entries = new Map<string, Entry>();
 

@@ -49,6 +49,8 @@ const mensagemBody = {
     midiaId: { type: ['string', 'null'], pattern: MIDIA_ID_PATTERN },
     // mensagem repassada de outra conversa
     encaminhada: { type: 'boolean' },
+    // id da mensagem que esta responde
+    respondeA: { type: ['integer', 'null'], minimum: 1 },
   },
 } as const;
 
@@ -83,12 +85,34 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
 
     if (principal.type === 'COMPUTER') {
       const employee = await employees.getSessionEmployee(principal.computerId);
-      if (!employee) throw new AppError('Entre com sua matrícula para usar as mensagens', 401, 'NO_EMPLOYEE');
+      if (!employee) throw new AppError('Entre com seu usuário para usar as mensagens', 401, 'NO_EMPLOYEE');
       const completo = await users.findById(employee.id);
       return { id: employee.id, nome: employee.name, setor: completo?.sector ?? null, ehDp: false, ehTi: false };
     }
     return { id: principal.userId, nome: principal.name, setor: null, ehDp: true, ehTi: principal.superAdmin };
   }
+
+  /** "Só o DP e o TI me mandam mensagem": a opção vale para quem é do DP/TI. */
+  app.get('/conversas/preferencias', async (request) => conversas.preferencias(await quemEstaAgindo(request)));
+
+  app.put(
+    '/conversas/preferencias',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['mensagensSoDpTi'],
+          properties: { mensagensSoDpTi: { type: 'boolean' } },
+        },
+      },
+    },
+    async (request) => {
+      const quem = await quemEstaAgindo(request);
+      await conversas.definirMensagensSoDpTi(quem, (request.body as { mensagensSoDpTi: boolean }).mensagensSoDpTi);
+      return conversas.preferencias(quem);
+    },
+  );
 
   /** Com quem dá para conversar. */
   app.get('/contatos', async (request) => ({ contatos: await conversas.contatos(await quemEstaAgindo(request)) }));
@@ -155,12 +179,20 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
   app.post('/conversas/:id/mensagens', { schema: { params: conversaParams, body: mensagemBody } }, async (request, reply) => {
     const quem = await quemEstaAgindo(request);
     const { id } = request.params as { id: string };
-    const { conteudo, midiaId, encaminhada } = request.body as {
+    const { conteudo, midiaId, encaminhada, respondeA } = request.body as {
       conteudo?: string;
       midiaId?: string | null;
       encaminhada?: boolean;
+      respondeA?: number | null;
     };
-    const mensagem = await conversas.enviar(quem, id, conteudo ?? '', midiaId ?? null, encaminhada === true);
+    const mensagem = await conversas.enviar(
+      quem,
+      id,
+      conteudo ?? '',
+      midiaId ?? null,
+      encaminhada === true,
+      respondeA ?? null,
+    );
     return reply.code(201).send({ mensagem });
   });
 

@@ -6,7 +6,7 @@ interface EntrarComoDpProps {
 
 /**
  * Entrada da conta do DP/TI dentro do aplicativo. É uma credencial diferente da
- * do funcionário: o funcionário entra com matrícula, o DP com usuário e senha
+ * do funcionário: o funcionário entra com o seu usuário, o DP com o usuário e a senha
  * da Central.
  */
 export function EntrarComoDp({ onFechar }: EntrarComoDpProps) {

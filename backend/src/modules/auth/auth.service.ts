@@ -113,7 +113,9 @@ export class AuthService {
       return null;
     }
 
-    if (stored.subjectType === 'COMPUTER') return { type: 'COMPUTER', computerId: stored.subjectId };
+    // O acesso pelo setor é resolvido no hook (auth.hooks), que enxerga o
+    // funcionário logado no computador; aqui o token só diz de quem ele é.
+    if (stored.subjectType === 'COMPUTER') return { type: 'COMPUTER', computerId: stored.subjectId, admin: null };
 
     const user = await this.users.findById(stored.subjectId);
     if (!user || user.status !== 'ACTIVE' || user.role !== 'ADMIN') return null;

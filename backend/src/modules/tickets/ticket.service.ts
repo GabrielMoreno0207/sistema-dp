@@ -49,7 +49,7 @@ export class TicketService {
   /** Quem está no PC precisa estar logado para abrir chamado (o TI precisa saber quem é). */
   async solicitanteDoPc(computadorId: string): Promise<Solicitante> {
     const employee = await this.employees.getSessionEmployee(computadorId);
-    if (!employee) throw new AppError('Entre com sua matrícula para abrir um chamado', 401, 'NO_EMPLOYEE');
+    if (!employee) throw new AppError('Entre com seu usuário para abrir um chamado', 401, 'NO_EMPLOYEE');
     return { tipo: 'FUNCIONARIO', id: employee.id, nome: employee.name, computadorId };
   }
 

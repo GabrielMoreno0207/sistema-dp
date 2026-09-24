@@ -3,7 +3,9 @@ import { AppError, NotFoundError } from '../../errors/app-error';
 import type { AutoReplyService } from '../auto-replies/auto-reply.service';
 import { renderAutoReply } from '../auto-replies/auto-reply.types';
 import type { MidiaRepository } from '../content/content.repository';
+import { acessoDoSetor } from '../auth/acesso-por-setor';
 import type { UserRepository } from '../users/user.repository';
+import type { User } from '../users/user.types';
 import { midiaPublica, type MidiaPublica } from '../content/content.types';
 import type { AvisoDeMensagem } from '../../realtime/socket-server';
 import type { ConversaRepository } from './conversa.repository';
@@ -28,9 +30,18 @@ export interface Pessoa {
 }
 
 /** Avisa os participantes de que a conversa mudou. */
-/** Mensagem como a tela recebe: já com os dados do arquivo anexado. */
+/** Pedaço da mensagem citada, para a tela desenhar o bloco da resposta. */
+export interface Citacao {
+  id: number;
+  autorNome: string;
+  resumo: string;
+  apagada: boolean;
+}
+
+/** Mensagem como a tela recebe: com o arquivo anexado e a citação já prontos. */
 export interface MensagemComMidia extends MensagemConversa {
   midia: MidiaPublica | null;
+  respondida: Citacao | null;
 }
 
 export interface ConversaNotifier {
@@ -50,15 +61,62 @@ export class ConversaService {
     private readonly log: FastifyBaseLogger,
   ) {}
 
+  // ---------------------------------------------------------------- DP/TI só entre si
+
+  /** Conta da Central ou funcionário do setor do DP/TI */
+  private ehEquipeDpTi(usuario: User): boolean {
+    return usuario.role === 'ADMIN' || acessoDoSetor(usuario.sector) !== 'NENHUM';
+  }
+
+  private async quemEhEquipeDpTi(quem: Pessoa): Promise<boolean> {
+    if (quem.ehDp) return true;
+    const usuario = await this.users.findById(quem.id);
+    return usuario !== null && this.ehEquipeDpTi(usuario);
+  }
+
+  /** A pessoa ligou "só o DP e o TI me mandam mensagem" (vale enquanto ela for do DP/TI) */
+  private soAceitaDpTi(usuario: User): boolean {
+    return usuario.mensagensSoDpTi && this.ehEquipeDpTi(usuario);
+  }
+
+  /** Barra quem não é do DP/TI de escrever para (ou pôr em grupo) quem só aceita o DP/TI. */
+  private async exigirQuePodeEscrever(quem: Pessoa, destinos: User[]): Promise<void> {
+    const bloqueado = destinos.find((usuario) => this.soAceitaDpTi(usuario));
+    if (!bloqueado || (await this.quemEhEquipeDpTi(quem))) return;
+    throw new AppError(`${bloqueado.name} só recebe mensagens do DP e do TI.`, 403, 'SO_DP_TI');
+  }
+
+  /** Para a tela de ajustes: se a pessoa pode usar a opção e se ela está ligada. */
+  async preferencias(quem: Pessoa): Promise<{ podeRestringir: boolean; mensagensSoDpTi: boolean }> {
+    const usuario = await this.users.findById(quem.id);
+    const podeRestringir = usuario !== null && this.ehEquipeDpTi(usuario);
+    return { podeRestringir, mensagensSoDpTi: podeRestringir && usuario!.mensagensSoDpTi };
+  }
+
+  async definirMensagensSoDpTi(quem: Pessoa, ativo: boolean): Promise<void> {
+    const usuario = await this.users.findById(quem.id);
+    if (!usuario || !this.ehEquipeDpTi(usuario)) {
+      throw new AppError('Esta opção é só para quem é do DP ou do TI.', 403, 'FORBIDDEN');
+    }
+    await this.users.updateMensagensSoDpTi(usuario.id, ativo);
+    this.log.info(`${usuario.name} ${ativo ? 'passou a receber mensagens só do DP e do TI' : 'voltou a receber mensagens de todos'}`);
+  }
+
   // ---------------------------------------------------------------- pessoas
 
   /** Com quem dá para conversar: colegas ativos e o pessoal do DP. */
   async contatos(quem: Pessoa): Promise<Participante[]> {
-    const [funcionarios, dp] = await Promise.all([this.users.listByRole('EMPLOYEE'), this.users.listByRole('ADMIN')]);
+    const [funcionarios, dp, souEquipe] = await Promise.all([
+      this.users.listByRole('EMPLOYEE'),
+      this.users.listByRole('ADMIN'),
+      this.quemEhEquipeDpTi(quem),
+    ]);
     const lista: Participante[] = [];
 
     for (const usuario of funcionarios) {
       if (usuario.id === quem.id || usuario.status !== 'ACTIVE') continue;
+      // Quem só aceita o DP/TI nem aparece para os demais
+      if (!souEquipe && this.soAceitaDpTi(usuario)) continue;
       lista.push({
         id: usuario.id,
         nome: usuario.name,
@@ -73,6 +131,7 @@ export class ConversaService {
     for (const usuario of dp) {
       // chatContact = aparece como contato (contas de serviço ficam de fora)
       if (usuario.id === quem.id || usuario.status !== 'ACTIVE' || !usuario.chatContact) continue;
+      if (!souEquipe && this.soAceitaDpTi(usuario)) continue;
       lista.push({
         id: usuario.id,
         nome: usuario.name,
@@ -150,9 +209,17 @@ export class ConversaService {
         if (!pessoa.removido || conversa.tipo === 'DIRETA') participantes.push(pessoa);
       }
       const ultima = ultimas.get(conversa.id) ?? null;
+      // Leitura mais atrasada entre os outros: se alguém nunca abriu, fica null
+      const leiturasDosOutros = ativos.filter((m) => m.userId !== meuId).map((m) => m.ultimaLeitura);
+      const lidaAte =
+        leiturasDosOutros.length > 0 && leiturasDosOutros.every((quando): quando is string => quando !== null)
+          ? leiturasDosOutros.reduce((menor, quando) => (quando < menor ? quando : menor))
+          : null;
+
       resumos.push({
         ...conversa,
         participantes,
+        lidaAte,
         titulo: tituloPara(conversa, participantes, meuId),
         ultimaMensagem: ultima
           ? {
@@ -186,6 +253,7 @@ export class ConversaService {
     if (outroId === quem.id) throw new AppError('Não dá para conversar consigo mesmo.', 400, 'CONVERSA_INVALIDA');
     const outro = await this.users.findById(outroId);
     if (!outro || outro.status !== 'ACTIVE') throw new NotFoundError('Pessoa não encontrada');
+    await this.exigirQuePodeEscrever(quem, [outro]);
 
     const existente = await this.conversas.findDireta(quem.id, outroId);
     if (existente) return existente;
@@ -212,12 +280,15 @@ export class ConversaService {
     if (outros.length + 1 > LIMITES_CONVERSA.maxMembrosGrupo) {
       throw new AppError(`Um grupo tem no máximo ${LIMITES_CONVERSA.maxMembrosGrupo} participantes.`, 400, 'GRUPO_GRANDE');
     }
+    const escolhidos: User[] = [];
     for (const id of outros) {
       const usuario = await this.users.findById(id);
       if (!usuario || usuario.status !== 'ACTIVE') {
         throw new AppError('Uma das pessoas escolhidas não existe mais.', 400, 'PESSOA_INVALIDA');
       }
+      escolhidos.push(usuario);
     }
+    await this.exigirQuePodeEscrever(quem, escolhidos);
 
     const agora = new Date().toISOString();
     const conversa = await this.conversas.create(
@@ -240,6 +311,7 @@ export class ConversaService {
         midiaId: null,
         automatica: false,
         encaminhada: false,
+        respondeA: null,
       },
       new Date().toISOString(),
     );
@@ -268,13 +340,32 @@ export class ConversaService {
    * download.
    */
   private async comMidias(mensagens: MensagemConversa[]): Promise<MensagemComMidia[]> {
-    const ids = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
-    if (ids.length === 0) return mensagens.map((m) => ({ ...m, midia: null }));
+    const idsDeMidia = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
+    const idsCitados = [...new Set(mensagens.map((m) => m.respondeA).filter((id): id is number => id !== null))];
 
-    const encontradas = await Promise.all(ids.map((id) => this.midias.findById(id)));
+    const [encontradas, citadas] = await Promise.all([
+      Promise.all(idsDeMidia.map((id) => this.midias.findById(id))),
+      this.conversas.findMensagens(idsCitados),
+    ]);
+
     const porId = new Map<string, MidiaPublica>();
     for (const midia of encontradas) if (midia) porId.set(midia.id, midiaPublica(midia));
-    return mensagens.map((m) => ({ ...m, midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null }));
+
+    return mensagens.map((m) => {
+      const citada = m.respondeA === null ? null : citadas.get(m.respondeA);
+      return {
+        ...m,
+        midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null,
+        respondida: citada
+          ? {
+              id: citada.id,
+              autorNome: citada.autorNome,
+              resumo: citada.apagadaEm ? 'mensagem apagada' : resumoDaMensagem(citada),
+              apagada: citada.apagadaEm !== null,
+            }
+          : null,
+      };
+    });
   }
 
   /**
@@ -295,8 +386,16 @@ export class ConversaService {
     midiaId: string | null,
     /** true quando a mensagem está sendo repassada de outra conversa */
     encaminhada = false,
+    /** Id da mensagem que esta responde (tem de ser da mesma conversa) */
+    respondeA: number | null = null,
   ): Promise<MensagemComMidia> {
     const { conversa } = await this.exigirMembro(conversaId, quem);
+    // Em grupo vale quem já está lá; na conversa direta, a outra pessoa pode ter fechado
+    if (conversa.tipo === 'DIRETA') {
+      const outroId = (await this.conversas.membros(conversaId, false)).find((m) => m.userId !== quem.id)?.userId;
+      const outro = outroId ? await this.users.findById(outroId) : null;
+      if (outro) await this.exigirQuePodeEscrever(quem, [outro]);
+    }
     const texto = conteudo.trim();
     if (!texto && !midiaId) throw new AppError('Escreva uma mensagem ou anexe um arquivo.', 400, 'MENSAGEM_VAZIA');
     if (texto.length > LIMITES_CONVERSA.maxConteudo) {
@@ -307,6 +406,21 @@ export class ConversaService {
       const encontrada = await this.midias.findById(midiaId);
       if (!encontrada) throw new AppError('O arquivo anexado não existe mais.', 400, 'MIDIA_INEXISTENTE');
       midia = midiaPublica(encontrada);
+    }
+
+    let citacao: Citacao | null = null;
+    if (respondeA !== null) {
+      const citada = await this.conversas.findMensagem(respondeA);
+      // Responder mensagem de outra conversa vazaria conteúdo entre conversas
+      if (!citada || citada.conversaId !== conversaId) {
+        throw new AppError('A mensagem respondida não é desta conversa.', 400, 'CITACAO_INVALIDA');
+      }
+      citacao = {
+        id: citada.id,
+        autorNome: citada.autorNome,
+        resumo: citada.apagadaEm ? 'mensagem apagada' : resumoDaMensagem(citada),
+        apagada: citada.apagadaEm !== null,
+      };
     }
 
     const agora = new Date().toISOString();
@@ -320,6 +434,7 @@ export class ConversaService {
         midiaId,
         automatica: false,
         encaminhada,
+        respondeA,
       },
       agora,
     );
@@ -330,7 +445,7 @@ export class ConversaService {
     await this.respostaAutomatica(conversa, quem).catch((err) =>
       this.log.error({ err }, 'Falha na resposta automática do DP'),
     );
-    return { ...mensagem, midia };
+    return { ...mensagem, midia, respondida: citacao };
   }
 
   /**
@@ -344,8 +459,11 @@ export class ConversaService {
     const outroId = membros.find((m) => m.userId !== autor.id)?.userId;
     if (!outroId) return;
 
+    // O DP pode ser a conta da Central ou o funcionário do setor do DP/TI;
+    // entre duas pessoas da equipe não há resposta automática
     const dp = await this.users.findById(outroId);
-    if (!dp || dp.role !== 'ADMIN' || dp.status !== 'ACTIVE') return;
+    if (!dp || !this.ehEquipeDpTi(dp) || dp.status !== 'ACTIVE') return;
+    if (await this.quemEhEquipeDpTi(autor)) return;
 
     const regra = await this.autoReplies.ruleFor(dp.id, autor.setor);
     if (!regra) return;
@@ -369,6 +487,7 @@ export class ConversaService {
         midiaId: null,
         automatica: true,
         encaminhada: false,
+        respondeA: null,
       },
       new Date().toISOString(),
     );
@@ -427,6 +546,7 @@ export class ConversaService {
     await this.exigirAdminDoGrupo(conversaId, quem);
     const novo = await this.users.findById(novoId);
     if (!novo || novo.status !== 'ACTIVE') throw new NotFoundError('Pessoa não encontrada');
+    await this.exigirQuePodeEscrever(quem, [novo]);
 
     const atuais = await this.conversas.membros(conversaId, false);
     if (atuais.some((m) => m.userId === novoId)) return;

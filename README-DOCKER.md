@@ -42,8 +42,9 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER    # saia e entre de novo para valer
 ```
 
-Depois é só abrir `http://<ip-do-servidor>:3000/central` e entrar com o login e a senha que
-o instalador mostrou. A Central pede para trocar a senha no primeiro acesso.
+Depois é só apontar o aplicativo para `http://<ip-do-servidor>:3000` e entrar como DP/TI com o
+login e a senha que o instalador mostrou (conta `ti`). O DP entra como funcionário do setor
+Departamento Pessoal, cadastrado em Cadastros.
 
 ---
 
@@ -130,7 +131,7 @@ Tudo pelo `dp.sh`:
 |---|---|
 | `./dp.sh status` | Diz se o container está de pé e se o backend responde |
 | `./dp.sh logs` | Acompanha os logs (`Ctrl+C` sai) |
-| `./dp.sh criar-login livia "Livia Santos" --gerar` | Cria o login da Central de uma pessoa do DP |
+| `./dp.sh criar-login livia "Livia Santos" --gerar` | Cria uma conta própria do DP/TI (fora do cadastro de funcionários) |
 | `./dp.sh trocar-senha ti` | Troca a senha de um login |
 | `./dp.sh liberar-pc PC-1A2B3C4D5E6F` | Libera um PC para se registrar de novo (Windows reinstalado) |
 | `./dp.sh reiniciar` / `parar` / `subir` | Controla o container |
@@ -210,7 +211,7 @@ location / {
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 12m;   # anexos de até 10 MB
+    client_max_body_size 0;   # imagem e vídeo vão sem limite de tamanho
 }
 ```
 

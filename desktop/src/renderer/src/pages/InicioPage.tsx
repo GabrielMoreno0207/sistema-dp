@@ -85,15 +85,17 @@ export function InicioPage({
 
       <Calendario
         meuId={admin?.id ?? employee?.id ?? null}
-        ehTi={admin?.superAdmin ?? false}
-        podePublicar={Boolean(admin)}
+        ehTi={admin ? admin.superAdmin : employee?.acessoAdmin === 'TI'}
+        // Quem é do DP/TI pelo setor também publica para a empresa (não só a conta da Central)
+        podePublicar={Boolean(admin) || (employee?.acessoAdmin ?? 'NENHUM') !== 'NENHUM'}
         disponivel={Boolean(employee || admin)}
       />
 
       <HistoricoConversas
         conversas={conversas}
-        meuId={employee?.id ?? null}
-        disponivel={Boolean(employee)}
+        /* A conta do DP/TI tem preferência: com ela aberta, as conversas são dela */
+        meuId={admin?.id ?? employee?.id ?? null}
+        disponivel={Boolean(employee || admin)}
         onAbrir={onAbrirConversa}
         onEntrar={onEntrar}
       />

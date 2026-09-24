@@ -34,14 +34,21 @@ export class MidiaStorage {
     const hash = createHash('sha256');
     let tamanho = 0;
 
-    dados.on('data', (parte: Buffer) => {
-      hash.update(parte);
-      tamanho += parte.length;
-      if (tamanho > maxBytes) dados.destroy(new Error(ERRO_TAMANHO));
-    });
+    // O limite é conferido antes de repassar cada pedaço: assim o arquivo grande
+    // demais nem chega ao disco, mesmo quando o corpo vem em uma única parte
+    // (era o caso do envio pelos testes, que passava batido pelo antigo 'data').
+    async function* medindo(): AsyncGenerator<Buffer> {
+      for await (const bruto of dados) {
+        const parte = Buffer.isBuffer(bruto) ? bruto : Buffer.from(bruto as Uint8Array);
+        tamanho += parte.length;
+        if (tamanho > maxBytes) throw new Error(ERRO_TAMANHO);
+        hash.update(parte);
+        yield parte;
+      }
+    }
 
     try {
-      await pipeline(dados, createWriteStream(parcial));
+      await pipeline(medindo(), createWriteStream(parcial));
       const { rename } = await import('node:fs/promises');
       await rename(parcial, destino);
     } catch (err) {

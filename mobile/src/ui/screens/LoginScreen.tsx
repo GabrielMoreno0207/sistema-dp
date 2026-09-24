@@ -1,4 +1,4 @@
-/** Login do funcionário (matrícula e senha, as mesmas do computador) */
+/** Login do funcionário (usuário e senha, os mesmos do computador) */
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { login, reconnectNow } from '../../core/connection';
@@ -18,7 +18,7 @@ export function LoginScreen({ onServer }: { onServer: () => void }) {
 
   async function submit() {
     if (!registration.trim() || !password) {
-      setResult({ ok: false, message: 'Informe a matrícula e a senha.' });
+      setResult({ ok: false, message: 'Informe o usuário e a senha.' });
       return;
     }
     setBusy(true);
@@ -30,7 +30,7 @@ export function LoginScreen({ onServer }: { onServer: () => void }) {
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
-      <Header title="Comunicação DP" subtitle="Departamento Pessoal" />
+      <Header title="Comunica Trinys" subtitle="Departamento Pessoal" />
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {!connected ? (
@@ -46,9 +46,9 @@ export function LoginScreen({ onServer }: { onServer: () => void }) {
           ) : null}
           <Card>
             <Text style={[styles.title, { color: t.text }]}>Entrar</Text>
-            <Text style={[styles.subtitle, { color: t.muted }]}>Use a sua matrícula e a senha cadastrada pelo DP.</Text>
+            <Text style={[styles.subtitle, { color: t.muted }]}>Use o seu usuário e a senha cadastrada pelo DP.</Text>
             <Field
-              label="Matrícula"
+              label="Usuário"
               value={registration}
               onChangeText={setRegistration}
               autoCapitalize="none"

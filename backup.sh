@@ -53,16 +53,24 @@ if [ ! -s "$ARQUIVO_BANCO" ]; then
 fi
 echo "Banco:  $ARQUIVO_BANCO"
 
-# Anexos: empacotados de dentro do container do backend
+# Arquivos: anexos dos comunicados (uploads) e mídias do mural, das fotos de perfil
+# e do chat (midias). Ficam fora do banco, num volume do Docker — e um backup só do
+# dump deixaria os comunicados e as conversas sem os arquivos.
+# A pasta "atualizacoes" (instaladores publicados) fica de fora de propósito: é
+# grande e dá para publicar de novo pelo versionador.
 if [ -n "$(docker compose ps --status running --quiet backend 2>/dev/null)" ]; then
   docker compose exec -T backend sh -c "
-    if [ -n \"\$(ls -A /app/data/uploads 2>/dev/null)\" ]; then
-      tar -czf /backups/anexos-$CARIMBO.tar.gz -C /app/data uploads
+    pastas=
+    for pasta in uploads midias; do
+      if [ -n \"\$(ls -A /app/data/\$pasta 2>/dev/null)\" ]; then pastas=\"\$pastas \$pasta\"; fi
+    done
+    if [ -n \"\$pastas\" ]; then
+      tar -czf /backups/anexos-$CARIMBO.tar.gz -C /app/data \$pastas
       echo com-anexos
     else
       echo sem-anexos
     fi
-  " | grep -q com-anexos && echo "Anexos: ./backups/anexos-$CARIMBO.tar.gz" || echo "Anexos: nenhum arquivo ainda"
+  " | grep -q com-anexos && echo "Arquivos: ./backups/anexos-$CARIMBO.tar.gz (anexos e mídias)" || echo "Arquivos: nenhum ainda"
 
   # /backups dentro do container é a pasta ./backups daqui (ver docker-compose.yml)
   if [ "$(cd "$DESTINO" && pwd)" != "$(cd ./backups && pwd)" ]; then

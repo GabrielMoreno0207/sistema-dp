@@ -68,22 +68,14 @@ $user = Get-EnvValue 'ADMIN_USERNAME'; if (-not $user) { $user = 'admin' }
 $pass = Get-EnvValue 'ADMIN_PASSWORD'
 
 Write-Step 'Pronto! Acesso de teste'
-Write-Host "  Central do DP : http://localhost:$port/central"
+Write-Host "  Servidor      : http://localhost:$port (use no aplicativo)"
 Write-Host "  Usuario       : $user"
 if ($pass) { Write-Host "  Senha         : $pass  (a do backend\.env; se ja trocou com set-password, use a nova)" }
 else { Write-Host '  Senha         : (definida anteriormente; troque com: npm run set-password -- admin)' }
-Write-Host '  Funcionarios  : cadastre na secao Funcionarios da Central (no 1o acesso o app pede para trocar a senha)'
+Write-Host '  Funcionarios  : entre no app como DP/TI e cadastre em Cadastros'
 $ips = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
   Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } | Select-Object -ExpandProperty IPAddress
 foreach ($ip in $ips) { Write-Host "  Outros PCs    : http://${ip}:$port  (libere a porta $port no firewall)" }
 Write-Host "`nIniciando o servidor... (Ctrl+C para parar)" -ForegroundColor Yellow
-
-# Abre a Central no navegador assim que o servidor responder
-Start-Job -ArgumentList $port -ScriptBlock {
-  param($p)
-  for ($i = 0; $i -lt 30; $i++) {
-    try { Invoke-RestMethod "http://localhost:$p/api/health" -TimeoutSec 1 | Out-Null; Start-Process "http://localhost:$p/central"; return } catch { Start-Sleep 1 }
-  }
-} | Out-Null
 
 npm run dev

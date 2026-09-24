@@ -1,5 +1,6 @@
 import {
   app,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -10,14 +11,13 @@ import {
   type IpcMainInvokeEvent,
 } from 'electron';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import * as tls from 'node:tls';
 import { PopupChannels } from '../shared/popup-channels';
 import {
-  CHAT_MESSAGE_MAX,
   IpcChannels,
+  type AcessoAdmin,
   type AppState,
   type Atalho,
   type ConnectionState,
@@ -39,13 +39,12 @@ import {
 import { AdminClient } from './admin-client';
 import { ApiClient, ApiError } from './api-client';
 import { Atualizador } from './atualizador';
-import { ChatStore } from './chat-store';
 import { getComputerIdentity } from './computer-identity';
-import { loadConfig, normalizeServerUrl, saveConfig } from './config';
+import { horarioAtualizacao, loadConfig, normalizeServerUrl, saveConfig } from './config';
 import { ServerConnection, type AvisoDoServidor } from './connection';
 import { setupFileLogging } from './logger';
 import { MessageStore } from './message-store';
-import { ATTACHMENT_ID_REGEX, MESSAGE_ID_REGEX, UUID_REGEX } from './message-validation';
+import { ATTACHMENT_ID_REGEX, MESSAGE_ID_REGEX } from './message-validation';
 import { PopupManager } from './popup-manager';
 import { AppTray, loadIcon } from './tray';
 import { createMainWindow, createPopupWindow } from './windows';
@@ -84,9 +83,16 @@ function isMessageId(value: unknown): value is string {
   return typeof value === 'string' && MESSAGE_ID_REGEX.test(value);
 }
 
-/** ID de uma pessoa do DP (contato do chat) */
-function isUuid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_REGEX.test(value);
+/**
+ * Chave de um alerta na fila do popup. São duas formas:
+ *   comunicado      -> MSG-000042
+ *   mensagem do chat -> CNV-<id da conversa>#<id da mensagem>
+ * Conferir só a do comunicado deixava o alerta de mensagem sem resposta: os
+ * botões "Fechar" e "Responder" não faziam nada e o alerta ficava na tela.
+ */
+const CHAVE_DE_MENSAGEM = /^CNV-[0-9a-f]{24}#\d{1,12}$/;
+function isChaveDeAlerta(value: unknown): value is string {
+  return typeof value === 'string' && (MESSAGE_ID_REGEX.test(value) || CHAVE_DE_MENSAGEM.test(value));
 }
 
 function isAttachmentId(value: unknown): value is string {
@@ -178,7 +184,6 @@ function start(): void {
   );
   const store = new MessageStore(join(app.getPath('userData'), 'messages-cache.json'), config.serverUrl);
   // Chat com o DP: só contador (sem popup nem som); o popup é só para comunicados
-  const chat = new ChatStore();
   const popup = new PopupManager(createPopupWindow);
   const badge = loadIcon('badge.png');
 
@@ -346,8 +351,6 @@ function start(): void {
 
   function setEmployee(next: EmployeeProfile | null, checked = true): void {
     const trocou = !next || next.id !== employee?.id;
-    // O chat é da pessoa: sem funcionário (ou outra pessoa entrou) a conversa anterior sai da tela
-    if (trocou) chat.clear();
     employee = next;
     if (trocou) {
       // Foto e atalhos também são da pessoa: saem da tela na hora, antes mesmo
@@ -439,59 +442,6 @@ function start(): void {
       naoLidasConversas = 0;
     }
     if (naoLidasConversas !== anterior) updateUnreadIndicators();
-  }
-
-  /** Lista de contatos do chat (pessoas do DP), com não lidas e última mensagem. */
-  async function syncChatContacts(): Promise<void> {
-    const client = api;
-    if (!client || !employee) {
-      chat.clear();
-      return;
-    }
-    try {
-      chat.setContacts(await client.getChatContacts());
-    } catch (err) {
-      console.warn('[chat] não foi possível carregar os contatos:', err instanceof Error ? err.message : err);
-      if (err instanceof ApiError && err.status === 401) chat.clear(); // sem funcionário logado no servidor
-    }
-  }
-
-  /** Carrega a conversa com uma pessoa do DP. */
-  async function loadConversation(dpUserId: string): Promise<boolean> {
-    const client = api;
-    if (!client || !employee) return false;
-    chat.setLoading(true);
-    try {
-      chat.setConversation(dpUserId, await client.getChat(dpUserId));
-      return true;
-    } catch (err) {
-      console.warn('[chat] não foi possível carregar a conversa:', err instanceof Error ? err.message : err);
-      return false;
-    } finally {
-      chat.setLoading(false);
-    }
-  }
-
-  /** Contatos + conversa aberta (após conectar, login, troca de sessão). */
-  async function syncChat(): Promise<void> {
-    if (!api || !employee) {
-      chat.clear();
-      return;
-    }
-    await syncChatContacts();
-    const state = chat.getState();
-    console.log(`[chat] ${state.contacts.length} pessoas do DP, ${state.unreadCount} mensagens não lidas`);
-    if (state.openContactId && chat.hasContact(state.openContactId)) await loadConversation(state.openContactId);
-  }
-
-  // Várias mensagens seguidas → uma única atualização da lista de contatos
-  let contactsRefreshTimer: NodeJS.Timeout | null = null;
-  function refreshContactsSoon(): void {
-    if (contactsRefreshTimer) clearTimeout(contactsRefreshTimer);
-    contactsRefreshTimer = setTimeout(() => {
-      contactsRefreshTimer = null;
-      void syncChatContacts();
-    }, 400);
   }
 
   function sendToMain(channel: string, payload: unknown): void {
@@ -591,7 +541,6 @@ function start(): void {
     computer,
     connection: connection.getState(),
     messages: store.getState(),
-    chat: chat.getState(),
     employee,
     employeeChecked,
     mural,
@@ -600,68 +549,17 @@ function start(): void {
     admin: adminClient?.user ?? null,
   }));
 
-  handle(IpcChannels.ChatOpen, async (rawId): Promise<OperationResult> => {
-    if (rawId === null) {
-      chat.setOpen(null);
-      return { ok: true, message: '' };
-    }
-    if (!isUuid(rawId)) return { ok: false, message: 'Contato inválido.' };
-    if (!employee) return { ok: false, message: 'Entre com sua matrícula para conversar com o DP.' };
-    chat.setOpen(rawId);
-    if (!api || connection.getState().status !== 'connected') {
-      return chat.isLoaded(rawId)
-        ? { ok: true, message: '' }
-        : { ok: false, message: 'Sem conexão com o servidor: a conversa aparece quando o app estiver 🟢 Conectado.' };
-    }
-    return (await loadConversation(rawId))
-      ? { ok: true, message: '' }
-      : { ok: false, message: 'Não foi possível carregar a conversa. Tente novamente.' };
-  });
-
-  handle(IpcChannels.ChatSend, async (rawId, rawContent): Promise<OperationResult> => {
-    if (!isUuid(rawId)) return { ok: false, message: 'Escolha com quem do DP você quer conversar.' };
-    const content = boundedText(rawContent, CHAT_MESSAGE_MAX);
-    if (!content) {
-      const tooLong = typeof rawContent === 'string' && rawContent.trim().length > CHAT_MESSAGE_MAX;
-      return { ok: false, message: tooLong ? `A mensagem pode ter no máximo ${CHAT_MESSAGE_MAX} caracteres.` : 'Escreva uma mensagem.' };
-    }
-    if (!employee) return { ok: false, message: 'Entre com sua matrícula para conversar com o DP.' };
-    const client = api;
-    if (!client || connection.getState().status !== 'connected') {
-      return { ok: false, message: 'Sem conexão com o servidor. A mensagem não foi enviada; tente de novo quando estiver 🟢 Conectado.' };
-    }
-    try {
-      chat.add(await client.sendChat(rawId, content));
-      refreshContactsSoon();
-      return { ok: true, message: 'Mensagem enviada.' };
-    } catch (err) {
-      return { ok: false, message: err instanceof ApiError ? err.message : 'Não foi possível enviar. Tente novamente.' };
-    }
-  });
-
-  handle(IpcChannels.ChatMarkRead, async (rawId) => {
-    const client = api;
-    if (!isUuid(rawId) || !client || !employee || chat.contactUnread(rawId) === 0) return;
-    if (connection.getState().status !== 'connected') return; // marca quando voltar a abrir o chat conectado
-    try {
-      await client.markChatRead(rawId);
-      chat.markRead(rawId, new Date().toISOString());
-    } catch (err) {
-      console.warn('[chat] não foi possível marcar como lidas:', err instanceof Error ? err.message : err);
-    }
-  });
-
   handle(IpcChannels.EmployeeLogin, async (rawRegistration, rawPassword): Promise<OperationResult> => {
     const registration = boundedText(rawRegistration, 32);
     const password = boundedText(rawPassword, 128, false);
-    if (!registration || !password) return { ok: false, message: 'Informe a matrícula e a senha.' };
+    if (!registration || !password) return { ok: false, message: 'Informe o usuário e a senha.' };
     const client = api;
     if (!client || connection.getState().status !== 'connected') return OFFLINE_RESULT;
     try {
       const profile = await client.loginEmployee(registration, password);
-      console.log(`[funcionário] login: ${profile.name} (matrícula ${profile.registration})`);
+      console.log(`[funcionário] login: ${profile.name} (usuário ${profile.registration})`);
       setEmployee(profile);
-      await Promise.all([syncWithServer(), syncChat()]); // comunicados do setor/turno + conversa com o DP
+      await Promise.all([syncWithServer(), syncNaoLidasConversas()]); // comunicados do setor/turno + conversas
       return { ok: true, message: `Bem-vindo(a), ${profile.name}!` };
     } catch (err) {
       return { ok: false, message: err instanceof ApiError ? err.message : 'Não foi possível entrar. Tente novamente.' };
@@ -692,11 +590,10 @@ function start(): void {
     if (newPassword.length < 8) return { ok: false, message: 'A nova senha precisa ter pelo menos 8 caracteres.' };
     const client = api;
     if (!client || connection.getState().status !== 'connected') return OFFLINE_RESULT;
-    if (!employee) return { ok: false, message: 'Entre com sua matrícula para alterar a senha.' };
+    if (!employee) return { ok: false, message: 'Entre com seu usuário para alterar a senha.' };
     try {
       await client.changeEmployeePassword(currentPassword, newPassword);
       await refreshSession(client); // atualiza o perfil (ex.: some a troca obrigatória de senha)
-      if (chat.getState().contacts.length === 0) await syncChat();
       return { ok: true, message: 'Senha alterada.' };
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) return { ok: false, message: 'Senha atual incorreta.' };
@@ -706,6 +603,55 @@ function start(): void {
 
   handle(IpcChannels.MarkAsRead, async (messageId) => {
     if (isMessageId(messageId)) await markAsRead(messageId);
+  });
+
+  // "Li e estou ciente": precisa de conexão, porque fica registrado no servidor
+  /**
+   * Link de uma mensagem, aberto no navegador padrão. Só http e https: um
+   * "file:" ou um "javascript:" vindo de uma mensagem não tem nada que abrir
+   * pelo aplicativo.
+   */
+  handle(IpcChannels.AbrirLink, async (bruto): Promise<OperationResult> => {
+    const texto = typeof bruto === 'string' ? bruto.trim() : '';
+    if (texto.length > 2000) return { ok: false, message: 'Endereço grande demais.' };
+    let url: URL;
+    try {
+      url = new URL(texto);
+    } catch {
+      return { ok: false, message: 'Endereço inválido.' };
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return { ok: false, message: 'Só abro endereços http e https.' };
+    }
+    await shell.openExternal(url.toString());
+    return { ok: true, message: '' };
+  });
+
+  /** "Copiar" do bloco de código: vai pela área de transferência do Windows. */
+  handle(IpcChannels.CopiarTexto, async (bruto): Promise<OperationResult> => {
+    const texto = typeof bruto === 'string' ? bruto : '';
+    if (!texto) return { ok: false, message: 'Nada para copiar.' };
+    if (texto.length > 200_000) return { ok: false, message: 'Texto grande demais para copiar.' };
+    clipboard.writeText(texto);
+    return { ok: true, message: 'Código copiado.' };
+  });
+
+  handle(IpcChannels.ConfirmarCiencia, async (messageId) => {
+    if (!isMessageId(messageId)) return { ok: false, message: 'Comunicado inválido.' };
+    if (!api || connection.getState().status !== 'connected') {
+      return { ok: false, message: 'Sem conexão com o servidor. Tente de novo em instantes.' };
+    }
+    try {
+      const cienteEm = await api.confirmarCiencia(messageId);
+      store.markCiencia(messageId, cienteEm);
+      popup.remove(messageId);
+      return { ok: true, message: 'Confirmação registrada.' };
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        return { ok: false, message: 'Entre com o seu usuário para confirmar a ciência.' };
+      }
+      return { ok: false, message: err instanceof ApiError ? err.message : 'Não foi possível confirmar.' };
+    }
   });
 
   // ---------------------------------------------------------------- anexos
@@ -791,10 +737,14 @@ function start(): void {
 
   handle(PopupChannels.GetState, () => popup.getState());
   handle(PopupChannels.Dismiss, (messageId) => {
-    if (isMessageId(messageId)) popup.remove(messageId);
+    // Chave desconhecida (alerta que já saiu da fila, por exemplo): dispensa o
+    // que está à vista, para o clique nunca ficar sem resposta
+    if (isChaveDeAlerta(messageId)) popup.dispensar(messageId);
+    else popup.dispensarAtual();
   });
   handle(PopupChannels.View, (messageId) => {
-    if (isMessageId(messageId)) popup.view(messageId);
+    if (isChaveDeAlerta(messageId)) popup.view(messageId);
+    else popup.dispensarAtual();
   });
 
   handle(IpcChannels.GetSettings, (): SettingsView => ({
@@ -855,10 +805,13 @@ function start(): void {
     '.zip': 'application/zip',
   };
 
-  /** Abre o seletor de arquivo e devolve a imagem lida do disco. */
+  /**
+   * Abre o seletor de arquivo e devolve o caminho da imagem escolhida.
+   * Não há limite de tamanho: o envio lê o arquivo do disco em partes.
+   */
   async function escolherImagem(
     titulo: string,
-  ): Promise<{ conteudo: Buffer; mimeType: string; nome: string; erro?: string } | null> {
+  ): Promise<{ caminho: string; mimeType: string; nome: string; erro?: string } | null> {
     const escolha = await dialog.showOpenDialog({
       title: titulo,
       properties: ['openFile'],
@@ -869,14 +822,8 @@ function start(): void {
     const caminho = escolha.filePaths[0];
     const nome = caminho.split(/[\/]/).pop() ?? 'imagem';
     const mimeType = TIPOS_IMAGEM[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
-    if (!mimeType) {
-      return { conteudo: Buffer.alloc(0), mimeType: '', nome, erro: 'Escolha uma imagem JPG, PNG ou WEBP.' };
-    }
-    const conteudo = await readFile(caminho);
-    if (conteudo.length > 10 * 1024 * 1024) {
-      return { conteudo, mimeType, nome, erro: 'A imagem passa de 10 MB.' };
-    }
-    return { conteudo, mimeType, nome };
+    if (!mimeType) return { caminho, mimeType: '', nome, erro: 'Escolha uma imagem JPG, PNG ou WEBP.' };
+    return { caminho, mimeType, nome };
   }
 
   // ---------------------------------------------------------------- chamados para o TI
@@ -953,27 +900,36 @@ function start(): void {
     if (!escolhida) return { ok: false, midiaId: null, nome: '', message: '' };
     if (escolhida.erro) return { ok: false, midiaId: null, nome: '', message: escolhida.erro };
 
-    const envio = await comApi((client) => client.enviarMidia(escolhida.conteudo, escolhida.mimeType, escolhida.nome));
+    const envio = await comApi((client) => client.enviarMidia(escolhida.caminho, escolhida.mimeType, escolhida.nome));
     if (!('dados' in envio)) return { ok: false, midiaId: null, nome: '', message: envio.message };
     return { ok: true, midiaId: envio.dados.id, nome: escolhida.nome, message: '' };
   });
 
   // ---------------------------------------------------------------- conta do DP/TI no aplicativo
 
+  /** Acesso administrativo que o setor do funcionário logado dá (vem do servidor). */
+  function acessoPeloSetor(): AcessoAdmin {
+    return employee?.acessoAdmin ?? 'NENHUM';
+  }
+
   /**
-   * Chamada com a credencial do DP. Diferente de comApi(), que usa o token do
-   * computador: aqui quem age é a pessoa do DP logada nesta máquina.
+   * Chamada como DP. São duas credenciais possíveis, nesta ordem:
+   *   1. a conta do DP/TI aberta no aplicativo (login no canto superior direito);
+   *   2. o token do próprio computador, quando quem está logado é do setor do
+   *      DP ou do TI — nesse caso o servidor reconhece o acesso pelo setor.
    */
   async function comAdmin<T>(
-    acao: (client: AdminClient) => Promise<T>,
+    acao: (client: AdminClient | ApiClient) => Promise<T>,
   ): Promise<{ ok: true; dados: T } | OperationResult> {
-    if (!adminClient || !adminClient.autenticado) {
+    const comConta = adminClient?.autenticado === true;
+    const cliente = comConta ? adminClient : acessoPeloSetor() !== 'NENHUM' ? api : null;
+    if (!cliente) {
       return { ok: false, message: 'Entre com a conta do DP para usar esta função.' };
     }
     try {
-      return { ok: true, dados: await acao(adminClient) };
+      return { ok: true, dados: await acao(cliente) };
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) sendToMain(IpcChannels.AdminChanged, null);
+      if (err instanceof ApiError && err.status === 401 && comConta) sendToMain(IpcChannels.AdminChanged, null);
       const mensagem = err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.';
       return { ok: false, message: mensagem };
     }
@@ -1086,13 +1042,8 @@ function start(): void {
     const mimeType = tipos[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
     if (!mimeType) return { ok: false, midia: null, message: 'Formato não aceito.' };
 
-    const conteudo = await readFile(caminho);
-    const limiteMb = mimeType.startsWith('video/') ? 200 : 10;
-    if (conteudo.length > limiteMb * 1024 * 1024) {
-      return { ok: false, midia: null, message: 'O arquivo passa do limite de ' + limiteMb + ' MB.' };
-    }
-
-    const envio = await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome));
+    // Imagem e vídeo vão sem limite de tamanho: o arquivo sobe do disco em partes
+    const envio = await comAdmin((client) => client.enviarMidia(caminho, mimeType, nome));
     return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
@@ -1103,8 +1054,11 @@ function start(): void {
    */
   const ROTAS_ADMIN: { metodo: string; padrao: RegExp }[] = [
     { metodo: 'GET', padrao: /^\/api\/messages(\?limit=\d{1,4})?$/ },
+    // Lista do DP (o token do computador em /api/messages significa "as minhas")
+    { metodo: 'GET', padrao: /^\/api\/admin\/messages(\?limit=\d{1,4})?$/ },
     { metodo: 'POST', padrao: /^\/api\/messages$/ },
     { metodo: 'GET', padrao: /^\/api\/messages\/[\w-]{1,40}\/reads$/ },
+    { metodo: 'POST', padrao: /^\/api\/messages\/[\w-]{1,40}\/avisar-pendentes$/ },
     { metodo: 'DELETE', padrao: /^\/api\/attachments\/ATT-[0-9a-f]{24}$/ },
     { metodo: 'GET', padrao: /^\/api\/employees$/ },
     { metodo: 'POST', padrao: /^\/api\/employees$/ },
@@ -1116,10 +1070,6 @@ function start(): void {
     { metodo: 'PATCH', padrao: /^\/api\/sectors\/[\w-]{1,64}$/ },
     { metodo: 'DELETE', padrao: /^\/api\/sectors\/[\w-]{1,64}$/ },
     { metodo: 'GET', padrao: /^\/api\/computers$/ },
-    { metodo: 'GET', padrao: /^\/api\/chats$/ },
-    { metodo: 'GET', padrao: /^\/api\/chats\/[\w-]{1,64}\/messages$/ },
-    { metodo: 'POST', padrao: /^\/api\/chats\/[\w-]{1,64}\/messages$/ },
-    { metodo: 'POST', padrao: /^\/api\/chats\/[\w-]{1,64}\/read$/ },
     { metodo: 'GET', padrao: /^\/api\/auto-replies$/ },
     { metodo: 'POST', padrao: /^\/api\/auto-replies$/ },
     { metodo: 'PUT', padrao: /^\/api\/auto-replies\/[\w-]{1,64}$/ },
@@ -1169,11 +1119,8 @@ function start(): void {
     const anexos: { id: string; name: string; size: number }[] = [];
     for (const caminho of escolha.filePaths) {
       const nome = caminho.split(/[\/]/).pop() ?? 'arquivo';
-      const conteudo = await readFile(caminho);
-      if (conteudo.length > 10 * 1024 * 1024) {
-        return { ok: false, anexos, message: nome + ' passa de 10 MB.' };
-      }
-      const envio = await comAdmin((client) => client.enviarAnexo(conteudo, nome));
+      // Imagem vai sem limite; documento tem teto, e quem recusa é o servidor
+      const envio = await comAdmin((client) => client.enviarAnexo(caminho, nome));
       if (!('dados' in envio)) return { ok: false, anexos, message: envio.message };
       anexos.push({ id: envio.dados.id, name: envio.dados.name, size: envio.dados.size });
     }
@@ -1206,6 +1153,9 @@ function start(): void {
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/' + CNV + '/membros/[\\w-]{1,64}$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/sair$') },
     { metodo: 'PUT', padrao: new RegExp('^/api/conversas/' + CNV + '/nome$') },
+    // "Só o DP e o TI me mandam mensagem" (tela Ajustes)
+    { metodo: 'GET', padrao: new RegExp('^/api/conversas/preferencias$') },
+    { metodo: 'PUT', padrao: new RegExp('^/api/conversas/preferencias$') },
     // Calendário da tela inicial
     { metodo: 'GET', padrao: new RegExp('^/api/eventos[?]de=\\d{4}-\\d{2}-\\d{2}&ate=\\d{4}-\\d{2}-\\d{2}$') },
     { metodo: 'POST', padrao: new RegExp('^/api/eventos$') },
@@ -1252,6 +1202,13 @@ function start(): void {
     const saida = comCredencialDoDp
       ? await comAdmin((client) => client.chamar<unknown>(metodo, caminho, entrada?.body))
       : await comApi((client) => client.chamar<unknown>(metodo, caminho, entrada?.body));
+    // Abrir uma conversa zera as não lidas dela: a bandeja, o título da janela e
+    // o contador do menu precisam saber na hora (antes só mudavam com mensagem nova)
+    if ('dados' in saida && metodo === 'POST' && caminho.endsWith('/lidas')) {
+      void syncNaoLidasConversas();
+      sendToMain(IpcChannels.ConversasContador, null);
+    }
+
     return 'dados' in saida
       ? { ok: true, dados: saida.dados ?? null, message: '' }
       : { ok: false, dados: null, message: saida.message };
@@ -1276,15 +1233,39 @@ function start(): void {
     const mimeType = TIPOS_ANEXO[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
     if (!mimeType) return { ok: false, midia: null, message: 'Formato não aceito.' };
 
-    const conteudo = await readFile(caminho);
-    const limiteMb = mimeType.startsWith('video/') ? 200 : mimeType.startsWith('image/') ? 10 : 25;
-    if (conteudo.length > limiteMb * 1024 * 1024) {
-      return { ok: false, midia: null, message: 'O arquivo passa do limite de ' + limiteMb + ' MB.' };
+    // Imagem e vídeo sem limite; documento tem teto, conferido no servidor
+    const envio = usandoComoDp()
+      ? await comAdmin((client) => client.enviarMidia(caminho, mimeType, nome))
+      : await comApi((client) => client.enviarMidia(caminho, mimeType, nome));
+    return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
+  });
+
+  /**
+   * Arquivo arrastado para dentro da conversa. A tela manda o caminho no disco
+   * (o preload pega com webUtils); aqui a extensão é conferida antes de subir,
+   * e o servidor ainda confere o conteúdo de verdade.
+   */
+  handle(IpcChannels.ConversasSoltarArquivo, async (bruto) => {
+    const caminho = typeof bruto === 'string' ? bruto : '';
+    if (!caminho || caminho.length > 4096) return { ok: false, midia: null, message: 'Arquivo inválido.' };
+
+    let ehArquivo = false;
+    try {
+      ehArquivo = (await stat(caminho)).isFile();
+    } catch {
+      ehArquivo = false;
+    }
+    if (!ehArquivo) return { ok: false, midia: null, message: 'Solte um arquivo, não uma pasta.' };
+
+    const nome = caminho.split(/[\/]/).pop() ?? 'arquivo';
+    const mimeType = TIPOS_ANEXO[caminho.slice(caminho.lastIndexOf('.')).toLowerCase()];
+    if (!mimeType) {
+      return { ok: false, midia: null, message: 'Formato não aceito. Envie imagem, vídeo ou documento.' };
     }
 
     const envio = usandoComoDp()
-      ? await comAdmin((client) => client.enviarMidia(conteudo, mimeType, nome))
-      : await comApi((client) => client.enviarMidia(conteudo, mimeType, nome));
+      ? await comAdmin((client) => client.enviarMidia(caminho, mimeType, nome))
+      : await comApi((client) => client.enviarMidia(caminho, mimeType, nome));
     return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
   });
 
@@ -1381,19 +1362,62 @@ function start(): void {
     return { ok: true, message: '' };
   });
 
-  /** Escolhe a imagem no disco, envia ao servidor e passa a ser a foto da pessoa. */
-  handle(IpcChannels.FotoUpload, async (): Promise<OperationResult> => {
-    const escolhida = await escolherImagem('Escolha a sua foto');
-    if (!escolhida) return { ok: false, message: '' };
-    if (escolhida.erro) return { ok: false, message: escolhida.erro };
+  /** Foto original aceita para enquadrar (o recorte sai bem menor) */
+  const FOTO_ORIGINAL_MAX = 25 * 1024 * 1024;
+  /** Recorte que a tela devolve: JPEG quadrado de 512 px */
+  const FOTO_RECORTE_MAX = 3 * 1024 * 1024;
 
-    const envio = await comApi(async (client) => {
-      const midia = await client.enviarMidia(escolhida.conteudo, escolhida.mimeType, escolhida.nome);
-      return client.definirFoto(midia.id);
-    });
-    if (!('dados' in envio)) return envio;
-    await syncPerfil();
-    return { ok: true, message: 'Foto atualizada.' };
+  /**
+   * Escolhe a imagem no disco e devolve para a tela, que mostra o enquadramento.
+   * Nada vai ao servidor aqui: só o recorte final é enviado (FotoSalvar).
+   */
+  handle(IpcChannels.FotoEscolher, async () => {
+    const escolhida = await escolherImagem('Escolha a sua foto');
+    if (!escolhida) return { ok: false, dataUrl: null, message: '' };
+    if (escolhida.erro) return { ok: false, dataUrl: null, message: escolhida.erro };
+    try {
+      if ((await stat(escolhida.caminho)).size > FOTO_ORIGINAL_MAX) {
+        return { ok: false, dataUrl: null, message: 'A imagem passa de 25 MB. Escolha uma menor.' };
+      }
+      const bytes = await readFile(escolhida.caminho);
+      return { ok: true, dataUrl: `data:${escolhida.mimeType};base64,${bytes.toString('base64')}`, message: '' };
+    } catch (err) {
+      console.error('[perfil] falha ao ler a imagem:', err);
+      return { ok: false, dataUrl: null, message: 'Não foi possível ler a imagem.' };
+    }
+  });
+
+  /** A foto atual, para a pessoa enquadrar de novo. */
+  handle(IpcChannels.FotoAtual, async () => {
+    const atual = foto;
+    if (!atual) return { ok: false, dataUrl: null, message: '' };
+    const baixada = await comApi((client) => client.baixarMidia(atual.id));
+    if (!('dados' in baixada)) return { ok: false, dataUrl: null, message: baixada.message };
+    return { ok: true, dataUrl: `data:${atual.mimeType};base64,${baixada.dados.toString('base64')}`, message: '' };
+  });
+
+  /** Recebe o recorte da tela, envia ao servidor e passa a ser a foto da pessoa. */
+  handle(IpcChannels.FotoSalvar, async (bruto): Promise<OperationResult> => {
+    const jpeg = bruto instanceof Uint8Array ? Buffer.from(bruto) : null;
+    // Confere a assinatura do JPEG: só o recorte gerado pela tela chega aqui
+    if (!jpeg || jpeg.length < 4 || jpeg.length > FOTO_RECORTE_MAX || jpeg[0] !== 0xff || jpeg[1] !== 0xd8) {
+      return { ok: false, message: 'Imagem inválida.' };
+    }
+    const pasta = join(app.getPath('temp'), 'comunicacao-dp-perfil');
+    const arquivo = join(pasta, `foto-${Date.now()}.jpg`);
+    try {
+      await mkdir(pasta, { recursive: true });
+      await writeFile(arquivo, jpeg);
+      const envio = await comApi(async (client) => {
+        const midia = await client.enviarMidia(arquivo, 'image/jpeg', 'foto-perfil.jpg');
+        return client.definirFoto(midia.id);
+      });
+      if (!('dados' in envio)) return envio;
+      await syncPerfil();
+      return { ok: true, message: 'Foto atualizada.' };
+    } finally {
+      await rm(arquivo, { force: true }).catch(() => undefined);
+    }
   });
 
   handle(IpcChannels.FotoRemove, async (): Promise<OperationResult> => {
@@ -1428,7 +1452,7 @@ function start(): void {
     const client = api;
     if (!client) return;
     void refreshSession(client).then(() =>
-      Promise.all([syncWithServer(), syncChat(), syncMural(), syncPerfil(), syncNaoLidasConversas()]),
+      Promise.all([syncWithServer(), syncMural(), syncPerfil(), syncNaoLidasConversas()]),
     );
   });
 
@@ -1442,7 +1466,6 @@ function start(): void {
     }
     setEmployee(next);
     void syncWithServer();
-    void syncChat();
     void syncNaoLidasConversas();
   });
 
@@ -1458,21 +1481,6 @@ function start(): void {
     alertarMensagem(conversaId, aviso);
   });
 
-  // Chat: só atualiza o contador e a conversa (sem popup nem som)
-  connection.on('chat', (message) => {
-    if (!employee || message.employeeId !== employee.id) return;
-    chat.add(message);
-    // Não lidas e última mensagem de cada contato ficam exatamente como no servidor
-    // (inclui contato novo: pessoa do DP que ainda não estava na lista)
-    refreshContactsSoon();
-    if (message.senderType === 'DP') console.log(`[chat] mensagem de ${message.senderName}`);
-  });
-
-  chat.on('change', (state) => {
-    sendToMain(IpcChannels.ChatChanged, state);
-    updateUnreadIndicators();
-  });
-
   connection.on('message', (message) => {
     if (!store.add(message)) return;
     console.log(`[mensagem] recebida ${message.id} (${message.type}): ${message.title}`);
@@ -1480,6 +1488,16 @@ function start(): void {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isFocused()) {
       mainWindow.flashFrame(true);
     }
+  });
+
+  connection.on('lembrete', (messageId) => {
+    const message = store.get(messageId);
+    if (!message) return;
+    // Já leu (e já confirmou, quando o comunicado pede): não incomoda de novo
+    const pendente = !message.read || (message.exigeCiencia && !message.cienteEm);
+    if (!pendente) return;
+    console.log(`[mensagem] lembrete do DP para ${messageId}`);
+    popup.enqueue([message]);
   });
 
   store.on('change', (state) => {
@@ -1509,7 +1527,7 @@ function start(): void {
       obterApi: () => api,
       estaConectado: () => connection.getState().status === 'connected',
       versaoAtual: app.getVersion(),
-      horario: process.env.HORARIO_ATUALIZACAO,
+      horario: horarioAtualizacao() ?? undefined,
       log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
     });
     atualizador.iniciar();

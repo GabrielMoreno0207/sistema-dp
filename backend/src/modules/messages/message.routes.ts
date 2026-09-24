@@ -15,6 +15,8 @@ const sendMessageSchema = {
     target: { type: 'string', enum: IMPLEMENTED_TARGETS, default: 'ALL' },
     // ID do computador, ID do funcionário, nome do setor ou do turno (conferido no service)
     targetId: { type: 'string', minLength: 1, maxLength: 64 },
+    // true = cada pessoa precisa clicar em "Li e estou ciente"
+    exigeCiencia: { type: 'boolean', default: false },
     // Anexos já enviados por POST /api/attachments (conferidos no service)
     attachmentIds: {
       type: 'array',
@@ -62,6 +64,19 @@ export const messageRoutes: FastifyPluginAsync<MessageRoutesOptions> = async (ap
     },
   );
 
+  /**
+   * Lista do DP (todos os comunicados, com as contagens de leitura).
+   *
+   * Existe separada de GET /messages porque quem é do setor do DP usa o token
+   * do próprio computador: em /messages esse token significa "as minhas
+   * mensagens", e aqui significa "a lista do DP".
+   */
+  app.get<{ Querystring: ListQuery }>(
+    '/admin/messages',
+    { schema: { querystring: listQuerySchema }, onRequest: async (request) => void requireAdmin(request) },
+    async (request) => ({ messages: await messages.listAll(request.query.limit) }),
+  );
+
   // Computador: suas mensagens. DP: todas, com contagem de leituras.
   app.get<{ Querystring: ListQuery }>('/messages', { schema: { querystring: listQuerySchema } }, async (request) => {
     const principal = request.principal;
@@ -97,4 +112,17 @@ export const messageRoutes: FastifyPluginAsync<MessageRoutesOptions> = async (ap
     const computerId = requireComputer(request);
     return messages.markRead(request.params.id, computerId);
   });
+
+  // Funcionário confirma que leu e está ciente
+  app.post<{ Params: { id: string } }>('/messages/:id/ciencia', { schema: { params: idParamsSchema } }, async (request) => {
+    const computerId = requireComputer(request);
+    return messages.confirmarCiencia(request.params.id, computerId);
+  });
+
+  // DP cutuca quem ainda não leu
+  app.post<{ Params: { id: string } }>(
+    '/messages/:id/avisar-pendentes',
+    { schema: { params: idParamsSchema }, onRequest: async (request) => void requireAdmin(request) },
+    async (request) => messages.avisarPendentes(request.params.id),
+  );
 };

@@ -68,11 +68,17 @@ export const MIDIA_ID_PATTERN = '^MID-[0-9a-f]{24}$';
 export const MURAL_ID_PATTERN = '^MUR-[0-9a-f]{24}$';
 export const ATALHO_ID_PATTERN = '^ATL-[0-9a-f]{24}$';
 
+/** Sem teto: o arquivo vai do jeito que a pessoa mandou. */
+export const SEM_LIMITE = Number.POSITIVE_INFINITY;
+
 export const LIMITES_CONTEUDO = {
-  /** Imagem do mural e foto de perfil */
-  maxImagemBytes: 10 * 1024 * 1024,
-  /** Vídeo do mural */
-  maxVideoBytes: 200 * 1024 * 1024,
+  /**
+   * Imagem e vídeo não têm limite de tamanho: eles chegam em fluxo e vão
+   * direto para o disco, sem passar inteiros pela memória do servidor.
+   * O que limita, na prática, é o espaço em disco do servidor.
+   */
+  maxImagemBytes: SEM_LIMITE,
+  maxVideoBytes: SEM_LIMITE,
   /** Documento anexado a uma conversa */
   maxArquivoBytes: 25 * 1024 * 1024,
   maxTitulo: 120,

@@ -6,14 +6,16 @@
  *   npm run create-admin -- <usuario> "<Nome>" --gerar                                (gera uma senha inicial)
  *   npm run create-admin -- ti "TI" --gerar --sem-chat                                  (fora da lista de contatos do chat)
  *
- * Com --gerar, a senha é gravada em data/credenciais-iniciais.txt (fora do controle de versão)
- * e não aparece na tela. A pessoa pode trocar a senha quando quiser pelo botão "Minha senha" da Central.
+ * Com --gerar, a senha é gravada em credenciais-iniciais.txt na pasta de dados (a mesma
+ * dos anexos e das mídias; no container é um volume, então o arquivo não se perde quando
+ * o servidor é atualizado) e não aparece na tela. A pessoa pode trocar a senha quando
+ * quiser pelo botão "Minha senha" da Central.
  */
 import Fastify from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { appendFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { env, PROJECT_ROOT } from '../config/env';
+import { dirname, join } from 'node:path';
+import { env } from '../config/env';
 import { openDatabase } from '../database/open';
 import { AuthService } from '../modules/auth/auth.service';
 import { ComputerService } from '../modules/computers/computer.service';
@@ -64,7 +66,9 @@ async function main(): Promise<void> {
     const user = await auth.createAdmin(username, name, password, { chatContact });
     if (!chatContact) console.log('(não aparece na lista de contatos do chat no aplicativo)');
     if (generate) {
-      const dir = join(PROJECT_ROOT, 'data');
+      // Pasta de dados = a mãe da pasta de anexos. No container é o volume
+      // /app/data; a pasta do código é trocada a cada atualização e não serve.
+      const dir = dirname(env.uploadsPath);
       mkdirSync(dir, { recursive: true });
       const file = join(dir, 'credenciais-iniciais.txt');
       appendFileSync(
@@ -72,7 +76,7 @@ async function main(): Promise<void> {
         `${new Date().toLocaleString('pt-BR')}  usuário: ${user.username.padEnd(12)} nome: ${user.name.padEnd(20)} senha inicial: ${password}\n`,
         'utf-8',
       );
-      console.log(`Login "${user.username}" (${user.name}) criado. Senha inicial gravada em data\\credenciais-iniciais.txt`);
+      console.log(`Login "${user.username}" (${user.name}) criado. Senha inicial gravada em ${file}`);
     } else {
       console.log(`Login "${user.username}" (${user.name}) criado.`);
     }

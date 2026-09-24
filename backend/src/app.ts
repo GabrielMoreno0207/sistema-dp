@@ -1,4 +1,3 @@
-import fastifyStatic from '@fastify/static';
 import Fastify, { LogController, type FastifyInstance } from 'fastify';
 import { join } from 'node:path';
 import { env } from './config/env';
@@ -8,6 +7,7 @@ import { errorHandler, notFoundHandler } from './errors/error-handler';
 import { registerAuthentication } from './modules/auth/auth.hooks';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { AdminService } from './modules/admin/admin.service';
+import { ConversasDoTi } from './modules/admin/conversas-do-ti';
 import { attachmentRoutes } from './modules/attachments/attachment.routes';
 import { AttachmentService } from './modules/attachments/attachment.service';
 import { AttachmentStorage } from './modules/attachments/attachment.storage';
@@ -19,20 +19,16 @@ import { eventoRoutes } from './modules/agenda/evento.routes';
 import { EventoService } from './modules/agenda/evento.service';
 import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
-import { ChatCompatService } from './modules/chat/chat.compat-service';
 import { ticketRoutes } from './modules/tickets/ticket.routes';
 import { TicketService } from './modules/tickets/ticket.service';
 import { updateRoutes } from './modules/updates/update.routes';
 import { UpdateService } from './modules/updates/update.service';
 import { UpdateStorage } from './modules/updates/update.storage';
 import { ServerUpdateService } from './modules/updates/server-update.service';
-import { ATTACHMENT_LIMITS } from './modules/attachments/attachment.types';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
 import { autoReplyRoutes } from './modules/auto-replies/auto-reply.routes';
 import { AutoReplyService } from './modules/auto-replies/auto-reply.service';
-import { chatRoutes } from './modules/chat/chat.routes';
-import { ChatService } from './modules/chat/chat.service';
 import { computerRoutes } from './modules/computers/computer.routes';
 import { ComputerService } from './modules/computers/computer.service';
 import { employeeRoutes } from './modules/employees/employee.routes';
@@ -78,13 +74,10 @@ export function buildApp({
     ...(https ? { https } : {}),
   }) as unknown as FastifyInstance;
 
-  // Upload de anexo: o arquivo chega como corpo binário puro (nome e tipo vêm em cabeçalhos).
-  // Assim não é preciso nenhuma biblioteca de multipart.
-  app.addContentTypeParser(
-    'application/octet-stream',
-    { parseAs: 'buffer', bodyLimit: ATTACHMENT_LIMITS.maxBytes },
-    (_request, body, done) => done(null, body),
-  );
+  // Upload de anexo: o arquivo chega como corpo binário puro (nome e tipo vêm em
+  // cabeçalhos) e segue em fluxo até o disco. Assim não é preciso biblioteca de
+  // multipart, e uma imagem grande não precisa caber inteira na memória.
+  app.addContentTypeParser('application/octet-stream', (_request, payload, done) => done(null, payload));
 
   // Instalador de nova versão: são dezenas de MB, então o corpo chega como fluxo
   // e vai direto para o disco, sem passar inteiro pela memória.
@@ -113,12 +106,6 @@ export function buildApp({
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('X-Frame-Options', 'DENY');
     reply.header('Referrer-Policy', 'no-referrer');
-    if (request.url.startsWith('/central')) {
-      reply.header(
-        'Content-Security-Policy',
-        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",
-      );
-    }
     return payload;
   });
 
@@ -159,13 +146,11 @@ export function buildApp({
     realtime,
     app.log,
   );
-  // As telas antigas (Central e versão atual do app) continuam funcionando por aqui
-  const chat = new ChatCompatService(conversas, repositories.conversas, employees, repositories.users, app.log);
   // Poderes extras da conta do TI (apagar comunicados e conversas, gerenciar os logins do DP)
   const admin = new AdminService(
     repositories.users,
     repositories.messages,
-    chat,
+    new ConversasDoTi(repositories.conversas, repositories.users),
     repositories.tokens,
     attachments,
     app.log,
@@ -189,15 +174,12 @@ export function buildApp({
   const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);
   const eventos = new EventoService(repositories.eventos, app.log);
 
-  registerAuthentication(app, auth);
+  registerAuthentication(app, auth, employees);
 
-  // Central do DP: página estática (HTML/CSS/JS) que usa a própria API REST
-  app.register(fastifyStatic, {
-    root: join(__dirname, '..', 'public', 'central'),
-    prefix: '/central/',
-  });
-  app.get('/central', (_request, reply) => reply.redirect('/central/'));
-  app.get('/', (_request, reply) => reply.redirect('/central/'));
+  // A Central web foi aposentada: o DP e o TI usam o próprio aplicativo
+  app.get('/', (_request, reply) =>
+    reply.type('text/plain; charset=utf-8').send('Servidor do Comunica Trinys. Use o aplicativo do computador ou do celular.'),
+  );
 
   app.register(
     async (api) => {
@@ -206,7 +188,6 @@ export function buildApp({
       await api.register(computerRoutes, { computers, auth, realtime });
       await api.register(employeeRoutes, { employees });
       await api.register(sectorRoutes, { sectors });
-      await api.register(chatRoutes, { chat });
       await api.register(autoReplyRoutes, { autoReplies });
       await api.register(adminRoutes, { admin });
       await api.register(messageRoutes, { messages });

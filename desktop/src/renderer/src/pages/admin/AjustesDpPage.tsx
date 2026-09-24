@@ -1,10 +1,23 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Regra {
   id: string;
   sector: string | null;
   content: string;
   active: boolean;
+}
+
+/** Campos que o servidor troca no texto da resposta automática (ver renderAutoReply no backend) */
+const CAMPOS_RESPOSTA = [
+  { campo: '{primeiro_nome}', descricao: 'Primeiro nome do funcionário' },
+  { campo: '{funcionario}', descricao: 'Nome completo do funcionário' },
+  { campo: '{setor}', descricao: 'Setor do funcionário' },
+  { campo: '{nome_dp}', descricao: 'Seu nome, sem o (DP)' },
+];
+
+interface PreferenciasConversa {
+  podeRestringir: boolean;
+  mensagensSoDpTi: boolean;
 }
 
 interface UsuarioDp {
@@ -35,9 +48,11 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
   const [resumo, setResumo] = useState<ResumoChat[]>([]);
   const [setores, setSetores] = useState<{ id: string; name: string }[]>([]);
   const [aviso, setAviso] = useState('');
+  const [preferencias, setPreferencias] = useState<PreferenciasConversa | null>(null);
 
   const [setorRegra, setSetorRegra] = useState('');
   const [textoRegra, setTextoRegra] = useState('');
+  const textoRegraRef = useRef<HTMLTextAreaElement>(null);
   const [novoUsuario, setNovoUsuario] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -54,6 +69,10 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
     setRegras(r.dados?.rules ?? []);
     setSetores(s.dados?.sectors ?? []);
     if (!r.ok) setAviso(r.message);
+
+    // Vale para quem está usando o app agora (funcionário do DP/TI ou a conta do DP/TI)
+    const p = await window.dp.conversasApi<PreferenciasConversa>('GET', '/api/conversas/preferencias');
+    setPreferencias(p.ok ? p.dados : null);
 
     if (ehTi) {
       const [u, c] = await Promise.all([
@@ -81,6 +100,30 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
     }
     setTextoRegra('');
     await carregar();
+  }
+
+  /** Coloca o campo onde está o cursor (ou no fim) e devolve o foco ao texto. */
+  function inserirCampo(campo: string) {
+    const caixa = textoRegraRef.current;
+    const inicio = caixa?.selectionStart ?? textoRegra.length;
+    const fim = caixa?.selectionEnd ?? textoRegra.length;
+    setTextoRegra(textoRegra.slice(0, inicio) + campo + textoRegra.slice(fim));
+    requestAnimationFrame(() => {
+      caixa?.focus();
+      caixa?.setSelectionRange(inicio + campo.length, inicio + campo.length);
+    });
+  }
+
+  async function alternarSoDpTi(ativo: boolean) {
+    const resultado = await window.dp.conversasApi<PreferenciasConversa>('PUT', '/api/conversas/preferencias', {
+      mensagensSoDpTi: ativo,
+    });
+    if (!resultado.ok) {
+      setAviso(resultado.message);
+      return;
+    }
+    setPreferencias(resultado.dados);
+    setAviso(ativo ? 'Pronto: só o DP e o TI conseguem mandar mensagem para você.' : 'Pronto: todos voltam a conseguir mandar mensagem para você.');
   }
 
   async function alternarRegra(regra: Regra) {
@@ -175,6 +218,26 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
 
       {aviso && <p className="aviso-em-breve">{aviso}</p>}
 
+      {preferencias?.podeRestringir && (
+        <div className="cartao formulario">
+          <h2 className="formulario__titulo">Minhas mensagens</h2>
+          <label className="caixa-marcar">
+            <input
+              type="checkbox"
+              checked={preferencias.mensagensSoDpTi}
+              onChange={(e) => void alternarSoDpTi(e.target.checked)}
+            />
+            <span>
+              Receber mensagens só do DP e do TI
+              <small className="page__subtitle">
+                Os demais funcionários deixam de ver você na lista de contatos, não conseguem escrever para você nem
+                colocar você em grupos. Conversas antigas continuam no histórico.
+              </small>
+            </span>
+          </label>
+        </div>
+      )}
+
       {(aba === 'respostas' || !ehTi) && (
         <>
           <div className="cartao formulario">
@@ -190,7 +253,23 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
               ))}
             </select>
             <label htmlFor="regra-texto">Texto</label>
-            <textarea id="regra-texto" rows={3} value={textoRegra} onChange={(e) => setTextoRegra(e.target.value)} />
+            <textarea
+              id="regra-texto"
+              ref={textoRegraRef}
+              rows={3}
+              maxLength={1000}
+              placeholder="Ex.: Olá, {primeiro_nome}! Recebi sua mensagem e respondo assim que possível."
+              value={textoRegra}
+              onChange={(e) => setTextoRegra(e.target.value)}
+            />
+            <div className="campos-texto">
+              <span className="campos-texto__rotulo">Inserir no texto:</span>
+              {CAMPOS_RESPOSTA.map(({ campo, descricao }) => (
+                <button key={campo} type="button" className="campos-texto__campo" title={descricao} onClick={() => inserirCampo(campo)}>
+                  {campo}
+                </button>
+              ))}
+            </div>
             <div className="formulario__acoes">
               <button className="botao botao--primario" onClick={() => void salvarRegra()} disabled={!textoRegra.trim()}>
                 Salvar

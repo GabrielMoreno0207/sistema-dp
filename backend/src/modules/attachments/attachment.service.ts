@@ -2,7 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import type { AttachmentRepository } from './attachment.repository';
-import type { AttachmentStorage } from './attachment.storage';
+import { ERRO_TAMANHO, type AttachmentStorage } from './attachment.storage';
 import {
   ALLOWED_EXTENSIONS,
   ALLOWED_TYPES,
@@ -11,6 +11,7 @@ import {
   ORPHAN_FILE_GRACE_MS,
   PENDING_UPLOAD_TTL_MS,
   formatBytes,
+  limitFor,
   safeExtension,
   sanitizeFileName,
   type Attachment,
@@ -63,8 +64,12 @@ export interface UploadInput {
   name: string;
   /** Tipo informado pelo navegador (cabeçalho X-File-Type) */
   mimeType: string;
-  content: Buffer;
+  /** O arquivo: em fluxo (o normal) ou inteiro na memória (arquivos pequenos) */
+  content: Buffer | AsyncIterable<Buffer>;
 }
+
+/** Quantos bytes bastam para conferir a assinatura do arquivo */
+const BYTES_DA_ASSINATURA = 32;
 
 /** Link temporário de download: o <img> e o "Baixar" da Central não mandam cabeçalho de autenticação */
 interface Ticket {
@@ -98,25 +103,35 @@ export class AttachmentService {
         'ATTACHMENT_TYPE_NOT_ALLOWED',
       );
     }
-    if (input.content.length === 0) throw new AppError('O arquivo está vazio', 400, 'VALIDATION_ERROR');
-    if (input.content.length > ATTACHMENT_LIMITS.maxBytes) {
-      throw new AppError(
-        `O arquivo tem ${formatBytes(input.content.length)}; o limite é ${formatBytes(ATTACHMENT_LIMITS.maxBytes)}`,
-        413,
-        'ATTACHMENT_TOO_LARGE',
-      );
-    }
-    if (!matchesSignature(input.content, mimeType)) {
+    const limite = limitFor(allowed.kind);
+    const id = `ATT-${randomBytes(12).toString('hex')}`;
+    const storedName = `${id}${safeExtension(name, mimeType)}`;
+
+    // O começo do arquivo vem antes de gravar qualquer coisa: é ele que diz se
+    // o conteúdo combina com o tipo informado (nada de .exe virando .png)
+    const { inicio, resto } = await lerInicio(input.content);
+    if (inicio.length === 0) throw new AppError('O arquivo está vazio', 400, 'VALIDATION_ERROR');
+    if (!matchesSignature(inicio, mimeType)) {
       throw new AppError('O conteúdo do arquivo não corresponde ao tipo informado', 400, 'ATTACHMENT_TYPE_MISMATCH');
     }
 
-    const id = `ATT-${randomBytes(12).toString('hex')}`;
-    const storedName = `${id}${safeExtension(name, mimeType)}`;
-    await this.storage.save(storedName, input.content);
+    let size: number;
+    try {
+      size = await this.storage.saveStream(storedName, juntar(inicio, resto), limite);
+    } catch (err) {
+      if ((err as Error).message === ERRO_TAMANHO) {
+        throw new AppError(
+          `O arquivo passa de ${formatBytes(limite)}, o limite para este tipo`,
+          413,
+          'ATTACHMENT_TOO_LARGE',
+        );
+      }
+      throw err;
+    }
 
     try {
       const stored = await this.repository.create(
-        { id, messageSeq: null, name, mimeType, size: input.content.length, kind: allowed.kind, storedName, uploadedBy },
+        { id, messageSeq: null, name, mimeType, size, kind: allowed.kind, storedName, uploadedBy },
         new Date(),
       );
       this.log.info(`Anexo recebido: ${id} (${name}, ${formatBytes(stored.size)})`);
@@ -217,4 +232,39 @@ export class AttachmentService {
     if (removed > 0) this.log.info(`Faxina de anexos: ${removed} arquivo(s) removido(s)`);
     return removed;
   }
+}
+
+/**
+ * Separa os primeiros bytes (para conferir a assinatura) do resto do arquivo,
+ * sem juntar tudo na memória quando o conteúdo vem em fluxo.
+ */
+async function lerInicio(
+  content: Buffer | AsyncIterable<Buffer>,
+): Promise<{ inicio: Buffer; resto: AsyncIterable<Buffer> | null }> {
+  if (Buffer.isBuffer(content)) return { inicio: content, resto: null };
+
+  const leitor = content[Symbol.asyncIterator]();
+  const partes: Buffer[] = [];
+  let lidos = 0;
+  while (lidos < BYTES_DA_ASSINATURA) {
+    const { value, done } = await leitor.next();
+    if (done) break;
+    const parte = Buffer.isBuffer(value) ? value : Buffer.from(value as Uint8Array);
+    partes.push(parte);
+    lidos += parte.length;
+  }
+  return {
+    inicio: Buffer.concat(partes),
+    resto: { [Symbol.asyncIterator]: () => leitor as AsyncIterator<Buffer> },
+  };
+}
+
+/** Devolve o começo já lido e, na sequência, o que ainda está chegando. */
+function juntar(inicio: Buffer, resto: AsyncIterable<Buffer> | null): AsyncIterable<Buffer> {
+  return {
+    async *[Symbol.asyncIterator]() {
+      yield inicio;
+      if (resto) for await (const parte of resto) yield parte;
+    },
+  };
 }

@@ -45,8 +45,23 @@ export function PopupApp() {
   if (!atual || !chave) return null;
 
   const temProxima = state.position < state.total;
-  const fechar = () => void window.dpPopup.popupDismiss(chave);
-  const abrir = () => void window.dpPopup.popupView(chave);
+
+  /**
+   * Clique que não volta resposta não pode deixar o alerta parado na tela:
+   * fechar a janela é o último recurso (o processo principal trata o fechamento
+   * como "dispensar", sem perder o resto da fila).
+   */
+  async function acionar(acao: (id: string) => Promise<void>, id: string): Promise<void> {
+    try {
+      await acao(id);
+    } catch (err) {
+      console.error('[alerta] o clique não foi atendido:', err);
+      window.close();
+    }
+  }
+
+  const fechar = () => void acionar(window.dpPopup.popupDismiss, chave);
+  const abrir = () => void acionar(window.dpPopup.popupView, chave);
 
   const rodape = (
     <div className="toast__actions">
@@ -97,6 +112,11 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
         {comunicado.attachments.length > 0 && (
           <p className="toast__attachments">
             <Icone nome="anexo" /> {comunicado.attachments.length} anexo{comunicado.attachments.length === 1 ? '' : 's'}
+          </p>
+        )}
+        {comunicado.exigeCiencia && !comunicado.cienteEm && (
+          <p className="toast__ciencia">
+            <Icone nome="ciencia" tamanho={13} /> Abra o comunicado para confirmar que leu
           </p>
         )}
 

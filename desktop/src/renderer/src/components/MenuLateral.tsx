@@ -1,5 +1,4 @@
 import { Icone, type NomeIcone } from '../lib/icones';
-import icone from '../imagens/icone.png';
 
 export type Page =
   | 'home'
@@ -20,13 +19,15 @@ interface ItemMenu {
   page: Page;
   label: string;
   icone: NomeIcone;
+  /** Ainda não liberada: aparece no menu, marcada, mas não abre */
+  emConstrucao?: boolean;
 }
 
 const ITENS: ItemMenu[] = [
   { page: 'home', label: 'Início', icone: 'inicio' },
   { page: 'announcements', label: 'Comunicados', icone: 'comunicados' },
   { page: 'messages', label: 'Mensagens', icone: 'mensagens' },
-  { page: 'chamados', label: 'Chamados TI', icone: 'chamados' },
+  { page: 'chamados', label: 'Chamados TI', icone: 'chamados', emConstrucao: true },
   { page: 'profile', label: 'Meu perfil', icone: 'perfil' },
   { page: 'settings', label: 'Configurações', icone: 'configuracoes' },
 ];
@@ -44,8 +45,8 @@ const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
   { page: 'admin-mural', label: 'Mural', icone: 'mural' },
   { page: 'admin-cadastros', label: 'Cadastros', icone: 'cadastros' },
   { page: 'admin-ajustes', label: 'Ajustes', icone: 'ajustes' },
-  { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true },
-  { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true },
+  { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true, emConstrucao: true },
+  { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true, emConstrucao: true },
 ];
 
 interface MenuLateralProps {
@@ -56,9 +57,11 @@ interface MenuLateralProps {
   unreadChat: number;
   /** Chamados com resposta nova para quem abriu */
   chamadosNaoLidos: number;
-  /** Nome do DP/TI logado (null = ninguém) */
+  /** Nome da conta do DP/TI aberta no aplicativo (null = ninguém) */
   adminNome: string | null;
-  /** A conta logada é do TI (fila de chamados) */
+  /** Mostra as telas do Departamento Pessoal (conta do DP/TI ou acesso pelo setor) */
+  mostrarTelasDoDp: boolean;
+  /** Tem os poderes do TI (conta do TI ou setor de TI) */
   adminEhTi: boolean;
   appVersion: string;
   onNavigate(page: Page): void;
@@ -70,6 +73,7 @@ export function MenuLateral({
   unreadChat,
   chamadosNaoLidos,
   adminNome,
+  mostrarTelasDoDp,
   adminEhTi,
   appVersion,
   onNavigate,
@@ -82,47 +86,62 @@ export function MenuLateral({
 
   return (
     <aside className="menu-lateral">
-      <div className="menu-lateral__marca">
-        <span className="menu-lateral__logo">
-          <img src={icone} alt="" />
-        </span>
-        <div className="menu-lateral__titulo">
-          <strong>Departamento Pessoal</strong>
-        </div>
-      </div>
-
-      <nav className="menu-lateral__nav">
+      <nav className="menu-lateral__nav menu-lateral__nav--topo">
         {ITENS.filter((item) => !adminNome || !SO_DO_FUNCIONARIO.includes(item.page)).map((item) => {
           const badge = badges[item.page] ?? 0;
           return (
             <button
               key={item.page}
-              className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''}`}
-              onClick={() => onNavigate(item.page)}
+              className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''} ${
+                item.emConstrucao ? 'item-menu--construcao' : ''
+              }`}
+              onClick={() => !item.emConstrucao && onNavigate(item.page)}
+              disabled={item.emConstrucao}
+              title={item.emConstrucao ? 'Em construção: ainda não está disponível' : undefined}
             >
               <span className="item-menu__icone">
                 <Icone nome={item.icone} />
               </span>
-              <span className="item-menu__label">{item.label}</span>
-              {badge > 0 && <span className="item-menu__badge">{badge > 99 ? '99+' : badge}</span>}
+              {item.emConstrucao ? (
+                <span className="item-menu__texto">
+                  <span className="item-menu__label">{item.label}</span>
+                  <span className="item-menu__construcao">em construção</span>
+                </span>
+              ) : (
+                <span className="item-menu__label">{item.label}</span>
+              )}
+              {!item.emConstrucao && badge > 0 && (
+                <span className="item-menu__badge">{badge > 99 ? '99+' : badge}</span>
+              )}
             </button>
           );
         })}
       </nav>
 
-      {adminNome && (
+      {mostrarTelasDoDp && (
         <nav className="menu-lateral__nav menu-lateral__nav--admin" aria-label="Administração">
           <span className="menu-lateral__secao">Departamento Pessoal</span>
           {ITENS_ADMIN.filter((item) => !item.soTi || adminEhTi).map((item) => (
             <button
               key={item.page}
-              className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''}`}
-              onClick={() => onNavigate(item.page)}
+              className={`item-menu ${page === item.page ? 'item-menu--ativo' : ''} ${
+                item.emConstrucao ? 'item-menu--construcao' : ''
+              }`}
+              onClick={() => !item.emConstrucao && onNavigate(item.page)}
+              disabled={item.emConstrucao}
+              title={item.emConstrucao ? 'Em construção: ainda não está disponível' : undefined}
             >
               <span className="item-menu__icone">
                 <Icone nome={item.icone} />
               </span>
-              <span className="item-menu__label">{item.label}</span>
+              {item.emConstrucao ? (
+                <span className="item-menu__texto">
+                  <span className="item-menu__label">{item.label}</span>
+                  <span className="item-menu__construcao">em construção</span>
+                </span>
+              ) : (
+                <span className="item-menu__label">{item.label}</span>
+              )}
             </button>
           ))}
         </nav>

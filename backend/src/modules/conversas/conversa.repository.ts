@@ -29,6 +29,8 @@ export interface ConversaRepository {
   naoLidasDeVarias(conversaIds: string[], userId: string): Promise<Map<string, number>>;
   apagarMensagem(id: number, agora: string): Promise<boolean>;
   findMensagem(id: number): Promise<MensagemConversa | null>;
+  /** Busca várias de uma vez (usado para montar a citação da resposta) */
+  findMensagens(ids: number[]): Promise<Map<number, MensagemConversa>>;
 
   /** Quantas mensagens cada conversa tem (números do painel do TI) */
   contarMensagensPorConversa(conversaIds: string[]): Promise<Map<string, number>>;

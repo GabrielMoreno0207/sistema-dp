@@ -1,4 +1,13 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
 import type {
   ConnectionState,
   ConversaResumo,
@@ -9,7 +18,14 @@ import type {
 } from '../../../shared/types';
 import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
-import { Avatar, MensagemDaConversa, dataDoDia, juntarMensagens, outraPessoa } from '../components/conversa-comuns';
+import {
+  Avatar,
+  MensagemDaConversa,
+  dataDoDia,
+  juntarMensagens,
+  outraPessoa,
+  resumoDaCitacao,
+} from '../components/conversa-comuns';
 import { Icone } from '../lib/icones';
 import { EncaminharMensagem } from '../components/EncaminharMensagem';
 
@@ -34,11 +50,16 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   const [texto, setTexto] = useState('');
   const [anexo, setAnexo] = useState<MidiaPublica | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [enviandoAnexo, setEnviandoAnexo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [criandoGrupo, setCriandoGrupo] = useState(false);
   const [encaminhando, setEncaminhando] = useState<MensagemConversa | null>(null);
+  /** Mensagem sendo respondida (aparece citada acima do campo de escrever) */
+  const [respondendo, setRespondendo] = useState<MensagemConversa | null>(null);
   // Procurar dentro da conversa aberta
+  /** Arquivo sendo arrastado por cima da conversa (mostra a área de soltar) */
+  const [arrastando, setArrastando] = useState(false);
   const [procurando, setProcurando] = useState(false);
   const [termoBusca, setTermoBusca] = useState('');
   const [achados, setAchados] = useState<MensagemConversa[] | null>(null);
@@ -161,12 +182,12 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
         <section className="panel panel--muted">
           <h2>Entre para ver suas conversas</h2>
           <p>
-            As conversas são pessoais: entre com sua matrícula para falar com colegas e com o Departamento Pessoal. Os
+            As conversas são pessoais: entre com seu usuário para falar com colegas e com o Departamento Pessoal. Os
             comunicados gerais continuam na página Comunicados.
           </p>
           <div className="form__actions form__actions--start">
             <button className="btn btn--primary" onClick={onRequestLogin}>
-              Entrar com minha matrícula
+              Entrar com meu usuário
             </button>
           </div>
         </section>
@@ -226,20 +247,20 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
    * Pula até a mensagem achada: carrega o trecho que termina nela (o servidor
    * devolve as 50 anteriores), rola até o balão e o destaca por um instante.
    */
-  async function irAte(mensagem: MensagemConversa) {
+  async function irAte(mensagemId: number) {
     if (!abertaId) return;
-    if (!mensagens.some((m) => m.id === mensagem.id)) {
+    if (!mensagens.some((m) => m.id === mensagemId)) {
       const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
         'GET',
-        `/api/conversas/${abertaId}/mensagens?antes=${mensagem.id + 1}`,
+        `/api/conversas/${abertaId}/mensagens?antes=${mensagemId + 1}`,
       );
       const trecho = resposta.dados?.mensagens ?? [];
       if (trecho.length > 0) setMensagens((atual) => juntarMensagens(atual, trecho));
     }
-    setDestacada(mensagem.id);
+    setDestacada(mensagemId);
     // Espera o balão existir na tela para poder rolar até ele
     setTimeout(() => {
-      document.getElementById(`mensagem-${mensagem.id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      document.getElementById(`mensagem-${mensagemId}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }, 60);
   }
 
@@ -253,7 +274,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       const resposta = await window.dp.conversasApi<{ mensagem: MensagemConversa }>(
         'POST',
         `/api/conversas/${abertaId}/mensagens`,
-        { conteudo, midiaId: anexo?.id ?? null },
+        { conteudo, midiaId: anexo?.id ?? null, respondeA: respondendo?.id ?? null },
       );
       if (!resposta.ok) {
         setErro(resposta.message);
@@ -261,12 +282,20 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       }
       setTexto('');
       setAnexo(null);
+      setRespondendo(null);
       const nova = resposta.dados?.mensagem;
       if (nova) setMensagens((atual) => juntarMensagens(atual, [nova]));
       await carregarLista();
     } finally {
       setEnviando(false);
     }
+  }
+
+  /** Prepara a resposta: a citação aparece acima do campo e some ao enviar. */
+  function responder(mensagem: MensagemConversa) {
+    setRespondendo(mensagem);
+    setProcurando(false);
+    document.querySelector<HTMLTextAreaElement>('.chat__input')?.focus();
   }
 
   async function anexar() {
@@ -277,6 +306,43 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       return;
     }
     setAnexo(resultado.midia);
+  }
+
+  /**
+   * Arquivo arrastado do Windows para dentro da conversa: sobe na hora e fica
+   * no campo como anexo, igual ao que o botão do clipe faz.
+   */
+  async function soltarArquivo(evento: DragEvent<HTMLElement>) {
+    evento.preventDefault();
+    setArrastando(false);
+    if (!abertaId || !online) return;
+
+    const arquivos = [...evento.dataTransfer.files];
+    if (arquivos.length === 0) return;
+    if (arquivos.length > 1) setAviso('Só o primeiro arquivo foi enviado: vai um de cada vez.');
+
+    setErro(null);
+    setEnviandoAnexo(true);
+    try {
+      const caminho = window.dp.caminhoDoArquivo(arquivos[0]);
+      if (!caminho) {
+        setErro('Não consegui ler esse arquivo. Use o clipe para escolher.');
+        return;
+      }
+      const resultado = await window.dp.conversasSoltarArquivo(caminho);
+      if (!resultado.ok) {
+        if (resultado.message) setErro(resultado.message);
+        return;
+      }
+      setAnexo(resultado.midia);
+    } finally {
+      setEnviandoAnexo(false);
+    }
+  }
+
+  /** Só reage a arquivo: arrastar texto de outro lugar não muda nada na tela. */
+  function temArquivo(evento: DragEvent<HTMLElement>): boolean {
+    return [...evento.dataTransfer.types].includes('Files');
   }
 
   async function apagar(mensagemId: number) {
@@ -438,7 +504,27 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
         )}
       </aside>
 
-      <section className="chat">
+      <section
+        className={`chat ${arrastando ? 'chat--soltar' : ''}`}
+        onDragOver={(evento) => {
+          if (!aberta || !temArquivo(evento)) return;
+          evento.preventDefault();
+          setArrastando(true);
+        }}
+        onDragLeave={(evento) => {
+          // Sai de um filho para outro também dispara: só some ao sair da área toda
+          if (evento.currentTarget.contains(evento.relatedTarget as Node | null)) return;
+          setArrastando(false);
+        }}
+        onDrop={(evento) => void soltarArquivo(evento)}
+      >
+        {arrastando && aberta && (
+          <div className="chat__soltar-aviso">
+            <Icone nome="anexo" tamanho={30} />
+            <strong>Solte para enviar em {aberta.titulo}</strong>
+            <span>Imagem, vídeo ou documento</span>
+          </div>
+        )}
         {!aberta ? (
           <div className="empty-state empty-state--detail">
             <Icone nome="mensagens" tamanho={28} />
@@ -499,7 +585,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                     {achados.length === 0 && <li className="busca-conversa__vazio">Nenhuma mensagem com esse texto.</li>}
                     {achados.map((achada) => (
                       <li key={achada.id}>
-                        <button className="busca-conversa__achado" onClick={() => void irAte(achada)}>
+                        <button className="busca-conversa__achado" onClick={() => void irAte(achada.id)}>
                           <span className="busca-conversa__quem">
                             {achada.autorId === identidade.id ? 'Você' : achada.autorNome}
                           </span>
@@ -559,8 +645,11 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       mensagem={mensagem}
                       minha={mensagem.autorId === identidade.id}
                       emGrupo={aberta.tipo === 'GRUPO'}
+                      lida={aberta.lidaAte !== null && aberta.lidaAte >= mensagem.createdAt}
                       onApagar={() => void apagar(mensagem.id)}
                       onEncaminhar={() => setEncaminhando(mensagem)}
+                      onResponder={() => responder(mensagem)}
+                      onIrAte={(id) => void irAte(id)}
                       onErro={setErro}
                     />
                   </Fragment>
@@ -577,6 +666,26 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
               )}
               {erro && <p className="feedback feedback--error chat__error">{erro}</p>}
               {aviso && <p className="feedback feedback--ok chat__error">{aviso}</p>}
+              {respondendo && (
+                <div className="chat__respondendo">
+                  <span className="chat__respondendo-corpo">
+                    <span className="chat__respondendo-autor">
+                      <Icone nome="responder" tamanho={13} /> {respondendo.autorNome}
+                    </span>
+                    <span className="chat__respondendo-texto">{resumoDaCitacao(respondendo)}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    onClick={() => setRespondendo(null)}
+                    aria-label="Cancelar resposta"
+                    title="Cancelar resposta"
+                  >
+                    <Icone nome="fechar" />
+                  </button>
+                </div>
+              )}
+              {enviandoAnexo && <p className="chat__anexo">Enviando o arquivo...</p>}
               {anexo && (
                 <p className="chat__anexo">
                   <Icone nome="anexo" /> {anexo.nome}

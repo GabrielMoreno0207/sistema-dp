@@ -105,7 +105,7 @@ export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
               {(
                 [
                   ['Nome', employee.name],
-                  ['Matrícula', employee.registration],
+                  ['Usuário', employee.registration],
                   ['Setor', employee.sector ?? '—'],
                   ['Turno', employee.shift ?? '—'],
                 ] as [string, string][]
@@ -124,12 +124,12 @@ export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
         <section className="panel panel--muted">
           <h2>Funcionário</h2>
           <p>
-            Você está usando o aplicativo sem identificação: este computador recebe os comunicados gerais. Entre com sua
-            matrícula para receber também as mensagens enviadas para você, seu setor ou seu turno.
+            Você está usando o aplicativo sem identificação: este computador recebe os comunicados gerais. Entre com seu
+            usuário para receber também as mensagens enviadas para você, seu setor ou seu turno.
           </p>
           <div className="form__actions form__actions--start">
             <button className="btn btn--primary" onClick={onRequestLogin}>
-              Entrar com minha matrícula
+              Entrar com meu usuário
             </button>
           </div>
         </section>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { DpMessage } from '../../../shared/types';
 import { MESSAGE_TYPE_META } from '../lib/message-meta';
 import { MessageAttachments } from './MessageAttachments';
@@ -18,6 +19,16 @@ const TARGET_LABELS: Record<string, string> = {
 export function MessageDetail({ message, onClose }: { message: DpMessage; onClose(): void }) {
   const meta = MESSAGE_TYPE_META[message.type];
   const targetLabel = TARGET_LABELS[message.target];
+  const [confirmando, setConfirmando] = useState(false);
+  const [erro, setErro] = useState('');
+
+  async function confirmarCiencia(): Promise<void> {
+    setConfirmando(true);
+    setErro('');
+    const resultado = await window.dp.confirmarCiencia(message.id);
+    if (!resultado.ok) setErro(resultado.message);
+    setConfirmando(false);
+  }
 
   return (
     <article className={`detail tone-${meta.tone}`}>
@@ -42,8 +53,37 @@ export function MessageDetail({ message, onClose }: { message: DpMessage; onClos
 
       <MessageAttachments messageId={message.id} attachments={message.attachments} />
 
+      {message.exigeCiencia && (
+        <div className={`ciencia ${message.cienteEm ? 'ciencia--feita' : ''}`}>
+          <Icone nome="ciencia" tamanho={20} />
+          {message.cienteEm ? (
+            <p className="ciencia__texto">
+              Você confirmou a ciência em <strong>{formatFullDate(message.cienteEm)}</strong>.
+            </p>
+          ) : (
+            <>
+              <p className="ciencia__texto">
+                Este comunicado pede confirmação: o DP registra quem leu e está ciente.
+              </p>
+              <button className="btn btn--primary" onClick={() => void confirmarCiencia()} disabled={confirmando}>
+                {confirmando ? 'Confirmando...' : 'Li e estou ciente'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {erro && <p className="form-error">{erro}</p>}
+
       <footer className="detail__footer">
-        {message.readAt ? `<Icone nome="certo" /> Lida em ${formatFullDate(message.readAt)}` : 'Não lida'}
+        <span className="detail__lida">
+          {message.readAt ? (
+            <>
+              <Icone nome="certo" tamanho={14} /> Lida em {formatFullDate(message.readAt)}
+            </>
+          ) : (
+            'Não lida'
+          )}
+        </span>
         <span className="detail__id">{message.id}</span>
       </footer>
     </article>

@@ -132,7 +132,7 @@ export function BarraSuperior({
           {menuAberto && !admin && !employee && (
             <div className="menu-usuario__lista" role="menu">
               <button role="menuitem" onClick={() => escolher(onEntrar)}>
-                Entrar com a matrícula
+                Entrar com o usuário
               </button>
               {admin ? (
                 <button role="menuitem" onClick={() => escolher(onSairDoDp)}>

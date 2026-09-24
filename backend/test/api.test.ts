@@ -251,7 +251,7 @@ describe('funcionários e login no app', () => {
     assert.equal(unknown.statusCode, 400);
   });
 
-  test('DP cadastra funcionários; matrícula repetida → 409', async () => {
+  test('DP cadastra funcionários; usuário repetido → 409', async () => {
     const maria = await employeeRequest('POST', '/api/employees', adminToken, {
       name: 'Maria Souza',
       registration: '2001',
@@ -357,6 +357,97 @@ describe('funcionários e login no app', () => {
     assert.equal((await employeeRequest('GET', `/api/messages/${forMaria.id}/reads`, pcToken)).statusCode, 403);
   });
 
+  test('comunicado que pede ciência: só a pessoa confirma e o DP acompanha', async () => {
+    const enviado = (
+      await sendMessage({
+        title: 'Norma nova',
+        content: 'Leia com atenção.',
+        type: 'COMUNICADO',
+        target: 'EMPLOYEE',
+        targetId: mariaId,
+        exigeCiencia: true,
+      })
+    ).json();
+    const id = enviado.message.id;
+    assert.equal(enviado.message.exigeCiencia, true);
+
+    const antes = (await employeeRequest('GET', '/api/messages', pcToken)).json().messages.find((m: { id: string }) => m.id === id);
+    assert.equal(antes.exigeCiencia, true);
+    assert.equal(antes.cienteEm, null);
+
+    const ciencia = await app.inject({ method: 'POST', url: `/api/messages/${id}/ciencia`, headers: as(pcToken) });
+    assert.equal(ciencia.statusCode, 200);
+    assert.ok(ciencia.json().cienteEm);
+
+    // Confirmar vale como leitura e não muda se clicar de novo
+    const depois = (await employeeRequest('GET', '/api/messages', pcToken)).json().messages.find((m: { id: string }) => m.id === id);
+    assert.equal(depois.read, true);
+    assert.equal(depois.cienteEm, ciencia.json().cienteEm);
+    const outraVez = await app.inject({ method: 'POST', url: `/api/messages/${id}/ciencia`, headers: as(pcToken) });
+    assert.equal(outraVez.json().cienteEm, ciencia.json().cienteEm);
+
+    const reads = (await employeeRequest('GET', `/api/messages/${id}/reads`, adminToken)).json();
+    assert.equal(reads.reads[0].name, 'Maria Souza');
+    assert.equal(reads.reads[0].cienteEm, ciencia.json().cienteEm);
+
+    // PC sem ninguém logado não responde por ninguém
+    const pcSozinho = (await register('PC-CCCC00000003')).json().token;
+    const semGente = await app.inject({ method: 'POST', url: `/api/messages/${id}/ciencia`, headers: as(pcSozinho) });
+    assert.equal(semGente.statusCode, 401);
+
+    // Comunicado que não pede ciência recusa a confirmação
+    const simples = (await sendMessage({ title: 'Sem ciência', content: 'Só aviso.', type: 'AVISO', target: 'EMPLOYEE', targetId: mariaId })).json();
+    const recusa = await app.inject({ method: 'POST', url: `/api/messages/${simples.message.id}/ciencia`, headers: as(pcToken) });
+    assert.equal(recusa.statusCode, 400);
+  });
+
+  test('DP avisa quem ainda não leu o comunicado', async () => {
+    const pendente = (
+      await sendMessage({ title: 'Escala de sábado', content: 'Confira.', type: 'COMUNICADO', target: 'SECTOR', targetId: 'Produção' })
+    ).json();
+    const id = pendente.message.id;
+
+    const aviso = await app.inject({ method: 'POST', url: `/api/messages/${id}/avisar-pendentes`, headers: as(adminToken) });
+    assert.equal(aviso.statusCode, 200);
+    assert.equal(aviso.json().avisados, 1);
+
+    // Depois que a pessoa lê, não há mais quem lembrar
+    await app.inject({ method: 'PATCH', url: `/api/messages/${id}/read`, headers: as(pcToken) });
+    const semNinguem = await app.inject({ method: 'POST', url: `/api/messages/${id}/avisar-pendentes`, headers: as(adminToken) });
+    assert.equal(semNinguem.json().avisados, 0);
+
+    // Só o DP pode cutucar
+    assert.equal((await app.inject({ method: 'POST', url: `/api/messages/${id}/avisar-pendentes`, headers: as(pcToken) })).statusCode, 403);
+  });
+
+  test('no comunicado com ciência, o lembrete também vai para quem leu e não confirmou', async () => {
+    const enviado = (
+      await sendMessage({
+        title: 'Uso do EPI',
+        content: 'Confirme a leitura.',
+        type: 'COMUNICADO',
+        target: 'EMPLOYEE',
+        targetId: mariaId,
+        exigeCiencia: true,
+      })
+    ).json();
+    const id = enviado.message.id;
+
+    // Maria abre (conta como leitura), mas não confirma
+    await app.inject({ method: 'PATCH', url: `/api/messages/${id}/read`, headers: as(pcToken) });
+    const reads = (await employeeRequest('GET', `/api/messages/${id}/reads`, adminToken)).json();
+    assert.deepEqual(reads.pending, []);
+    assert.equal(reads.reads[0].cienteEm, null);
+
+    const aviso = await app.inject({ method: 'POST', url: `/api/messages/${id}/avisar-pendentes`, headers: as(adminToken) });
+    assert.equal(aviso.json().avisados, 1);
+
+    // Depois de confirmar, não há mais quem lembrar
+    await app.inject({ method: 'POST', url: `/api/messages/${id}/ciencia`, headers: as(pcToken) });
+    const depois = await app.inject({ method: 'POST', url: `/api/messages/${id}/avisar-pendentes`, headers: as(adminToken) });
+    assert.equal(depois.json().avisados, 0);
+  });
+
   test('troca de senha pelo funcionário e logout', async () => {
     const wrong = await employeeRequest('POST', '/api/session/password', pcToken, { currentPassword: 'errada-000', newPassword: 'Nova-Senha-123' });
     assert.equal(wrong.statusCode, 401);
@@ -397,10 +488,10 @@ describe('funcionários e login no app', () => {
     assert.equal(login.json().employee.mustChangePassword, false);
   });
 
-  test('matrícula atacada de vários PCs é bloqueada', async () => {
+  test('usuário atacado de vários PCs é bloqueado', async () => {
     const tokens: string[] = [];
     for (let i = 1; i <= 4; i++) tokens.push((await register(`PC-DDDD0000000${i}`)).json().token);
-    // 10 erros espalhados em 3 PCs (menos de 5 por PC) para uma matrícula
+    // 10 erros espalhados em 3 PCs (menos de 5 por PC) para um usuário
     for (let i = 0; i < 10; i++) {
       await employeeRequest('POST', '/api/session/login', tokens[i % 3], { registration: '9999', password: `errada-${i}-000` });
     }
@@ -421,7 +512,7 @@ describe('funcionários e login no app', () => {
     assert.equal(login.statusCode, 401);
   });
 
-  test('DP altera a matrícula; matrícula de outro → 409', async () => {
+  test('DP altera o usuário; usuário de outro → 409', async () => {
     const joao = (await employeeRequest('GET', '/api/employees', adminToken)).json().employees.find(
       (e: { registration: string }) => e.registration === '2002',
     );
@@ -483,130 +574,16 @@ describe('funcionários e login no app', () => {
   });
 });
 
-describe('chat individual: cada pessoa do DP tem as próprias conversas', () => {
-  let pc: string;
-  let other: string;
-  let carlaId: string;
-  let livia: { id: string; token: string };
-  let carol: { id: string; token: string };
-
-  function call(method: 'GET' | 'POST', url: string, token: string, payload?: object) {
-    return app.inject({ method, url, headers: as(token), payload });
-  }
-
-  /** Cria uma pessoa do DP direto no banco (como o script create-admin) e faz login na Central */
-  async function createDpUser(username: string, name: string, chatContact = true) {
-    const { hashSecret } = await import('../src/modules/auth/crypto');
-    const password = `Senha-${username}-123`;
-    const user = await repos.users.create(
-      {
-        username,
-        name,
-        registration: null,
-        sector: 'Departamento Pessoal',
-        shift: null,
-        role: 'ADMIN',
-        status: 'ACTIVE',
-        mustChangePassword: false,
-        chatContact,
-        passwordHash: await hashSecret(password),
-      },
-      new Date(),
-    );
-    return { id: user.id, token: (await login(username, password)).json().token as string };
-  }
-
-  const contactsOf = async (token: string) => (await call('GET', '/api/chat/contacts', token)).json();
-
-  test('sem funcionário logado → 401', async () => {
-    pc = (await register('PC-EEEE00000001')).json().token;
-    other = (await register('PC-EEEE00000002')).json().token;
-    assert.equal((await call('GET', '/api/chat/contacts', pc)).statusCode, 401);
-  });
-
-  test('funcionário vê as pessoas do DP como contatos (admin e TI ficam fora)', async () => {
-    livia = await createDpUser('livia', 'Livia (DP)');
-    carol = await createDpUser('carol', 'Carol (DP)');
-    await createDpUser('ti', 'TI', false);
-    carlaId = (await call('GET', '/api/employees', adminToken)).json().employees.find(
-      (e: { registration: string }) => e.registration === '2003',
-    ).id;
-    await call('POST', '/api/session/login', pc, { registration: '2003', password: 'Senha-Carla-2003' });
-
-    const names = (await contactsOf(pc)).contacts.map((c: { name: string }) => c.name);
-    assert.ok(names.includes('Livia (DP)') && names.includes('Carol (DP)'));
-    assert.ok(!names.includes('TI') && !names.includes('Departamento Pessoal'));
-  });
-
-  test('conversas são individuais nos dois lados', async () => {
-    const sent = await call('POST', `/api/chats/${carlaId}/messages`, livia.token, { content: 'Oi, Carla! Aqui é a Livia.' });
-    assert.equal(sent.statusCode, 201);
-    assert.equal(sent.json().message.dpUserId, livia.id);
-
-    let contacts = await contactsOf(pc);
-    const byId = (id: string) => contacts.contacts.find((c: { id: string }) => c.id === id);
-    assert.equal(byId(livia.id).unreadCount, 1);
-    assert.equal(byId(carol.id).unreadCount, 0);
-    assert.equal(contacts.unreadCount, 1);
-    assert.equal((await call('GET', `/api/chat/messages?dpUserId=${livia.id}`, pc)).json().messages.length, 1);
-    assert.equal((await call('GET', `/api/chat/messages?dpUserId=${carol.id}`, pc)).json().messages.length, 0);
-
-    // A funcionária inicia uma conversa com a Carol: só a Carol vê
-    assert.equal((await call('POST', '/api/chat/messages', pc, { dpUserId: carol.id, content: 'Oi, Carol! Dúvida sobre férias.' })).statusCode, 201);
-    const carolConversation = (await call('GET', '/api/chats', carol.token)).json().conversations.find(
-      (c: { employee: { id: string } }) => c.employee.id === carlaId,
-    );
-    assert.equal(carolConversation.unreadCount, 1);
-    const liviaThread = (await call('GET', `/api/chats/${carlaId}/messages`, livia.token)).json().messages;
-    assert.equal(liviaThread.length, 1); // a mensagem para a Carol não aparece para a Livia
-    const adminConversations = (await call('GET', '/api/chats', adminToken)).json().conversations;
-    assert.equal(adminConversations.length, 0); // o admin não vê as conversas das colegas
-
-    // Leitura também é por conversa
-    assert.equal((await call('POST', '/api/chat/read', pc, { dpUserId: livia.id })).statusCode, 204);
-    contacts = await contactsOf(pc);
-    assert.equal(byId(livia.id).unreadCount, 0);
-    assert.equal((await call('POST', `/api/chats/${carlaId}/read`, carol.token)).statusCode, 204);
-    const carolAfter = (await call('GET', '/api/chats', carol.token)).json().conversations[0];
-    assert.equal(carolAfter.unreadCount, 0);
-  });
-
-  test('quem está fora da lista (admin) e escreve passa a aparecer para aquele funcionário', async () => {
-    await call('POST', `/api/chats/${carlaId}/messages`, adminToken, { content: 'Aviso do sistema.' });
-    const names = (await contactsOf(pc)).contacts.map((c: { name: string }) => c.name);
-    assert.ok(names.includes('Departamento Pessoal'));
-    // Outro funcionário não vê essa conversa
-    await call('POST', '/api/employees', adminToken, { name: 'Diego Ramos', registration: '2004', sector: 'Produção', password: 'Senha-Diego-2004' });
-    await call('POST', '/api/session/login', other, { registration: '2004', password: 'Senha-Diego-2004' });
-    const diegoNames = (await contactsOf(other)).contacts.map((c: { name: string }) => c.name);
-    assert.ok(!diegoNames.includes('Departamento Pessoal'));
-  });
-
-  test('validação e acesso', async () => {
-    assert.equal((await call('POST', '/api/chat/messages', pc, { dpUserId: livia.id, content: '   ' })).statusCode, 400);
-    assert.equal((await call('POST', '/api/chat/messages', pc, { content: 'sem destinatário' })).statusCode, 400);
-    // dpUserId de um funcionário (não é pessoa do DP) → 404
-    assert.equal((await call('POST', '/api/chat/messages', pc, { dpUserId: carlaId, content: 'x' })).statusCode, 404);
-    assert.equal((await call('GET', '/api/chats', pc)).statusCode, 403);
-    assert.equal((await call('GET', '/api/chat/contacts', adminToken)).statusCode, 403);
-    const mariaId = (await call('GET', '/api/employees', adminToken)).json().employees.find(
-      (e: { registration: string }) => e.registration === '2001',
-    ).id;
-    // Maria está inativa: o DP não consegue escrever para ela
-    assert.equal((await call('POST', `/api/chats/${mariaId}/messages`, livia.token, { content: 'Oi' })).statusCode, 404);
-  });
-});
-
-describe('resposta automática configurada na Central, por setor', () => {
+describe('resposta automática por setor', () => {
   let pc: string;
   let fabricio: { id: string; token: string };
   let andressa: { id: string; token: string };
-  let diegoId: string;
 
   function call(method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, token: string, payload?: object) {
     return app.inject({ method, url, headers: as(token), payload });
   }
 
+  /** Pessoa do DP com login próprio (criada direto no banco, como o script create-admin) */
   async function createDpUser(username: string, name: string) {
     const { hashSecret } = await import('../src/modules/auth/crypto');
     const password = `Senha-${username}-123`;
@@ -629,21 +606,33 @@ describe('resposta automática configurada na Central, por setor', () => {
     return { id: user.id, token: (await login(username, password)).json().token as string };
   }
 
-  const thread = async (dp: { id: string }) =>
-    (await call('GET', `/api/chat/messages?dpUserId=${dp.id}`, pc)).json().messages as Array<{
-      senderType: string;
-      content: string;
-      automatic: boolean;
+  /** Conversa direta do funcionário do PC com a pessoa do DP */
+  async function conversaCom(dpId: string): Promise<string> {
+    return (await call('POST', '/api/conversas/direta', pc, { comUsuarioId: dpId })).json().id;
+  }
+
+  async function escrever(dpId: string, conteudo: string) {
+    return call('POST', `/api/conversas/${await conversaCom(dpId)}/mensagens`, pc, { conteudo });
+  }
+
+  const thread = async (dpId: string) =>
+    (await call('GET', `/api/conversas/${await conversaCom(dpId)}/mensagens`, pc)).json().mensagens as Array<{
+      autorId: string;
+      conteudo: string;
+      automatica: boolean;
     }>;
 
   test('validação e acesso', async () => {
     fabricio = await createDpUser('fabricio', 'Fabricio (DP)');
     andressa = await createDpUser('andressa', 'Andressa (DP)');
+    await call('POST', '/api/employees', adminToken, {
+      name: 'Diego Ramos',
+      registration: '2004',
+      sector: 'Produção',
+      password: 'Senha-Diego-2004',
+    });
     pc = (await register('PC-FFFF00000001')).json().token;
     await call('POST', '/api/session/login', pc, { registration: '2004', password: 'Senha-Diego-2004' });
-    diegoId = (await call('GET', '/api/employees', adminToken)).json().employees.find(
-      (e: { registration: string }) => e.registration === '2004',
-    ).id;
 
     assert.equal((await call('GET', '/api/auto-replies', pc)).statusCode, 403);
     assert.equal((await call('POST', '/api/auto-replies', fabricio.token, { sector: null, content: '   ', active: true })).statusCode, 400);
@@ -680,34 +669,35 @@ describe('resposta automática configurada na Central, por setor', () => {
   });
 
   test('funcionário recebe a resposta do setor dele; não repete dentro do intervalo; conversa segue não lida', async () => {
-    assert.equal((await call('POST', '/api/chat/messages', pc, { dpUserId: fabricio.id, content: 'Fabricio, dúvida no ponto' })).statusCode, 201);
-    let messages = await thread(fabricio);
+    assert.equal((await escrever(fabricio.id, 'Fabricio, dúvida no ponto')).statusCode, 201);
+    let messages = await thread(fabricio.id);
     assert.equal(messages.length, 2);
-    assert.equal(messages[1].senderType, 'DP');
-    assert.equal(messages[1].automatic, true);
-    assert.equal(messages[1].content, 'Oi, Diego (Produção)! Aqui é o Fabricio, respondo logo.');
+    assert.equal(messages[1].autorId, fabricio.id);
+    assert.equal(messages[1].automatica, true);
+    assert.equal(messages[1].conteudo, 'Oi, Diego (Produção)! Aqui é o Fabricio, respondo logo.');
 
-    await call('POST', '/api/chat/messages', pc, { dpUserId: fabricio.id, content: 'Mais uma coisa' });
-    messages = await thread(fabricio);
+    await escrever(fabricio.id, 'Mais uma coisa');
+    messages = await thread(fabricio.id);
     assert.equal(messages.length, 3); // sem nova resposta automática
-    const conversation = (await call('GET', '/api/chats', fabricio.token)).json().conversations.find(
-      (c: { employee: { id: string } }) => c.employee.id === diegoId,
+    const conversaId = await conversaCom(fabricio.id);
+    const doFabricio = (await call('GET', '/api/conversas', fabricio.token)).json().conversas.find(
+      (c: { id: string }) => c.id === conversaId,
     );
-    assert.equal(conversation.unreadCount, 2);
+    assert.equal(doFabricio.naoLidas, 2);
   });
 
   test('resposta do setor pausada → usa a de todos os setores; sem nenhuma → não responde', async () => {
     await call('POST', '/api/auto-replies', andressa.token, { sector: null, content: 'Padrão da Andressa, {funcionario}', active: true });
     const paused = await call('POST', '/api/auto-replies', andressa.token, { sector: 'Produção', content: 'Produção', active: false });
     assert.equal(paused.json().rule.active, false);
-    await call('POST', '/api/chat/messages', pc, { dpUserId: andressa.id, content: 'Oi Andressa' });
-    const messages = await thread(andressa);
-    assert.equal(messages.at(-1)?.content, 'Padrão da Andressa, Diego Ramos');
+    await escrever(andressa.id, 'Oi Andressa');
+    const messages = await thread(andressa.id);
+    assert.equal(messages.at(-1)?.conteudo, 'Padrão da Andressa, Diego Ramos');
 
-    // O admin não configurou nada: não responde
+    // O TI não configurou nada: não responde
     const adminId = (await call('GET', '/api/auth/me', adminToken)).json().user.id;
-    await call('POST', '/api/chat/messages', pc, { dpUserId: adminId, content: 'Oi admin' });
-    assert.equal((await thread({ id: adminId })).length, 1);
+    await escrever(adminId, 'Oi TI');
+    assert.equal((await thread(adminId)).length, 1);
   });
 
   test('editar e excluir', async () => {
@@ -813,10 +803,36 @@ describe('conta do TI: poderes extras na Central', () => {
     assert.equal((await login('marcia', 'Outra-Senha-456')).statusCode, 200);
   });
 
+  test('TI exclui um login do DP e o nome fica livre para um funcionário', async () => {
+    const criado = await call('POST', '/api/admin/users', adminToken, {
+      username: 'renata',
+      name: 'Renata (DP)',
+      password: 'Senha-Renata-123',
+    });
+    const id = criado.json().user.id;
+    const sessao = (await login('renata', 'Senha-Renata-123')).json().token;
+
+    assert.equal((await call('DELETE', `/api/admin/users/${id}`, dpToken)).statusCode, 403);
+    assert.equal((await call('DELETE', `/api/admin/users/${id}`, adminToken)).statusCode, 204);
+    assert.equal((await call('GET', '/api/auth/me', sessao)).statusCode, 401); // sessão aberta cai
+    assert.equal((await login('renata', 'Senha-Renata-123')).statusCode, 401);
+    assert.equal((await call('DELETE', `/api/admin/users/${id}`, adminToken)).statusCode, 404);
+
+    const funcionario = await call('POST', '/api/employees', adminToken, {
+      name: 'Renata',
+      registration: 'renata',
+      sector: 'Produção',
+      password: 'Senha-Renata-456',
+    });
+    assert.equal(funcionario.statusCode, 201);
+    await call('DELETE', `/api/employees/${funcionario.json().employee.id}`, adminToken);
+  });
+
   test('TI não altera a própria conta nem outra conta de TI por essas rotas', async () => {
     const meuId = (await call('GET', '/api/auth/me', adminToken)).json().user.id;
     assert.equal((await call('PATCH', `/api/admin/users/${meuId}`, adminToken, { status: 'INACTIVE' })).statusCode, 400);
     assert.equal((await call('POST', `/api/admin/users/${meuId}/password`, adminToken, { password: 'Qualquer-Senha-1' })).statusCode, 400);
+    assert.equal((await call('DELETE', `/api/admin/users/${meuId}`, adminToken)).statusCode, 400);
     // A pessoa comum do DP continua podendo ser gerenciada
     assert.equal((await call('PATCH', `/api/admin/users/${dpUserId}`, adminToken, { status: 'INACTIVE' })).statusCode, 204);
     assert.equal((await call('PATCH', `/api/admin/users/${dpUserId}`, adminToken, { status: 'ACTIVE' })).statusCode, 204);
@@ -846,6 +862,27 @@ describe('anexos nos comunicados', () => {
     // extensão permitida, conteúdo de outro formato
     assert.equal((await upload(Buffer.from('MZ...'), 'falso.png', 'image/png')).statusCode, 400);
     assert.equal((await upload(Buffer.alloc(0), 'vazio.pdf', 'application/pdf')).statusCode, 400);
+  });
+
+  test('imagem grande é aceita como anexo; documento grande não', async () => {
+    const imagemGrande = Buffer.concat([png, Buffer.alloc(12 * 1024 * 1024, 5)]);
+    const imagem = await upload(imagemGrande, 'planta.png', 'image/png');
+    assert.equal(imagem.statusCode, 201);
+    assert.equal(imagem.json().attachment.size, imagemGrande.length);
+
+    const docGrande = Buffer.concat([Buffer.from('%PDF-1.7'), Buffer.alloc(11 * 1024 * 1024, 1)]);
+    assert.equal((await upload(docGrande, 'manual.pdf', 'application/pdf')).statusCode, 413);
+
+    // A imagem não entra na soma dos anexos do comunicado (só os documentos)
+    const enviado = await sendMessage({
+      title: 'Planta do galpão',
+      content: 'Segue a imagem.',
+      type: 'COMUNICADO',
+      target: 'COMPUTER',
+      targetId: 'PC-DDDD00000001',
+      attachmentIds: [imagem.json().attachment.id],
+    });
+    assert.equal(enviado.statusCode, 201);
   });
 
   test('comunicado com imagem e arquivo chega para o destinatário', async () => {
@@ -923,6 +960,110 @@ describe('anexos nos comunicados', () => {
     const image = (await upload(png, 'Desisti.png', 'image/png')).json().attachment;
     assert.equal((await app.inject({ method: 'DELETE', url: `/api/attachments/${image.id}`, headers: as(adminToken) })).statusCode, 200);
     assert.equal((await app.inject({ method: 'GET', url: `/api/attachments/${image.id}`, headers: as(adminToken) })).statusCode, 404);
+  });
+});
+
+describe('acesso de DP e de TI pelo setor', () => {
+  let pcDp: string;
+  let pcTi: string;
+  let pcComum: string;
+  let idDoTi = '';
+
+  function req(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, token: string, payload?: object) {
+    return app.inject({ method, url, headers: as(token), payload });
+  }
+
+  test('funcionário do setor do DP entra nas telas do DP com o próprio login', async () => {
+    for (const name of ['Departamento Pessoal', 'TI']) {
+      assert.equal((await req('POST', '/api/sectors', adminToken, { name })).statusCode, 201);
+    }
+    await req('POST', '/api/employees', adminToken, {
+      name: 'Livia Santos',
+      registration: '3101',
+      sector: 'Departamento Pessoal',
+      password: 'Senha-Livia-3101',
+    });
+    const doTi = await req('POST', '/api/employees', adminToken, {
+      name: 'Gabriel Torres',
+      registration: '3102',
+      sector: 'TI',
+      password: 'Senha-Gabriel-3102',
+    });
+    idDoTi = doTi.json().employee.id;
+
+    pcDp = (await register('PC-EEEE00000001')).json().token;
+    pcTi = (await register('PC-EEEE00000002')).json().token;
+    pcComum = (await register('PC-EEEE00000003')).json().token;
+
+    // Sem ninguém logado, o computador não é DP
+    assert.equal((await req('GET', '/api/admin/messages', pcDp)).statusCode, 403);
+
+    const entrou = await req('POST', '/api/session/login', pcDp, {
+      registration: '3101',
+      password: 'Senha-Livia-3101',
+    });
+    assert.equal(entrou.statusCode, 200);
+    assert.equal(entrou.json().employee.acessoAdmin, 'DP');
+
+    // Agora o mesmo token do PC vale como DP
+    assert.equal((await req('GET', '/api/admin/messages', pcDp)).statusCode, 200);
+    const enviado = await req('POST', '/api/messages', pcDp, {
+      title: 'Aviso da Livia',
+      content: 'Enviado sem login separado.',
+      type: 'AVISO',
+    });
+    assert.equal(enviado.statusCode, 201);
+    assert.equal(enviado.json().message.sender, 'Livia Santos');
+  });
+
+  test('o setor do DP não dá os poderes do TI', async () => {
+    const doDp = (await req('GET', '/api/admin/messages', pcDp)).json().messages[0];
+    // Apagar comunicado e mexer em logins são do TI
+    assert.equal((await req('DELETE', `/api/admin/messages/${doDp.id}`, pcDp)).statusCode, 403);
+    assert.equal((await req('GET', '/api/admin/users', pcDp)).statusCode, 403);
+  });
+
+  test('funcionário do setor de TI tem os poderes do TI', async () => {
+    const entrou = await req('POST', '/api/session/login', pcTi, {
+      registration: '3102',
+      password: 'Senha-Gabriel-3102',
+    });
+    assert.equal(entrou.json().employee.acessoAdmin, 'TI');
+
+    assert.equal((await req('GET', '/api/admin/users', pcTi)).statusCode, 200);
+    const alvo = (await req('GET', '/api/admin/messages', pcTi)).json().messages[0];
+    assert.equal((await req('DELETE', `/api/admin/messages/${alvo.id}`, pcTi)).statusCode, 204);
+  });
+
+  test('setor comum continua sem acesso, e sair do aplicativo tira o acesso', async () => {
+    await req('POST', '/api/employees', adminToken, {
+      name: 'Pedro da Produção',
+      registration: '3103',
+      sector: 'Produção',
+      password: 'Senha-Pedro-3103',
+    });
+    const entrou = await req('POST', '/api/session/login', pcComum, { registration: '3103', password: 'Senha-Pedro-3103' });
+    assert.equal(entrou.statusCode, 200);
+    assert.equal(entrou.json().employee.acessoAdmin, 'NENHUM');
+    assert.equal((await req('GET', '/api/admin/messages', pcComum)).statusCode, 403);
+    assert.equal(
+      (await req('POST', '/api/messages', pcComum, { title: 'X', content: 'Y', type: 'AVISO' })).statusCode,
+      403,
+    );
+
+    // A pessoa do TI sai: o computador volta a ser só um computador
+    assert.equal((await req('POST', '/api/session/logout', pcTi)).statusCode, 204);
+    assert.equal((await req('GET', '/api/admin/users', pcTi)).statusCode, 403);
+  });
+
+  test('tirar a pessoa do setor tira o acesso', async () => {
+    await req('POST', '/api/session/login', pcTi, { registration: '3102', password: 'Senha-Gabriel-3102' });
+    assert.equal((await req('GET', '/api/admin/users', pcTi)).statusCode, 200);
+
+    const mudanca = await req('PATCH', `/api/employees/${idDoTi}`, adminToken, { sector: 'Produção' });
+    assert.equal(mudanca.statusCode, 200);
+    assert.equal(mudanca.json().employee.acessoAdmin, 'NENHUM');
+    assert.equal((await req('GET', '/api/admin/users', pcTi)).statusCode, 403);
   });
 });
 

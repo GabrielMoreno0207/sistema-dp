@@ -5,7 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- citext: colunas de texto que ignoram maiúsculas/minúsculas na comparação,
--- úteis para login (username) e matrícula, imitando o NOCASE do SQLite.
+-- úteis para login (username) e usuário do funcionário, imitando o NOCASE do SQLite.
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- unaccent: busca que ignora acentos ("producao" encontra "Produção").

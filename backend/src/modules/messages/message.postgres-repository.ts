@@ -24,6 +24,7 @@ function toMessage(row: Row): Message {
     target: text(row, 'target') as TargetType,
     targetId: nullableText(row, 'target_id'),
     sender: text(row, 'sender'),
+    exigeCiencia: row.exige_ciencia === true || Number(row.exige_ciencia ?? 0) === 1,
     createdAt: text(row, 'created_at'),
     attachments: [], // preenchidos pelo MessageService (ficam em outra tabela)
   };
@@ -67,9 +68,18 @@ export class PostgresMessageRepository implements MessageRepository {
 
   async create(data: NewMessage, now: Date): Promise<Message> {
     const row = await this.db.one(
-      `INSERT INTO messages (title, content, type, target, target_id, sender, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [data.title, data.content, data.type, data.target, data.targetId, data.sender, now.toISOString()],
+      `INSERT INTO messages (title, content, type, target, target_id, sender, exige_ciencia, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [
+        data.title,
+        data.content,
+        data.type,
+        data.target,
+        data.targetId,
+        data.sender,
+        data.exigeCiencia,
+        now.toISOString(),
+      ],
     );
     return toMessage(row as Row);
   }
@@ -98,7 +108,7 @@ export class PostgresMessageRepository implements MessageRepository {
 
   async findForRecipient(recipient: Recipient, query: RecipientQuery): Promise<RecipientMessage[]> {
     const rows = await this.db.all(
-      `SELECT m.*, r.read_at FROM messages m
+      `SELECT m.*, r.read_at, r.ciente_em FROM messages m
        LEFT JOIN message_reads r ON r.message_seq = m.seq AND r.reader_id = $6
        WHERE ${RECIPIENT_FILTER} AND ($7::int = 0 OR r.read_at IS NULL)
        ORDER BY m.seq DESC LIMIT $8::bigint`,
@@ -110,7 +120,7 @@ export class PostgresMessageRepository implements MessageRepository {
     );
     return rows.map((row) => {
       const readAt = nullableText(row, 'read_at');
-      return { ...toMessage(row), read: readAt !== null, readAt };
+      return { ...toMessage(row), read: readAt !== null, readAt, cienteEm: nullableText(row, 'ciente_em') };
     });
   }
 
@@ -145,11 +155,46 @@ export class PostgresMessageRepository implements MessageRepository {
     return text(row as Row, 'read_at');
   }
 
+  async markCiencia(
+    messageId: string,
+    readerId: string,
+    computerId: string,
+    reader: { name: string; registration: string } | null,
+    now: Date,
+  ): Promise<string> {
+    const seq = parseMessageId(messageId);
+    if (seq === null) throw new Error(`ID de mensagem inválido: ${messageId}`);
+    const quando = now.toISOString();
+    // Confirmar ciência também vale como leitura, então a linha serve para as duas coisas
+    await this.db.run(
+      `INSERT INTO message_reads (message_seq, reader_id, computer_id, reader_name, reader_registration, read_at, ciente_em)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)
+       ON CONFLICT (message_seq, reader_id)
+       DO UPDATE SET ciente_em = COALESCE(message_reads.ciente_em, EXCLUDED.ciente_em)`,
+      [seq, readerId, computerId, reader?.name ?? null, reader?.registration ?? null, quando],
+    );
+    const row = await this.db.one('SELECT ciente_em FROM message_reads WHERE message_seq = $1 AND reader_id = $2', [
+      seq,
+      readerId,
+    ]);
+    return text(row as Row, 'ciente_em');
+  }
+
+  async getCienciaEm(messageId: string, readerId: string): Promise<string | null> {
+    const seq = parseMessageId(messageId);
+    if (seq === null) return null;
+    const row = await this.db.one('SELECT ciente_em FROM message_reads WHERE message_seq = $1 AND reader_id = $2', [
+      seq,
+      readerId,
+    ]);
+    return row ? nullableText(row, 'ciente_em') : null;
+  }
+
   async listReads(messageId: string): Promise<MessageRead[]> {
     const seq = parseMessageId(messageId);
     if (seq === null) return [];
     const rows = await this.db.all(
-      `SELECT r.reader_id, r.read_at, r.computer_id,
+      `SELECT r.reader_id, r.read_at, r.ciente_em, r.computer_id,
          COALESCE(u.name, r.reader_name) AS user_name,
          COALESCE(u.registration, r.reader_registration) AS user_registration,
          u.sector AS user_sector,
@@ -166,6 +211,7 @@ export class PostgresMessageRepository implements MessageRepository {
     return rows.map((row) => ({
       readerId: text(row, 'reader_id'),
       readAt: text(row, 'read_at'),
+      cienteEm: nullableText(row, 'ciente_em'),
       computerId: nullableText(row, 'computer_id'),
       user:
         row.user_name === null || row.user_name === undefined

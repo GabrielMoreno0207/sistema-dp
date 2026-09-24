@@ -3,7 +3,7 @@
 Backend do sistema **Comunicação DP**, a comunicação interna entre o Departamento Pessoal e os computadores da fábrica.
 
 - API REST e WebSocket (Socket.IO) para entregar mensagens em tempo real aos computadores
-- **Central do DP**: página web para o DP escrever e enviar comunicados (`http://SERVIDOR:3000/central`)
+- Sem página web: o DP e o TI administram pelo próprio aplicativo (computador ou celular). A Central web foi aposentada em 24/09/2026
 - Banco PostgreSQL (container próprio; veja "Banco de dados")
 - Autenticação: login do DP com token e registro dos computadores com chave da empresa
 
@@ -50,7 +50,7 @@ notepad .env
 | `ADMIN_USERNAME`          | `ti`                    | Login principal (do TI) criado na primeira execução. Os logins das pessoas do DP são criados depois com `npm run create-admin` |
 | `ADMIN_PASSWORD`          | *(obrigatória na 1ª vez)* | Senha desse usuário. Mínimo de 8 caracteres |
 | `ADMIN_NAME`              | `Departamento Pessoal`  | Nome que aparece como remetente das mensagens |
-| `SESSION_TTL_HOURS`       | `12`                    | Validade do login na Central do DP, em horas |
+| `SESSION_TTL_HOURS`       | `12`                    | Validade do login da conta do DP/TI (`ti`), em horas |
 | `EMPLOYEE_SESSION_HOURS`  | `12`                    | Validade do login do funcionário no app (PC compartilhado: se ele esquecer de sair, a sessão acaba sozinha) |
 | `TLS_CERT_FILE` / `TLS_KEY_FILE` | *(vazio)*        | Certificado e chave para HTTPS direto no backend (veja "HTTPS") |
 | `TRUST_PROXY`             | *(vazio)*               | IP do proxy reverso com HTTPS (IIS/nginx/Caddy), se usar um |
@@ -76,9 +76,9 @@ npm run set-password -- admin
 
 O comando pede a nova senha no terminal e encerra as sessões abertas desse usuário. Mudar `ADMIN_PASSWORD` no `.env` depois que o usuário existe **não** altera a senha.
 
-### Logins da Central (equipe do DP e TI)
+### Contas próprias do DP/TI (hoje só a do TI)
 
-Cada pessoa do DP tem o próprio login. O nome dela aparece como remetente dos comunicados e do chat. Para criar um login:
+O DP entra no aplicativo como funcionário do setor Departamento Pessoal. Contas próprias (fora do cadastro de funcionários) ficaram só para o TI; para criar uma:
 
 ```powershell
 npm run create-admin -- livia "Livia (DP)" --gerar     # gera uma senha inicial
@@ -86,7 +86,7 @@ npm run create-admin -- ti "TI"                        # ou digite a senha inici
 ```
 
 - Com `--gerar`, a senha inicial vai para `data\credenciais-iniciais.txt`, que fica fora do controle de versão. Entregue a senha à pessoa e **apague o arquivo depois**.
-- A troca de senha é **opcional**: quem quiser troca a própria senha pelo botão **Minha senha**, no topo da Central. Pelo servidor, a TI pode redefinir a senha com `npm run set-password -- <usuario>`.
+- A troca de senha é **opcional**: quem quiser troca a própria senha no aplicativo. Pelo servidor, a TI pode redefinir a senha com `npm run set-password -- <usuario>`.
 
 ## 4. Execução em desenvolvimento
 
@@ -144,63 +144,57 @@ Invoke-RestMethod http://localhost:3000/api/health
 # ok     sistema-dp-backend
 ```
 
-### Pela Central do DP (mais fácil)
+### Pelo aplicativo (computador ou celular)
 
-Abra no navegador `http://localhost:3000/central` e entre com `ADMIN_USERNAME` e `ADMIN_PASSWORD`. Na Central você:
+A Central web foi aposentada em 24/09/2026. Quem é do setor **Departamento Pessoal** (ou "DP") ou do **TI** entra no aplicativo com o próprio usuário e ganha as telas de administração (veja "Acesso de DP e de TI pelo setor"):
 
-- escolhe o tipo (Comunicado, Aviso, Informativo ou Urgente), o título e o texto;
-- escolhe o destino: todos os computadores ou um computador específico;
-- **anexa arquivos e imagens** (até 5 por comunicado): o funcionário abre ou salva cada anexo no app;
-- confere a **prévia do alerta** exatamente como ele vai aparecer na tela dos funcionários;
-- acompanha o histórico com as leituras e os computadores online. Cada funcionário logado conta uma leitura, e cada PC sem login também;
-- **clica na contagem de leituras** para ver quem leu: o funcionário (nome, matrícula, setor, em qual PC e quando) ou o computador. Para mensagens enviadas a um funcionário, setor, turno ou computador, também aparece a lista de **quem ainda não leu**;
-- troca entre tema claro e **modo escuro** (botão no topo; a escolha fica salva no navegador).
+- **Comunicados:** escolhe o tipo (Comunicado, Aviso, Informativo ou Urgente), o título, o texto e o destino (Todos, setor, turno, aparelho ou funcionário). Pode **anexar até 5 arquivos** e **pedir confirmação de ciência**. A lista de enviados mostra quantos leram; tocando nela aparece quem leu (nome, usuário, setor, em qual aparelho e quando), quem ainda não leu e o botão para **avisar quem falta**.
+- **Mural:** recado fixado na tela inicial de todos, com imagem ou vídeo.
+- **Cadastros:** funcionários, setores e aparelhos (computadores e celulares).
+- **Ajustes:** resposta automática, "receber mensagens só do DP e do TI" e, para o TI, as contas próprias (hoje só a `ti`) e a limpeza de dados.
 
-> PC formatado ou Windows reinstalado mostrando "já foi registrado com outra credencial": o TI libera no servidor, na pasta `backend`, com `npm run liberar-pc -- PC-XXXXXXXXXXXX` (o ID aparece no app em "Meu perfil" e na tabela de Computadores). A rota `POST /api/computers/:id/reset-credential` continua disponível.
+> PC formatado ou Windows reinstalado mostrando "já foi registrado com outra credencial": o TI libera no servidor, na pasta `backend`, com `npm run liberar-pc -- PC-XXXXXXXXXXXX` (o ID aparece no app em "Meu perfil" e em Cadastros → Aparelhos). A rota `POST /api/computers/:id/reset-credential` continua disponível.
 
-> Uma mensagem para **Todos** vale para os computadores que já estavam registrados no momento do envio. Um PC instalado depois não recebe o histórico antigo como "não lido".
+> Uma mensagem para **Todos** vale para os aparelhos que já estavam registrados no momento do envio. Um aparelho instalado depois não recebe o histórico antigo como "não lido".
 
 ### Comunicados e Mensagens (chat)
 
-- **Comunicados** (Comunicado, Aviso, Informativo e Urgente) vão para Todos, um Setor, um Turno ou um Computador. Eles aparecem com alerta e som no app, na página "Comunicados". Podem levar **anexos** (arquivos e imagens) — veja "Anexos nos comunicados".
-- **Mensagens** é um chat **individual**: cada pessoa do DP (Livia, Fabricio, Carol, Andressa...) tem as próprias conversas, e cada funcionário conversa separadamente com qualquer pessoa do DP.
-  - Na Central, em "Minhas conversas", cada pessoa do DP vê só as conversas dela, com contador próprio. Pode abrir uma nova conversa escolhendo o funcionário.
-  - No app, na página "Mensagens", o funcionário vê a lista das pessoas do DP e escolhe com quem falar. É preciso estar logado com a matrícula.
-  - Logins criados com `--sem-chat` (ex.: TI) e o `admin` não aparecem na lista do app. Se escreverem para alguém, a conversa aparece para aquele funcionário.
-- **Resposta automática** (Central → "Resposta automática"): cada pessoa do DP cadastra os próprios textos, um por setor e, se quiser, um para "Todos os setores". Quando um funcionário escreve para ela, o servidor responde na hora com o texto do setor dele (ou o de todos os setores, se não houver um para o setor ou se estiver pausado). Regras:
-  - não responde de novo se a pessoa do DP escreveu nessa conversa (à mão ou automático) na última hora;
-  - não marca a conversa como lida: a pessoa continua vendo o contador na Central;
-  - a mensagem aparece com a etiqueta "🤖 Resposta automática" no app e na Central;
+- **Comunicados** (Comunicado, Aviso, Informativo e Urgente) vão para Todos, um Setor, um Turno, um Aparelho ou um Funcionário. Eles aparecem com alerta e som no app, na página "Comunicados". Podem levar **anexos** (arquivos e imagens) — veja "Anexos nos comunicados".
+- **Mensagens** são as conversas (`/api/conversas`): qualquer pessoa conversa com qualquer outra, em conversa direta ou em grupo, com imagens, vídeos e documentos. O TI lê qualquer conversa, com registro de acesso.
+  - Quem é do DP/TI pode ligar "receber mensagens só do DP e do TI" (Ajustes): os demais deixam de ver essa pessoa nos contatos e não conseguem escrever para ela.
+- **Resposta automática** (Ajustes → "Resposta automática"): cada pessoa do DP/TI cadastra os próprios textos, um por setor e, se quiser, um para "Todos os setores". Quando um funcionário escreve para ela numa conversa direta, o servidor responde na hora com o texto do setor dele (ou o de todos os setores, se não houver um para o setor ou se estiver pausado). Regras:
+  - não responde de novo se a pessoa do DP escreveu nessa conversa (à mão ou automático) nos últimos 30 minutos;
+  - entre duas pessoas do DP/TI não há resposta automática;
+  - a mensagem aparece com a etiqueta "Resposta automática";
   - o texto aceita `{primeiro_nome}`, `{funcionario}`, `{setor}` e `{nome_dp}`;
   - renomear um setor atualiza as respostas dele; excluir o setor apaga as respostas dele.
-- As mensagens do DP chegam ao app **na hora**, pelo WebSocket, e aparecem só como contador, sem popup. As mensagens do funcionário aparecem na Central em até 10s, e a conversa aberta atualiza a cada 5s.
-- Cada lado vê o que o outro já leu ("✓ lida").
+- As mensagens chegam **na hora**, pelo WebSocket (`conversa:atualizada`), e cada lado vê o que o outro já leu.
 
 ### Funcionários e login no aplicativo
 
-Na seção **Setores** da Central, o DP cria, renomeia e exclui os setores da fábrica.
+Em **Cadastros → Setores**, o DP cria, renomeia e exclui os setores da fábrica.
 - Renomear atualiza os funcionários do setor e as mensagens já enviadas a ele.
 - Um setor com funcionários não pode ser excluído: mude as pessoas de setor antes.
 - Nomes que diferem só em maiúsculas ou acentos contam como o mesmo setor.
 
-Na seção **Funcionários**, o DP:
-- cadastra nome, matrícula, setor (escolhido da lista de setores), turno e senha inicial;
-- em **Editar**, altera nome, **matrícula**, setor e turno, e pode definir uma **nova senha** (ex.: esqueceu). Com senha nova, o funcionário sai dos PCs onde estiver logado; trocar a senha depois é opcional, em "Meu perfil" no app;
+Em **Cadastros → Funcionários**, o DP:
+- cadastra nome, usuário, setor (escolhido da lista de setores), turno e senha inicial;
+- edita nome, **usuário**, setor e turno, e pode **redefinir a senha** (ex.: esqueceu). Com senha nova, o funcionário sai dos aparelhos onde estiver logado; trocar a senha depois é opcional, em "Meu perfil" no app;
 - **desativa**, bloqueando o acesso sem apagar (dá para reativar);
-- **exclui** o funcionário, que sai dos computadores. O histórico de mensagens é mantido.
+- **exclui** o funcionário, que sai dos aparelhos. O histórico de mensagens é mantido.
 
-O funcionário entra no aplicativo desktop com a **matrícula e a senha**. Ele também pode trocar a própria senha, na tela "Meu perfil" do app. Com isso, a Central pode enviar para:
+O funcionário entra no aplicativo (computador ou celular) com o **usuário e a senha**. Ele também pode trocar a própria senha, na tela "Meu perfil". Os comunicados podem ir para:
 
 | Destino | Quem recebe |
 |---|---|
-| Todos | Todos os computadores |
-| Funcionário | O computador onde a pessoa estiver logada (ou quando ela entrar) |
+| Todos | Todos os aparelhos |
+| Funcionário | O aparelho onde a pessoa estiver logada (ou quando ela entrar) |
 | Setor / Turno | Os funcionários ativos do setor/turno, onde estiverem logados |
-| Computador | Só aquele PC, com ou sem funcionário logado |
+| Aparelho | Só aquele computador ou celular, com ou sem funcionário logado |
 
-- Com um funcionário logado, as leituras contam **para a pessoa**: se ela entrar em outro PC, o que já leu continua como lido.
-- Sem login ("Continuar sem identificação"), o PC recebe os comunicados gerais (Todos e Computador).
-- Um funcionário desativado sai automaticamente dos computadores.
+- Com um funcionário logado, as leituras contam **para a pessoa**: se ela entrar em outro aparelho, o que já leu continua como lido.
+- Sem login ("Continuar sem identificação", no computador), o PC recebe os comunicados gerais (Todos e Aparelho).
+- Um funcionário desativado sai automaticamente dos aparelhos.
 
 ### Pelo PowerShell
 
@@ -247,7 +241,7 @@ A resposta do envio inclui `deliveredTo`, com quantos computadores online recebe
 | POST   | `/api/computers/:id/reset-credential` | DP | Libera o PC para se registrar de novo (ex.: Windows reinstalado) |
 | GET    | `/api/employees` | DP | Lista os funcionários |
 | POST   | `/api/employees` | DP | Cadastra um funcionário `{ name, registration, sector?, shift?, password }` |
-| PATCH  | `/api/employees/:id` | DP | Altera nome, matrícula, setor, turno ou status (`ACTIVE`/`INACTIVE`) |
+| PATCH  | `/api/employees/:id` | DP | Altera nome, usuário, setor, turno ou status (`ACTIVE`/`INACTIVE`) |
 | DELETE | `/api/employees/:id` | DP | Exclui o funcionário (o histórico é mantido) |
 | GET    | `/api/sectors` | DP | Lista os setores, com a quantidade de funcionários |
 | POST   | `/api/sectors` | DP | Cria um setor `{ name }` |
@@ -258,7 +252,8 @@ A resposta do envio inclui `deliveredTo`, com quantos computadores online recebe
 | POST   | `/api/session/login` | computador | Login do funcionário `{ registration, password }` |
 | POST   | `/api/session/logout` | computador | Funcionário sai do PC |
 | POST   | `/api/session/password` | computador | Funcionário troca a própria senha |
-| POST   | `/api/messages` | DP | Envia uma mensagem (tempo real). `target`: `ALL`, `EMPLOYEE`, `SECTOR`, `SHIFT` ou `COMPUTER`, com `targetId` = ID do funcionário, nome do setor/turno ou ID do PC. `attachmentIds` = anexos já enviados |
+| GET    | `/api/admin/messages` | DP | Lista do DP (todos os comunicados, com as leituras). Existe à parte porque, com a credencial do computador, `/api/messages` significa "as minhas mensagens" |
+| POST   | `/api/messages` | DP | Envia uma mensagem (tempo real). `target`: `ALL`, `EMPLOYEE`, `SECTOR`, `SHIFT` ou `COMPUTER`, com `targetId` = ID do funcionário, nome do setor/turno ou ID do PC. `attachmentIds` = anexos já enviados. `exigeCiencia: true` pede "li e estou ciente" de cada destinatário |
 | POST   | `/api/attachments` | DP | Envia um arquivo (corpo binário, `Content-Type: application/octet-stream`, cabeçalhos `X-File-Name` e `X-File-Type`) → `{ attachment }` |
 | DELETE | `/api/attachments/:id` | DP | Cancela um arquivo que ainda não saiu em nenhum comunicado |
 | POST   | `/api/attachments/:id/link` | DP / computador | Link temporário (5 min) para abrir o anexo sem cabeçalho de autenticação |
@@ -266,15 +261,16 @@ A resposta do envio inclui `deliveredTo`, com quantos computadores online recebe
 | GET    | `/api/messages` | DP / computador | DP: todas, com leituras. Computador: as suas, com `read` |
 | GET    | `/api/messages/unread` | computador | Não lidas deste computador |
 | GET    | `/api/messages/:id` | DP / computador | Detalhe (o computador só vê as mensagens dele) |
-| GET    | `/api/messages/:id/reads` | DP | Quem leu (funcionário ou PC, onde e quando) e, para setor/turno/computador, quem ainda não leu |
-| GET    | `/api/chats` | DP | **Minhas** conversas (da pessoa do DP logada), com a última mensagem e as não lidas |
-| GET    | `/api/chats/:employeeId/messages` | DP | Minha conversa com um funcionário |
-| POST   | `/api/chats/:employeeId/messages` | DP | Envio `{ content }` ao funcionário (chega na hora no app) |
-| POST   | `/api/chats/:employeeId/read` | DP | Marca como lidas as mensagens do funcionário na minha conversa |
-| GET    | `/api/chat/contacts` | computador (funcionário logado) | Pessoas do DP com quem conversar, com não lidas e última mensagem |
-| GET    | `/api/chat/messages?dpUserId=` | computador (funcionário logado) | Conversa com uma pessoa do DP + não lidas |
-| POST   | `/api/chat/messages` | computador (funcionário logado) | Funcionário envia `{ dpUserId, content }` |
-| POST   | `/api/chat/read` | computador (funcionário logado) | Marca como lidas as mensagens de `{ dpUserId }` |
+| GET    | `/api/messages/:id/reads` | DP | Quem leu (funcionário ou PC, onde e quando, com `cienteEm`) e, para setor/turno/computador, quem ainda não leu |
+| POST   | `/api/messages/:id/avisar-pendentes` | DP | Faz o alerta voltar à tela de quem não leu (e, se o comunicado pede ciência, de quem não confirmou). Devolve `{ avisados }` |
+| GET    | `/api/contatos` | funcionário logado / DP | Com quem dá para conversar |
+| GET    | `/api/conversas` | funcionário logado / DP | Minhas conversas (diretas e grupos), com a última mensagem e as não lidas |
+| POST   | `/api/conversas/direta` | funcionário logado / DP | Abre (ou reaproveita) a conversa com `{ comUsuarioId }` |
+| POST   | `/api/conversas/grupo` | funcionário logado / DP | Cria grupo `{ nome, membros }` (quem cria administra) |
+| GET    | `/api/conversas/:id/mensagens?antes=` | participante | Mensagens (50 por vez) |
+| POST   | `/api/conversas/:id/mensagens` | participante | Envia `{ conteudo, midiaId?, respondeA?, encaminhada? }` |
+| POST   | `/api/conversas/:id/lidas` | participante | Marca a conversa como lida |
+| GET/PUT | `/api/conversas/preferencias` | DP/TI | "Receber mensagens só do DP e do TI" |
 | DELETE | `/api/admin/messages/:id` | TI | Apaga um comunicado e as leituras dele |
 | POST   | `/api/admin/messages/purge` | TI | Apaga comunicados: `{ olderThanDays }` (null = todos) |
 | GET    | `/api/admin/chats` | TI | Conversas por pessoa do DP, **só em números** (sem conteúdo) |
@@ -289,13 +285,31 @@ A resposta do envio inclui `deliveredTo`, com quantos computadores online recebe
 | PUT    | `/api/auto-replies/:id` | DP | Altera uma resposta minha (mesmo corpo) |
 | DELETE | `/api/auto-replies/:id` | DP | Exclui uma resposta minha |
 | PATCH  | `/api/messages/:id/read` | computador | Marca como lida |
+| POST   | `/api/messages/:id/ciencia` | funcionário logado | "Li e estou ciente": registra a confirmação (também vale como leitura) |
 
 Erros sempre em JSON: `{ "error": "CODIGO", "message": "descrição" }`.
 
+### Acesso de DP e de TI pelo setor
+
+Quem trabalha no **Departamento Pessoal** ou no **TI** não precisa de um login à parte: entrando no
+aplicativo com o próprio usuário, o setor já dá o acesso às telas de administração.
+
+| Setor da pessoa | O que abre |
+|---|---|
+| `Departamento Pessoal`, `DP`, `Departamento de Pessoal`, `Depto Pessoal` | Comunicados, Mural, Cadastros e Ajustes |
+| `TI`, `T.I.`, `Tecnologia da Informação`, `Tecnologia de Informação`, `Informática` | o mesmo, mais os poderes do TI (apagar comunicados e conversas, auditar, gerenciar logins) |
+| qualquer outro | nenhum acesso administrativo |
+
+- A comparação ignora maiúsculas, acentos e pontuação — `T.I.`, `ti` e `Tecnologia da Informação`
+  valem igual. Qualquer outro nome de setor **não** dá acesso.
+- O acesso vem junto do token do computador e é conferido a cada requisição: sair do aplicativo,
+  ter a sessão expirada, a conta desativada ou o setor trocado tira o acesso na hora.
+- A conta própria do TI (`ti`) continua existindo e tem preferência quando está aberta no aplicativo do computador.
+
 ### Anexos nos comunicados
 
-O DP pode mandar **arquivos e imagens** junto com o comunicado. Na Central é o campo "Anexos"
-(botão ou arrastando os arquivos para a área pontilhada).
+O DP pode mandar **arquivos e imagens** junto com o comunicado. No aplicativo é o botão "Anexar"
+(no computador também dá para arrastar os arquivos).
 
 Como funciona: o arquivo sobe assim que é escolhido (`POST /api/attachments`) e fica guardado sem
 dono; só entra no comunicado quando o envio cita o `id` dele. O que nunca vira comunicado sai do
@@ -304,12 +318,16 @@ disco sozinho depois de 12 horas.
 | Limite | Valor |
 |---|---|
 | Anexos por comunicado | 5 |
-| Tamanho de cada arquivo | 10 MB |
-| Soma dos anexos | 25 MB |
+| Tamanho de cada imagem | sem limite |
+| Tamanho de cada documento | 10 MB |
+| Soma dos documentos | 25 MB (imagem não entra na conta) |
 | Tipos aceitos | `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`, `.bmp`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.txt`, `.csv`, `.zip` |
 
 - Além da extensão, o servidor confere os primeiros bytes do arquivo: um `.exe` renomeado para
   `.png` é recusado.
+- Imagem e vídeo (aqui e no mural/chat) vão **sem limite de tamanho**: o arquivo chega em fluxo e
+  vai direto para o disco, sem passar inteiro pela memória. O que limita é o espaço em disco do
+  servidor — vale olhar `data/` de vez em quando.
 - O anexo só é entregue a quem recebeu o comunicado: o DP vê todos; um computador só baixa os
   anexos das mensagens que são dele (senão, 404).
 - Os arquivos ficam em `UPLOADS_PATH` (padrão `data/uploads`), com o nome `ATT-....`. **Inclua essa
@@ -322,6 +340,7 @@ disco sozinho depois de 12 horas.
 - O servidor valida os dados e o token do computador. Ele recusa com `INVALID_HANDSHAKE` ou `UNAUTHORIZED`.
 - Eventos enviados ao computador:
   - `message:new`: a mensagem;
+  - `comunicado:lembrete`: `{ messageId }`, quando o DP cutuca quem ainda não leu (ou não confirmou a ciência);
   - `session:changed`: `{ employee }`, quando o servidor altera a sessão do funcionário (sessão expirada, funcionário desativado, senha redefinida, setor alterado).
 - Salas: `all`, `computer:<ID>` e, com um funcionário logado, `employee:<ID>`, `sector:<setor>` e `shift:<turno>`. As salas são trocadas no login e no logout.
 
@@ -340,26 +359,26 @@ disco sozinho depois de 12 horas.
    Invoke-RestMethod http://192.168.1.50:3000/api/health
    ```
 
-   ou abra `http://192.168.1.50:3000/central` no navegador.
+   ou aponte o aplicativo para `http://192.168.1.50:3000` (Configurações do servidor).
 
 Se não responder, confira se as duas máquinas estão na mesma rede, se o firewall foi liberado e se `SERVER_HOST=0.0.0.0`.
 
 ---
 
-## Conta do TI (poderes extras na Central)
+## Poderes extras do TI
 
-O **primeiro login criado** (o do `.env`, hoje `ti`) é a conta do TI. Ela faz tudo o que o DP faz e, além disso, ganha a seção **TI** na Central:
+Quem é do setor **TI** (e a conta `ti`, o primeiro login criado pelo `.env`) faz tudo o que o DP faz e, além disso, ganha a aba **TI** em Ajustes:
 
 - **Apagar comunicados:** um específico ou todos com mais de 90/180/365 dias (as leituras saem junto).
 - **Apagar conversas do chat:** de uma pessoa do DP ou de todas. A tela mostra **só números** — quantas conversas, quantas mensagens e a data da última. **O conteúdo das conversas não é exibido em lugar nenhum**, nem pela API.
-- **Gerenciar os logins do DP:** criar, ativar/desativar e redefinir senha, sem precisar de comando no servidor.
+- **Gerenciar as contas próprias:** criar, ativar/desativar, redefinir senha e excluir, sem precisar de comando no servidor.
 
 Detalhes:
 
-- Os logins criados pela Central ou pelo `create-admin` **não** têm esses poderes; só a conta marcada como TI (coluna `users.super_admin`).
+- As contas criadas pelo `create-admin` **não** têm esses poderes; só a conta marcada como TI (coluna `users.super_admin`) e quem é do setor TI.
 - A conta do TI não pode desativar a si mesma nem alterar outra conta de TI por essas telas (evita ficar sem acesso).
 - Desativar um login ou redefinir a senha dele encerra a sessão aberta daquela pessoa na hora.
-- As rotas `/api/admin/*` respondem **403** para quem não é TI, e a Central esconde a seção.
+- As rotas `/api/admin/*` respondem **403** para quem não é TI, e o aplicativo esconde a aba.
 
 ## Capacidade (muitos computadores)
 
@@ -371,7 +390,7 @@ O sistema foi medido com **300 computadores simulados, cada um com funcionário 
 | Comunicado para Todos chegando em todos os PCs | 11 ms | 1 ms |
 | 300 funcionários marcando como lido | 1,0 s | 2 ms |
 | 300 mensagens de chat + 300 respostas automáticas | 1,1 s | 11 ms |
-| Central listando 300 conversas | 4 ms | 3 ms |
+| Listagem de 300 conversas | 4 ms | 3 ms |
 | Servidor reiniciado: 300 PCs voltando juntos | 1,3 s | 23 ms |
 | 300 funcionários fazendo login no mesmo segundo | 5,6 s | 11 ms |
 
@@ -446,7 +465,7 @@ npm run test:postgres
 
 ## Segurança
 
-- O acesso exige identificação em tudo, exceto `/api/health`, o login e a página da Central. As regras:
+- O acesso exige identificação em tudo, exceto `/api/health` e o login. As regras:
   - **DP:** faz login com usuário e senha (hash scrypt) e recebe um token com validade. Depois de 5 tentativas erradas em 15 minutos, o login fica bloqueado por 5 minutos.
   - **Computadores e celulares:** o reg
 
@@ -457,15 +476,15 @@ que é apagado e recriado a cada execução):
 TEST_DATABASE_URL=postgresql://sistema_dp:SUA_SENHA@localhost:5433/sistema_dp npm run test:postgres
 ```
 istro é **aberto** a qualquer aparelho que alcance o servidor — não há chave de registro. Na primeira vez, cada instalação guarda um segredo próprio; sem esse segredo ninguém consegue se passar por um aparelho já registrado. O token do aparelho vale para a API e para o WebSocket. Como não há chave, **o servidor só deve ser alcançável pela rede interna da empresa**.
-  - **Funcionários:** entram no app com matrícula e senha (hash scrypt). Regras:
+  - **Funcionários:** entram no app com usuário e senha (hash scrypt). Regras:
     - no primeiro acesso, e depois de uma redefinição pelo DP, a troca de senha é obrigatória;
-    - erros de login são limitados por matrícula+PC, por PC (várias matrículas) e por matrícula (vários PCs), e a troca de senha também tem limite;
+    - erros de login são limitados por usuário+PC, por PC (vários usuários) e por usuário (vários PCs), e a troca de senha também tem limite;
     - a sessão expira em `EMPLOYEE_SESSION_HOURS` e termina no logoff do Windows;
     - redefinir a senha ou desativar o funcionário tira ele de todos os PCs.
   - **Tokens:** o banco guarda só o hash (SHA-256) de cada token.
 - Todos os dados recebidos pela API e pelo WebSocket são validados (JSON Schema / validação manual).
 - Os aplicativos desktop conversam só com a API e o WebSocket. O banco nunca fica exposto aos clientes.
-- As respostas levam cabeçalhos de segurança (`nosniff`, `X-Frame-Options: DENY`, `no-referrer`), e a Central tem CSP restritiva.
+- As respostas levam cabeçalhos de segurança (`nosniff`, `X-Frame-Options: DENY`, `no-referrer`).
 
 ## Logs
 
@@ -486,7 +505,7 @@ O backend registra:
 ## Estrutura
 
 ```
-public/central/                 # Central do DP (HTML/CSS/JS puro, servida em /central)
+public/                         # só um aviso: a atualização do servidor confere que a pasta exista
 test/api.test.ts                # testes automatizados (npm test)
 src/
 ├── server.ts                   # ponto de entrada: abre o banco, sobe o servidor, encerra com segurança
@@ -501,7 +520,7 @@ src/
     ├── computers/              # computadores: types, repository, postgres-repository, service, routes
     ├── messages/               # mensagens e leituras: types, repository, postgres-repository, service, routes
     ├── attachments/            # anexos dos comunicados: armazenamento em disco, envio e download
-    ├── employees/              # funcionários: cadastro pelo DP e sessão no app (login com matrícula)
+    ├── employees/              # funcionários: cadastro pelo DP e sessão no app (login com usuário)
     ├── users/                  # usuários (DP e funcionários): tipos e repositório
     └── health/                 # GET /api/health
 ```

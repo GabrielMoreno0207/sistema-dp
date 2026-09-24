@@ -58,7 +58,7 @@ class DpService : Service() {
       Notifications.ensureChannels(context)
       return NotificationCompat.Builder(context, Notifications.CHANNEL_SERVICE)
           .setSmallIcon(R.drawable.ic_stat_dp)
-          .setContentTitle("Comunicação DP")
+          .setContentTitle("Comunica Trinys")
           .setContentText(statusText)
           .setOngoing(true)
           .setShowWhen(false)

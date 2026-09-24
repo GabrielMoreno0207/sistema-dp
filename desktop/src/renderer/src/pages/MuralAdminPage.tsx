@@ -127,7 +127,7 @@ export function MuralAdminPage() {
                 Tirar
               </button>
             )}
-            <p className="page__subtitle">Imagem até 10 MB, vídeo até 200 MB.</p>
+            <p className="page__subtitle">Imagem ou vídeo, sem limite de tamanho. Arquivo grande demora mais para subir.</p>
           </div>
         </div>
 

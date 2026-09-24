@@ -152,7 +152,7 @@ export function Calendario({ meuId, ehTi, podePublicar, disponivel }: Calendario
         <h2 className="agenda__titulo">Calendário</h2>
         <div className="cartao agenda__fechada">
           <Icone nome="agenda" tamanho={22} />
-          <span>Entre com a sua matrícula para usar o calendário.</span>
+          <span>Entre com o seu usuário para usar o calendário.</span>
         </div>
       </section>
     );

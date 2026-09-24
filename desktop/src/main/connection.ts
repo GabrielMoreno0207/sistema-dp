@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { io, type Socket } from 'socket.io-client';
-import type { ChatMessage, ComputerInfo, ConnectionState, ConnectionStatus, DpMessage, EmployeeProfile } from '../shared/types';
+import type { ComputerInfo, ConnectionState, ConnectionStatus, DpMessage, EmployeeProfile } from '../shared/types';
 import { ApiError, type ApiClient } from './api-client';
-import { parseChatMessage, parseEmployee, parseMessage } from './message-validation';
+import { parseEmployee, parseMessage } from './message-validation';
 
 const MIN_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
@@ -17,13 +17,14 @@ export interface ServerConnectionEvents {
   /** O servidor mudou a sessão do funcionário (expirou, desativado, senha redefinida, setor/turno alterado...) */
   sessionChanged: [EmployeeProfile | null];
   /** Mensagem nova no chat do funcionário logado (do DP, ou dele mesmo enviada de outro PC) */
-  chat: [ChatMessage];
   /** O DP mudou o recado do mural: o app busca o novo */
   mural: [];
   /** Mexeram em uma conversa do chat (mensagem nova, grupo alterado): a tela recarrega */
   conversa: [string, AvisoDoServidor | null];
   /** Saiu versão nova no servidor: o atualizador confere na hora */
   atualizacao: [string];
+  /** O DP pediu para lembrar deste comunicado: o alerta volta à tela */
+  lembrete: [string];
 }
 
 /** Resumo da mensagem que vem junto do aviso do servidor. */
@@ -192,14 +193,6 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
       else console.warn('[conexão] session:changed com formato inválido ignorado');
     });
 
-    socket.on('chat:message', (payload: unknown) => {
-      if (this.isStale(generation)) return;
-      const message = parseChatMessage(payload);
-      if (message) this.emit('chat', message);
-      else console.warn('[conexão] mensagem de chat com formato inválido ignorada');
-    });
-
-    // Só o aviso: o conteúdo vem pela API, com o token do PC
     socket.on('mural:atualizado', () => {
       if (this.isStale(generation)) return;
       this.emit('mural');
@@ -218,6 +211,13 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
       if (this.isStale(generation)) return;
       const versao = (payload as { versao?: unknown } | null)?.versao;
       this.emit('atualizacao', typeof versao === 'string' ? versao : '');
+    });
+
+    // O DP cutucou quem ainda não leu: o alerta do comunicado volta a aparecer
+    socket.on('comunicado:lembrete', (payload: unknown) => {
+      if (this.isStale(generation)) return;
+      const id = (payload as { messageId?: unknown } | null)?.messageId;
+      if (typeof id === 'string') this.emit('lembrete', id);
     });
 
     socket.on('message:new', (payload: unknown) => {

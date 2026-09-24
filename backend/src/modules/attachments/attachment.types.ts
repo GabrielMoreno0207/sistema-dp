@@ -8,12 +8,17 @@ export type AttachmentKind = 'IMAGE' | 'FILE';
 export const ATTACHMENT_ID_PATTERN = '^ATT-[0-9a-f]{24}$';
 export const ATTACHMENT_ID_REGEX = new RegExp(ATTACHMENT_ID_PATTERN);
 
+/** Sem teto: o arquivo vai do jeito que a pessoa mandou. */
+export const SEM_LIMITE = Number.POSITIVE_INFINITY;
+
 export const ATTACHMENT_LIMITS = {
-  /** Tamanho máximo de cada arquivo */
+  /** Tamanho máximo de cada documento (imagem não tem limite) */
   maxBytes: 10 * 1024 * 1024,
+  /** Imagem vai sem limite: chega em fluxo e vai direto para o disco */
+  maxImageBytes: SEM_LIMITE,
   /** Quantos anexos cabem em um comunicado */
   perMessage: 5,
-  /** Soma dos anexos de um comunicado */
+  /** Soma dos documentos de um comunicado (as imagens não entram na conta) */
   totalBytes: 25 * 1024 * 1024,
   /** Tamanho do nome do arquivo */
   nameLength: 160,
@@ -81,6 +86,11 @@ export interface StoredAttachment extends Attachment {
 }
 
 export type NewAttachment = Omit<StoredAttachment, 'createdAt'>;
+
+/** Teto de cada tipo: documento tem limite, imagem não. */
+export function limitFor(kind: AttachmentKind): number {
+  return kind === 'IMAGE' ? ATTACHMENT_LIMITS.maxImageBytes : ATTACHMENT_LIMITS.maxBytes;
+}
 
 export function isAttachmentId(value: unknown): value is string {
   return typeof value === 'string' && ATTACHMENT_ID_REGEX.test(value);

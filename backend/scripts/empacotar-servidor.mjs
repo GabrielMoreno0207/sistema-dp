@@ -4,7 +4,7 @@
  *   npm run empacotar
  *
  * O pacote é um .tar.gz com o que o backend precisa para rodar: o código já
- * compilado (dist), a Central (public), o package.json e as dependências de
+ * compilado (dist), a pasta public (hoje só um aviso; a atualização confere que ela exista), o package.json e as dependências de
  * produção. Nada de TypeScript, teste ou ferramenta de desenvolvimento.
  *
  * Sai em backend/publicar/servidor-<versao>.tar.gz. A versão é a do

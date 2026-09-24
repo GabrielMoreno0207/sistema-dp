@@ -5,7 +5,8 @@
 #   docker compose -f docker-compose.postgres.yml --env-file .env.postgres down      para
 #
 # As configurações vêm do arquivo .env.postgres (veja .env.postgres.exemplo).
-# O compose principal (docker-compose.yml) continua com SQLite e não é afetado.
+# O backend (docker-compose.yml) fala com este banco pela rede do Docker, no
+# nome sistema-dp-postgres — o instalar.sh sobe os dois na ordem certa.
 
 name: sistema-dp-db
 
@@ -26,13 +27,13 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale-provider=icu --icu-locale=pt-BR"
 
     ports:
-      # porta no Windows : porta dentro do container
-      # 5433 por padrão porque a 5432 já está em uso nesta máquina
+      # porta no servidor : porta dentro do container
+      # 5433 por padrão porque a 5432 costuma estar ocupada por um Postgres da máquina
       - "${POSTGRES_PORT:-5433}:5432"
 
     volumes:
-      # Dados do banco em volume do Docker (não em pasta do Windows: o Postgres
-      # precisa de permissões e travas que bind mount no Windows não entrega).
+      # Dados do banco em volume do Docker (não em pasta do servidor: o Postgres
+      # precisa de permissões e travas que bind mount nem sempre entrega).
       - pgdados:/var/lib/postgresql/data
       # Scripts executados APENAS na primeira criação do banco (volume vazio)
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -64,7 +65,9 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${ADMINER_PORT:-8081}:8080"
+      # Só pela própria máquina: quem precisar de fora usa um túnel SSH
+      #   ssh -L 8081:127.0.0.1:8081 usuario@servidor
+      - "127.0.0.1:${ADMINER_PORT:-8081}:8080"
     environment:
       ADMINER_DEFAULT_SERVER: postgres
       ADMINER_DESIGN: dracula

@@ -81,7 +81,7 @@ export function GradeAtalhos({ atalhos, podeEditar, badges, onAbrir, onAviso }: 
               </button>
             </>
           ) : (
-            <p>Entre com a sua matrícula para montar os seus atalhos.</p>
+            <p>Entre com o seu usuário para montar os seus atalhos.</p>
           )}
         </div>
       ) : (

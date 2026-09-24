@@ -193,3 +193,48 @@ describe('agenda', () => {
     assert.deepEqual(titulos, ['Feriado de 12/10']);
   });
 });
+
+describe('agenda: DP pelo setor', () => {
+  test('funcionário do setor do DP publica para a empresa pelo próprio login', async () => {
+    await app.inject({ method: 'POST', url: '/api/sectors', headers: comToken(tokenTi), payload: { name: 'Departamento Pessoal' } });
+    await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Carla DP', registration: 'carladp', sector: 'Departamento Pessoal', password: 'Senha-Carla-agenda' },
+    });
+    const pcCarla = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/computers/register',
+        payload: { computerId: 'CEL-AAEE11110003', hostname: 'celular', appVersion: '1.4.0', platform: 'android', computerSecret: 'c'.repeat(40) },
+      })
+    ).json().token;
+    await app.inject({
+      method: 'POST',
+      url: '/api/session/login',
+      headers: comToken(pcCarla),
+      payload: { registration: 'carladp', password: 'Senha-Carla-agenda' },
+    });
+
+    const publicado = await app.inject({
+      method: 'POST',
+      url: '/api/eventos',
+      headers: comToken(pcCarla),
+      payload: { titulo: 'Entrega do ponto', dia: '2026-10-20', escopo: 'GERAL' },
+    });
+    assert.equal(publicado.statusCode, 201);
+
+    // Funcionário de outro setor continua sem poder publicar para todos
+    const recusado = await app.inject({
+      method: 'POST',
+      url: '/api/eventos',
+      headers: comToken(pcAna),
+      payload: { titulo: 'Churrasco', dia: '2026-10-21', escopo: 'GERAL' },
+    });
+    assert.equal(recusado.statusCode, 403);
+
+    const daAna = await app.inject({ method: 'GET', url: periodo, headers: comToken(pcAna) });
+    assert.ok(daAna.json().eventos.some((e: { titulo: string }) => e.titulo === 'Entrega do ponto'));
+  });
+});

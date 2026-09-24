@@ -38,10 +38,20 @@ export function MessageList({ messages, selectedId, emptyText, onSelect }: Messa
                 <span className="msg-item__preview">{message.content}</span>
                 <span className="msg-item__meta">
                   {formatMessageDate(message.createdAt)} · {meta.label}
-                  {message.attachments.length > 0 && ` · <Icone nome="anexo" /> ${message.attachments.length}`}
+                  {message.attachments.length > 0 && (
+                    <>
+                      {' · '}
+                      <Icone nome="anexo" tamanho={13} /> {message.attachments.length}
+                    </>
+                  )}
                 </span>
               </span>
               {!message.read && <span className="msg-item__unread">Não lida</span>}
+              {message.exigeCiencia && !message.cienteEm && (
+                <span className="msg-item__ciencia" title="Este comunicado pede confirmação de ciência">
+                  <Icone nome="ciencia" tamanho={13} /> Confirmar
+                </span>
+              )}
             </button>
           </li>
         );

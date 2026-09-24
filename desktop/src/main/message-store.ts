@@ -80,6 +80,15 @@ export class MessageStore extends EventEmitter<{ change: [MessagesState] }> {
     this.changed();
   }
 
+  /** Guarda a confirmação de ciência (que também conta como leitura). */
+  markCiencia(id: string, cienteEm: string): void {
+    const message = this.messages.get(id);
+    if (!message) return;
+    this.pendingReads.delete(id);
+    this.messages.set(id, { ...message, read: true, readAt: message.readAt ?? cienteEm, cienteEm });
+    this.changed();
+  }
+
   getPendingReads(): string[] {
     return [...this.pendingReads];
   }

@@ -1,17 +1,10 @@
 /** Confere os dados vindos do servidor antes de usar (mesmas regras do app do computador) */
-import {
-  MESSAGE_TYPES,
-  type ChatContact,
-  type ChatMessage,
-  type DpAttachment,
-  type DpMessage,
-  type EmployeeProfile,
-  type MessageType,
-} from './types';
+import { MESSAGE_TYPES, type AcessoAdmin, type DpAttachment, type DpMessage, type EmployeeProfile, type MessageType } from './types';
 
 export const MESSAGE_ID_REGEX = /^MSG-\d{6,}$/;
-export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const ATTACHMENT_ID_REGEX = /^ATT-[0-9a-f]{24}$/;
+export const MIDIA_ID_REGEX = /^MID-[0-9a-f]{24}$/;
+export const CONVERSA_ID_REGEX = /^CNV-[0-9a-f]{24}$/;
 
 function isString(value: unknown, max: number): value is string {
   return typeof value === 'string' && value.length <= max;
@@ -58,54 +51,12 @@ export function parseMessage(input: unknown): DpMessage | null {
     createdAt: m.createdAt,
     read: m.read === true || readAt !== null,
     readAt,
+    exigeCiencia: m.exigeCiencia === true,
+    cienteEm: typeof m.cienteEm === 'string' ? m.cienteEm : null,
     attachments: Array.isArray(m.attachments)
       ? m.attachments.map(parseAttachment).filter((a): a is DpAttachment => a !== null)
       : [],
   };
-}
-
-export function parseChatMessage(input: unknown): ChatMessage | null {
-  if (typeof input !== 'object' || input === null) return null;
-  const c = input as Record<string, unknown>;
-  if (typeof c.id !== 'number' || !Number.isInteger(c.id) || c.id <= 0) return null;
-  if (!isString(c.employeeId, 100) || !c.employeeId) return null;
-  if (!isString(c.dpUserId, 100) || !c.dpUserId) return null;
-  if (c.senderType !== 'DP' && c.senderType !== 'EMPLOYEE') return null;
-  if (!isString(c.senderName, 200) || !isString(c.content, 10_000)) return null;
-  if (typeof c.createdAt !== 'string' || Number.isNaN(Date.parse(c.createdAt))) return null;
-  return {
-    id: c.id,
-    employeeId: c.employeeId,
-    dpUserId: c.dpUserId,
-    senderType: c.senderType,
-    senderName: c.senderName,
-    content: c.content,
-    createdAt: c.createdAt,
-    readAt: typeof c.readAt === 'string' ? c.readAt : null,
-    automatic: c.automatic === true,
-  };
-}
-
-export function parseChatContact(input: unknown): ChatContact | null {
-  if (typeof input !== 'object' || input === null) return null;
-  const c = input as Record<string, unknown>;
-  if (typeof c.id !== 'string' || !UUID_REGEX.test(c.id)) return null;
-  if (!isString(c.name, 200) || !c.name) return null;
-  const unreadCount =
-    typeof c.unreadCount === 'number' && Number.isInteger(c.unreadCount) && c.unreadCount >= 0 ? c.unreadCount : 0;
-  let lastMessage: ChatContact['lastMessage'] = null;
-  if (typeof c.lastMessage === 'object' && c.lastMessage !== null) {
-    const l = c.lastMessage as Record<string, unknown>;
-    if (
-      isString(l.content, 10_000) &&
-      (l.senderType === 'DP' || l.senderType === 'EMPLOYEE') &&
-      typeof l.createdAt === 'string' &&
-      !Number.isNaN(Date.parse(l.createdAt))
-    ) {
-      lastMessage = { content: l.content, senderType: l.senderType, createdAt: l.createdAt };
-    }
-  }
-  return { id: c.id, name: c.name, unreadCount, lastMessage };
 }
 
 export function parseEmployee(input: unknown): EmployeeProfile | null {
@@ -114,6 +65,7 @@ export function parseEmployee(input: unknown): EmployeeProfile | null {
   if (!isString(e.id, 100) || !e.id) return null;
   if (!isString(e.name, 200) || !e.name) return null;
   if (!isString(e.registration, 32) || !e.registration) return null;
+  const acesso: AcessoAdmin = e.acessoAdmin === 'DP' || e.acessoAdmin === 'TI' ? e.acessoAdmin : 'NENHUM';
   return {
     id: e.id,
     name: e.name,
@@ -121,5 +73,6 @@ export function parseEmployee(input: unknown): EmployeeProfile | null {
     sector: optionalString(e.sector, 100),
     shift: optionalString(e.shift, 100),
     mustChangePassword: e.mustChangePassword === true,
+    acessoAdmin: acesso,
   };
 }

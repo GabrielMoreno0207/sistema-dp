@@ -7,8 +7,11 @@
  */
 import type { IconType } from 'react-icons';
 import {
+  LuBadgeCheck,
   LuBell,
+  LuDiamond,
   LuBot,
+  LuCheckCheck,
   LuBookOpen,
   LuCalendar,
   LuCheck,
@@ -50,6 +53,9 @@ import {
   LuUsers,
   LuSquare,
   LuCopy,
+  LuMail,
+  LuReply,
+  LuSmile,
   LuVideo,
   LuX,
   LuWrench,
@@ -82,6 +88,9 @@ export const ICONES = {
   grupo: LuUsers,
   vazio: LuInbox,
   certo: LuCheck,
+  certoDuplo: LuCheckCheck,
+  ciencia: LuBadgeCheck,
+  responder: LuReply,
   seta: LuChevronDown,
   anterior: LuChevronLeft,
   proximo: LuChevronRight,
@@ -108,9 +117,46 @@ export const ICONES = {
   computador: LuMonitor,
   imagem: LuImage,
   video: LuVideo,
+  carta: LuMail,
+  sorriso: LuSmile,
+  losango: LuDiamond,
 } as const;
 
 export type NomeIcone = keyof typeof ICONES;
+
+/**
+ * Atalhos criados antes dos ícones de biblioteca guardaram um caractere solto.
+ * Alguns deles a fonte do sistema nem desenha, e o azulejo ficava só com o
+ * nome: aqui cada caractere antigo vira o ícone equivalente.
+ */
+const ICONE_ANTIGO: Record<string, NomeIcone> = {
+  '✉': 'carta',
+  '★': 'estrela',
+  '☆': 'estrela',
+  '✚': 'mais',
+  '➕': 'mais',
+  '☺': 'sorriso',
+  '◈': 'losango',
+  '◆': 'losango',
+  '♦': 'losango',
+  '♠': 'bandeira',
+  '♥': 'coracao',
+  '❤': 'coracao',
+  '☎': 'computador',
+  '⚙': 'configuracoes',
+  '⏰': 'relogio',
+  '⌚': 'relogio',
+  '✔': 'certo',
+  '✓': 'certo',
+  '⚑': 'bandeira',
+  '⚐': 'bandeira',
+  // Os outros do conjunto antigo (◷ ▤ ✎ ⧗ ☀), que a fonte do Windows nem sempre desenha
+  '◷': 'relogio',
+  '⧗': 'relogio',
+  '▤': 'lista',
+  '✎': 'lapis',
+  '☀': 'claro',
+};
 
 /** Existe um ícone com esse nome? (os atalhos antigos guardavam um caractere) */
 export function ehNomeDeIcone(nome: string): nome is NomeIcone {
@@ -130,13 +176,20 @@ export function Icone({ nome, tamanho, className }: IconeProps) {
   return <Desenho size={tamanho ?? '1.15em'} className={className} aria-hidden focusable="false" />;
 }
 
+/** Nome de ícone para um valor guardado: converte o caractere antigo. */
+export function nomeDeIconeDoAtalho(nome: string): NomeIcone {
+  if (ehNomeDeIcone(nome)) return nome;
+  return ICONE_ANTIGO[nome] ?? 'estrela';
+}
+
 /**
  * Ícone de um atalho criado pela pessoa. Os atalhos antigos guardam um
- * caractere (◈, ✉...); enquanto não forem editados, ele continua aparecendo.
+ * caractere solto: ele vira o ícone equivalente, e o que não estiver na lista
+ * cai na estrela — melhor um ícone genérico do que um quadrado vazio.
  */
 export function IconeDoAtalho({ nome, tamanho }: { nome: string; tamanho?: number }) {
   if (ehNomeDeIcone(nome)) return <Icone nome={nome} tamanho={tamanho} />;
-  return <span aria-hidden>{nome}</span>;
+  return <Icone nome={nomeDeIconeDoAtalho(nome)} tamanho={tamanho} />;
 }
 
 /** Os que a pessoa pode escolher ao montar um atalho. */

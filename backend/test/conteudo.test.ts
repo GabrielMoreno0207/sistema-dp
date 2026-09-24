@@ -150,6 +150,25 @@ describe('mídias', () => {
     );
   });
 
+  test('imagem e vídeo vão sem limite de tamanho', async () => {
+    // 12 MB e 30 MB: passavam do teto antigo (10 MB para imagem, 200 MB para vídeo é longe demais para o teste)
+    const imagemGrande = Buffer.concat([IMAGEM, Buffer.alloc(12 * 1024 * 1024, 3)]);
+    const imagem = await enviarMidia(imagemGrande, 'image/png', tokenDp, 'planta.png');
+    assert.equal(imagem.statusCode, 201);
+    assert.equal(imagem.json().tamanho, imagemGrande.length);
+
+    const videoGrande = Buffer.alloc(30 * 1024 * 1024, 9);
+    const video = await enviarMidia(videoGrande, 'video/mp4', tokenDp, 'treinamento.mp4');
+    assert.equal(video.statusCode, 201);
+    assert.equal(video.json().tamanho, videoGrande.length);
+  });
+
+  test('documento continua com teto (25 MB)', async () => {
+    const enorme = Buffer.concat([Buffer.from('%PDF-1.7'), Buffer.alloc(26 * 1024 * 1024, 1)]);
+    const envio = await enviarMidia(enorme, 'application/pdf', tokenDp, 'manual.pdf');
+    assert.equal(envio.statusCode, 413);
+  });
+
   test('recusa tipo de arquivo fora da lista', async () => {
     const envio = await enviarMidia(Buffer.from('MZ...'), 'application/x-msdownload', tokenDp, 'virus.exe');
     assert.equal(envio.statusCode, 415);

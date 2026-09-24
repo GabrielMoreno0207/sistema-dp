@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ícone pequeno das notificações (branco, balão de conversa) -->
+<!-- Ícone pequeno das notificações: o balão da logo, em branco (o Android pinta) -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-  <path
-      android:fillColor="#FFFFFFFF"
-      android:pathData="M4,3h16a2,2 0,0 1,2 2v11a2,2 0,0 1,-2 2H9l-5,4v-4a2,2 0,0 1,-2 -2V5a2,2 0,0 1,2 -2zM7,8v2h10V8zM7,12v2h7v-2z" />
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+  <group
+      android:pivotX="128"
+      android:pivotY="130"
+      android:scaleX="1.5"
+      android:scaleY="1.5">
+    <!-- Balão com os três pontinhos vazados (evenOdd) -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M82,60H173A30,30 0,0 1,203 90V136A30,30 0,0 1,173 166H104L73,201L76,166H82A30,30 0,0 1,52 136V90A30,30 0,0 1,82 60ZM78.5,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0zM114,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0zM149.5,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0z" />
+  </group>
 </vector>

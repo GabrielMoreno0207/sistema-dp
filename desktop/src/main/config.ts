@@ -7,6 +7,8 @@ import type { DesktopSettings } from '../shared/types';
 interface StoredConfig {
   serverUrl?: string | null;
   autoStart?: boolean;
+  /** "HH:MM" da verificação diária de atualização (veio do HORARIO_ATUALIZACAO do .env) */
+  horarioAtualizacao?: string | null;
 }
 
 export type LoadedConfig = DesktopSettings;
@@ -66,13 +68,22 @@ export function loadConfig(): LoadedConfig {
   const savedUrl = normalizeServerUrl(saved.serverUrl);
   const envUrl = normalizeServerUrl(process.env.SERVER_URL);
 
-  // O endereço vindo do .env é copiado para o config.json na primeira leitura:
-  // assim continua valendo mesmo se uma atualização do app substituir a pasta de instalação.
-  if (!savedUrl && envUrl) {
-    const next: StoredConfig = { ...saved, serverUrl: envUrl };
+  const envHorario = process.env.HORARIO_ATUALIZACAO?.trim() || null;
+
+  // O endereço e o horário vindos do .env são copiados para o config.json na primeira
+  // leitura: assim continuam valendo depois que uma atualização do app substitui a
+  // pasta de instalação (e o .env que estava ao lado do executável some).
+  const faltaUrl = !savedUrl && envUrl;
+  const faltaHorario = !saved.horarioAtualizacao && envHorario;
+  if (faltaUrl || faltaHorario) {
+    const next: StoredConfig = {
+      ...saved,
+      ...(faltaUrl ? { serverUrl: envUrl } : {}),
+      ...(faltaHorario ? { horarioAtualizacao: envHorario } : {}),
+    };
     try {
       writeFileSync(configFilePath(), JSON.stringify(next, null, 2), 'utf-8');
-      console.log('[config] endereço do .env copiado para config.json');
+      console.log('[config] valores do .env copiados para config.json');
     } catch (err) {
       console.error('[config] falha ao gravar config.json:', err);
     }
@@ -85,6 +96,13 @@ export function loadConfig(): LoadedConfig {
 }
 
 export function saveConfig(settings: DesktopSettings): void {
-  const next: StoredConfig = { serverUrl: settings.serverUrl, autoStart: settings.autoStart };
+  // Mantém o que a tela não edita (ex.: horário de atualização)
+  const next: StoredConfig = { ...readSavedConfig(), serverUrl: settings.serverUrl, autoStart: settings.autoStart };
   writeFileSync(configFilePath(), JSON.stringify(next, null, 2), 'utf-8');
+}
+
+/** Horário da verificação diária de atualização: config.json, depois o .env (null = padrão 03:00) */
+export function horarioAtualizacao(): string | null {
+  loadEnvFile();
+  return readSavedConfig().horarioAtualizacao ?? (process.env.HORARIO_ATUALIZACAO?.trim() || null);
 }

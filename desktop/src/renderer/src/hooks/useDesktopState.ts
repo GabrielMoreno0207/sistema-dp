@@ -19,7 +19,6 @@ export function useDesktopState(): AppState | null {
     const offEmployee = window.dp.onEmployeeChange(({ employee, checked }) =>
       setState((current) => (current ? { ...current, employee, employeeChecked: checked } : current)),
     );
-    const offChat = window.dp.onChatChange((chat) => setState((current) => (current ? { ...current, chat } : current)));
     const offMural = window.dp.onMuralChange((mural) => setState((current) => (current ? { ...current, mural } : current)));
     const offAtalhos = window.dp.onAtalhosChange((atalhos) =>
       setState((current) => (current ? { ...current, atalhos } : current)),
@@ -31,7 +30,6 @@ export function useDesktopState(): AppState | null {
       offConnection();
       offMessages();
       offEmployee();
-      offChat();
       offMural();
       offAtalhos();
       offFoto();

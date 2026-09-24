@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { IpcChannels, type DesktopApi } from '../shared/types';
 
 function subscribe<T>(channel: string, listener: (payload: T) => void): () => void {
@@ -14,6 +14,7 @@ function subscribe<T>(channel: string, listener: (payload: T) => void): () => vo
 const api: DesktopApi = {
   getState: () => ipcRenderer.invoke(IpcChannels.GetState),
   markAsRead: (messageId) => ipcRenderer.invoke(IpcChannels.MarkAsRead, messageId),
+  confirmarCiencia: (messageId) => ipcRenderer.invoke(IpcChannels.ConfirmarCiencia, messageId),
   onConnectionChange: (listener) => subscribe(IpcChannels.ConnectionChanged, listener),
   onMessagesChange: (listener) => subscribe(IpcChannels.MessagesChanged, listener),
   onOpenMessage: (listener) => subscribe(IpcChannels.OpenMessage, listener),
@@ -41,10 +42,6 @@ const api: DesktopApi = {
     ipcRenderer.invoke(IpcChannels.EmployeeChangePassword, currentPassword, newPassword),
   onEmployeeChange: (listener) => subscribe(IpcChannels.EmployeeChanged, listener),
 
-  chatOpen: (dpUserId) => ipcRenderer.invoke(IpcChannels.ChatOpen, dpUserId),
-  chatSend: (dpUserId, content) => ipcRenderer.invoke(IpcChannels.ChatSend, dpUserId, content),
-  chatMarkRead: (dpUserId) => ipcRenderer.invoke(IpcChannels.ChatMarkRead, dpUserId),
-  onChatChange: (listener) => subscribe(IpcChannels.ChatChanged, listener),
 
   criarAtalho: (dados) => ipcRenderer.invoke(IpcChannels.AtalhoCreate, dados),
   atualizarAtalho: (id, dados) => ipcRenderer.invoke(IpcChannels.AtalhoUpdate, { id, dados }),
@@ -52,7 +49,9 @@ const api: DesktopApi = {
   reordenarAtalhos: (ids) => ipcRenderer.invoke(IpcChannels.AtalhoReorder, ids),
   onAtalhosChange: (listener) => subscribe(IpcChannels.AtalhosChanged, listener),
   onMuralChange: (listener) => subscribe(IpcChannels.MuralChanged, listener),
-  enviarFoto: () => ipcRenderer.invoke(IpcChannels.FotoUpload),
+  escolherFoto: () => ipcRenderer.invoke(IpcChannels.FotoEscolher),
+  fotoAtual: () => ipcRenderer.invoke(IpcChannels.FotoAtual),
+  salvarFoto: (jpeg) => ipcRenderer.invoke(IpcChannels.FotoSalvar, jpeg),
   removerFoto: () => ipcRenderer.invoke(IpcChannels.FotoRemove),
   onFotoChange: (listener) => subscribe(IpcChannels.FotoChanged, listener),
 
@@ -84,8 +83,14 @@ const api: DesktopApi = {
   agendaApi: (method, path, body) => ipcRenderer.invoke(IpcChannels.ConversasApi, { method, path, body }),
   conversasIdentidade: () => ipcRenderer.invoke(IpcChannels.ConversasIdentidade),
   conversasAnexar: () => ipcRenderer.invoke(IpcChannels.ConversasAnexar),
+  conversasSoltarArquivo: (caminho) => ipcRenderer.invoke(IpcChannels.ConversasSoltarArquivo, caminho),
+  // O objeto File do navegador não traz o caminho do arquivo; no Electron vem daqui
+  caminhoDoArquivo: (arquivo) => webUtils.getPathForFile(arquivo),
   conversasAbrirArquivo: (midiaId, nome) => ipcRenderer.invoke(IpcChannels.ConversasAbrirArquivo, { midiaId, nome }),
   onConversasChange: (listener) => subscribe(IpcChannels.ConversasChanged, listener),
+  onConversasContador: (listener) => subscribe(IpcChannels.ConversasContador, listener),
+  abrirLink: (url) => ipcRenderer.invoke(IpcChannels.AbrirLink, url),
+  copiarTexto: (texto) => ipcRenderer.invoke(IpcChannels.CopiarTexto, texto),
 };
 
 contextBridge.exposeInMainWorld('dp', api);

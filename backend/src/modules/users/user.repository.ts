@@ -13,11 +13,13 @@ export interface UserRepository {
   updateProfile(id: string, data: ProfileUpdate): Promise<void>;
   /** Ativa/desativa um login (usado pelo TI na Central) */
   updateStatus(id: string, status: UserStatus): Promise<void>;
-  /** Troca a matrícula (que também é o login do funcionário) */
+  /** Troca o usuário (que também é o login do funcionário) */
   updateRegistration(id: string, registration: string): Promise<void>;
   delete(id: string): Promise<void>;
   /** mustChangePassword = true obriga a troca no próximo acesso */
   updatePassword(id: string, passwordHash: string, mustChangePassword?: boolean): Promise<void>;
+  /** Liga/desliga "só o DP e o TI me mandam mensagem" */
+  updateMensagensSoDpTi(id: string, ativo: boolean): Promise<void>;
   /** Troca (ou remove, com null) a foto de perfil */
   updateFotoMidia(id: string, midiaId: string | null): Promise<void>;
   /** Setores ou turnos já usados (para reaproveitar a grafia existente) */

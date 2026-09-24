@@ -452,6 +452,107 @@ describe('encaminhar', () => {
   });
 });
 
+describe('responder citando', () => {
+  test('a resposta carrega um pedaço da mensagem citada', async () => {
+    const citada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'A reunião é às 9h ou às 10h?' },
+    });
+    const alvo = citada.json().mensagem.id;
+
+    const resposta = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+      payload: { conteudo: 'às 10h', respondeA: alvo },
+    });
+    assert.equal(resposta.statusCode, 201);
+    assert.equal(resposta.json().mensagem.respondida.id, alvo);
+    assert.equal(resposta.json().mensagem.respondida.autorNome, 'Maria Souza');
+    assert.match(resposta.json().mensagem.respondida.resumo, /reunião é às 9h/);
+
+    const lista = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+    });
+    const ultima = lista.json().mensagens.at(-1);
+    assert.equal(ultima.respondeA, alvo);
+    assert.equal(ultima.respondida.autorNome, 'Maria Souza');
+  });
+
+  test('a citada apagada aparece como apagada, e a de outra conversa é recusada', async () => {
+    const paraApagar = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'texto que vai sumir' },
+    });
+    const alvo = paraApagar.json().mensagem.id;
+    const resposta = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+      payload: { conteudo: 'entendi', respondeA: alvo },
+    });
+    assert.equal(resposta.statusCode, 201);
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/conversas/mensagens/${alvo}`,
+      headers: comToken(pcMaria),
+    });
+    const lista = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcJoao),
+    });
+    const comCitacao = lista.json().mensagens.find((m: { id: number }) => m.id === resposta.json().mensagem.id);
+    assert.equal(comCitacao.respondida.apagada, true);
+
+    // Responder mensagem de outra conversa vazaria conteúdo entre conversas
+    const paraCarla = await app.inject({
+      method: 'POST',
+      url: '/api/conversas/direta',
+      headers: comToken(pcMaria),
+      payload: { comUsuarioId: carlaId },
+    });
+    const foraDaConversa = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${paraCarla.json().id}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'oi', respondeA: alvo },
+    });
+    assert.equal(foraDaConversa.statusCode, 400);
+  });
+});
+
+describe('marca de lida', () => {
+  test('a conversa mostra até onde o outro já leu', async () => {
+    const conversa = async (token: string) =>
+      (await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(token) })).json().conversas.find(
+        (c: { id: string }) => c.id === conversaMariaJoao,
+      );
+
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'me avisa quando ler' },
+    });
+    const criadaEm = enviada.json().mensagem.createdAt;
+
+    const antes = await conversa(pcMaria);
+    assert.ok(antes.lidaAte === null || antes.lidaAte < criadaEm, 'ainda não foi lida');
+
+    await app.inject({ method: 'POST', url: `/api/conversas/${conversaMariaJoao}/lidas`, headers: comToken(pcJoao) });
+    const depois = await conversa(pcMaria);
+    assert.ok(depois.lidaAte >= criadaEm, 'João já leu a última mensagem');
+  });
+});
+
 describe('apagar mensagem', () => {
   test('cada um apaga só as próprias mensagens', async () => {
     const enviada = await app.inject({
@@ -565,5 +666,122 @@ describe('leitura pelo TI', () => {
 
     const depois = await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcMaria) });
     assert.ok(!depois.json().conversas.some((c: { id: string }) => c.id === conversaMariaJoao));
+  });
+});
+
+describe('DP/TI que só recebe mensagem do DP e do TI', () => {
+  let pcLivia: string;
+  let liviaId = '';
+  let conversaMariaLivia = '';
+
+  const pedir = (method: 'GET' | 'POST' | 'PUT', url: string, token: string, payload?: object) =>
+    app.inject({ method, url, headers: comToken(token), payload });
+
+  before(async () => {
+    await pedir('POST', '/api/sectors', tokenTi, { name: 'Departamento Pessoal' });
+    const criada = await pedir('POST', '/api/employees', tokenTi, {
+      name: 'Lívia Rocha',
+      registration: 'liviadp',
+      sector: 'Departamento Pessoal',
+      password: 'Senha-Livia-3004',
+    });
+    assert.equal(criada.statusCode, 201);
+    liviaId = criada.json().employee.id;
+    pcLivia = await registrarPc('PC-CCCC55556666', 'c'.repeat(40));
+    await pedir('POST', '/api/session/login', pcLivia, { registration: 'liviadp', password: 'Senha-Livia-3004' });
+
+    // Conversa aberta antes de a Lívia ligar a opção
+    conversaMariaLivia = (await pedir('POST', '/api/conversas/direta', pcMaria, { comUsuarioId: liviaId })).json().id;
+  });
+
+  test('só quem é do DP/TI pode ligar a opção', async () => {
+    const joao = await pedir('GET', '/api/conversas/preferencias', pcJoao);
+    assert.deepEqual(joao.json(), { podeRestringir: false, mensagensSoDpTi: false });
+    assert.equal((await pedir('PUT', '/api/conversas/preferencias', pcJoao, { mensagensSoDpTi: true })).statusCode, 403);
+
+    const ligada = await pedir('PUT', '/api/conversas/preferencias', pcLivia, { mensagensSoDpTi: true });
+    assert.equal(ligada.statusCode, 200);
+    assert.deepEqual(ligada.json(), { podeRestringir: true, mensagensSoDpTi: true });
+  });
+
+  test('funcionário comum não vê, não escreve e não põe em grupo', async () => {
+    const contatos = (await pedir('GET', '/api/contatos', pcMaria)).json().contatos as { id: string }[];
+    assert.ok(!contatos.some((c) => c.id === liviaId));
+
+    const naConversa = await pedir('POST', `/api/conversas/${conversaMariaLivia}/mensagens`, pcMaria, { conteudo: 'Oi' });
+    assert.equal(naConversa.statusCode, 403);
+    assert.equal(naConversa.json().error, 'SO_DP_TI');
+    assert.equal((await pedir('POST', '/api/conversas/direta', pcMaria, { comUsuarioId: liviaId })).statusCode, 403);
+    assert.equal(
+      (await pedir('POST', '/api/conversas/grupo', pcMaria, { nome: 'Com a Lívia', membros: [joaoId, liviaId] })).statusCode,
+      403,
+    );
+  });
+
+  test('o TI continua conversando com ela', async () => {
+    const contatos = (await pedir('GET', '/api/contatos', tokenTi)).json().contatos as { id: string }[];
+    assert.ok(contatos.some((c) => c.id === liviaId));
+    const direta = await pedir('POST', '/api/conversas/direta', tokenTi, { comUsuarioId: liviaId });
+    assert.equal(direta.statusCode, 201);
+    const enviada = await pedir('POST', `/api/conversas/${direta.json().id}/mensagens`, tokenTi, { conteudo: 'Tudo certo?' });
+    assert.equal(enviada.statusCode, 201);
+  });
+
+  test('desligando, todo mundo volta a escrever', async () => {
+    await pedir('PUT', '/api/conversas/preferencias', pcLivia, { mensagensSoDpTi: false });
+    const enviada = await pedir('POST', `/api/conversas/${conversaMariaLivia}/mensagens`, pcMaria, { conteudo: 'Oi' });
+    assert.equal(enviada.statusCode, 201);
+  });
+
+  test('resposta automática de quem é do DP pelo setor (sem conta da Central)', async () => {
+    const regra = await pedir('POST', '/api/auto-replies', pcLivia, {
+      sector: null,
+      content: 'Olá, {primeiro_nome}! Aqui é a {nome_dp}, já respondo.',
+      active: true,
+    });
+    assert.equal(regra.statusCode, 201);
+
+    await pedir('POST', `/api/conversas/${conversaMariaLivia}/mensagens`, pcMaria, { conteudo: 'Tudo bem?' });
+    const mensagens = (await pedir('GET', `/api/conversas/${conversaMariaLivia}/mensagens`, pcMaria)).json().mensagens as {
+      autorId: string;
+      conteudo: string;
+      automatica: boolean;
+    }[];
+    const automatica = mensagens.find((m) => m.automatica);
+    assert.ok(automatica, 'a resposta automática não chegou');
+    assert.equal(automatica.autorId, liviaId);
+    assert.equal(automatica.conteudo, 'Olá, Maria! Aqui é a Lívia Rocha, já respondo.');
+
+    // Entre duas pessoas da equipe do DP/TI não há resposta automática
+    const direta = (await pedir('POST', '/api/conversas/direta', tokenTi, { comUsuarioId: liviaId })).json();
+    await pedir('POST', `/api/conversas/${direta.id}/mensagens`, tokenTi, { conteudo: 'Oi Lívia' });
+    const doTi = (await pedir('GET', `/api/conversas/${direta.id}/mensagens`, tokenTi)).json().mensagens as { automatica: boolean }[];
+    assert.ok(!doTi.some((m) => m.automatica));
+  });
+});
+
+describe('limpeza de conversas pelo TI', () => {
+  test('"apagar conversas" sem escolher pessoa limpa também as conversas entre funcionários', async () => {
+    const direta = (
+      await app.inject({ method: 'POST', url: '/api/conversas/direta', headers: comToken(pcMaria), payload: { comUsuarioId: carlaId } })
+    ).json();
+    await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${direta.id}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'Carla, amanhã eu chego mais cedo.' },
+    });
+
+    const limpeza = await app.inject({
+      method: 'POST',
+      url: '/api/admin/chats/purge',
+      headers: comToken(tokenTi),
+      payload: { dpUserId: null, olderThanDays: null },
+    });
+    assert.equal(limpeza.statusCode, 200);
+    assert.ok(limpeza.json().removed > 0);
+
+    const depois = await app.inject({ method: 'GET', url: `/api/conversas/${direta.id}/mensagens`, headers: comToken(pcMaria) });
+    assert.equal(depois.json().mensagens.length, 0);
   });
 });

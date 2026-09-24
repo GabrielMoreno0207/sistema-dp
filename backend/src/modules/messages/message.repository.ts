@@ -18,7 +18,7 @@ export interface MessageRepository {
   countUnread(recipient: Recipient): Promise<number>;
   /**
    * Retorna quando foi lida (se já estava lida, mantém a data original).
-   * computerId = PC em que foi lida; reader = nome/matrícula do funcionário (guardados para o histórico).
+   * computerId = PC em que foi lida; reader = nome/usuário do funcionário (guardados para o histórico).
    */
   markRead(
     messageId: string,
@@ -30,6 +30,15 @@ export interface MessageRepository {
   /** Todas as leituras da mensagem, com nome do funcionário/computador */
   listReads(messageId: string): Promise<MessageRead[]>;
   getReadAt(messageId: string, readerId: string): Promise<string | null>;
+  /** Marca (ou devolve) a confirmação de ciência de quem leu */
+  markCiencia(
+    messageId: string,
+    readerId: string,
+    computerId: string,
+    reader: { name: string; registration: string } | null,
+    now: Date,
+  ): Promise<string>;
+  getCienciaEm(messageId: string, readerId: string): Promise<string | null>;
   countReads(messageId: string): Promise<number>;
   countRecipients(message: Message): Promise<number>;
 

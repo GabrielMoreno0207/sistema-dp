@@ -29,6 +29,7 @@ interface EnviadoResumo {
   targetId: string | null;
   sender: string;
   createdAt: string;
+  exigeCiencia: boolean;
   readCount: number;
   recipientCount: number;
 }
@@ -38,12 +39,14 @@ interface Leitura {
   type: string;
   id: string;
   name: string;
-  /** Matrícula, ou o identificador do computador */
+  /** Usuário, ou o identificador do computador */
   detail: string | null;
   sector: string | null;
   /** Em qual computador a leitura aconteceu */
   computer: string | null;
   readAt: string;
+  /** Quando confirmou "li e estou ciente" (null = só abriu) */
+  cienteEm: string | null;
 }
 
 /** Quem ainda não leu (só para destinos com lista conhecida) */
@@ -60,7 +63,14 @@ interface Pendente {
 export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
   const [aba, setAba] = useState<'novo' | 'enviados'>('novo');
   const [enviados, setEnviados] = useState<EnviadoResumo[]>([]);
-  const [leituras, setLeituras] = useState<{ titulo: string; lista: Leitura[]; pendentes: Pendente[] } | null>(null);
+  const [leituras, setLeituras] = useState<{
+    id: string;
+    titulo: string;
+    exigeCiencia: boolean;
+    lista: Leitura[];
+    pendentes: Pendente[];
+  } | null>(null);
+  const [avisando, setAvisando] = useState(false);
   const [aviso, setAviso] = useState('');
 
   // formulário
@@ -71,10 +81,13 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
   const [destinoId, setDestinoId] = useState('');
   const [opcoes, setOpcoes] = useState<{ valor: string; label: string }[]>([]);
   const [anexos, setAnexos] = useState<{ id: string; name: string; size: number }[]>([]);
+  const [exigeCiencia, setExigeCiencia] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
   const carregarEnviados = useCallback(async () => {
-    const resultado = await window.dp.adminApi<{ messages: EnviadoResumo[] }>('GET', '/api/messages?limit=100');
+    // Lista do DP: rota própria, porque /api/messages com a credencial do
+    // computador significa "os comunicados desta pessoa"
+    const resultado = await window.dp.adminApi<{ messages: EnviadoResumo[] }>('GET', '/api/admin/messages?limit=100');
     if (!resultado.ok || !resultado.dados) {
       setAviso(resultado.message);
       return;
@@ -142,6 +155,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
       target: destino,
       ...(destino === 'ALL' ? {} : { targetId: destinoId }),
       ...(anexos.length > 0 ? { attachmentIds: anexos.map((a) => a.id) } : {}),
+      ...(exigeCiencia ? { exigeCiencia: true } : {}),
     });
     setEnviando(false);
     if (!resultado.ok) {
@@ -151,6 +165,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
     setTitulo('');
     setTexto('');
     setAnexos([]);
+    setExigeCiencia(false);
     setAviso('Comunicado enviado.');
   }
 
@@ -164,10 +179,34 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
       return;
     }
     setLeituras({
+      id: comunicado.id,
       titulo: comunicado.title,
+      exigeCiencia: comunicado.exigeCiencia,
       lista: resultado.dados.reads ?? [],
       pendentes: resultado.dados.pending ?? [],
     });
+  }
+
+  /** Faz o alerta do comunicado voltar à tela de quem ainda não leu. */
+  async function avisarPendentes(): Promise<void> {
+    if (!leituras) return;
+    setAvisando(true);
+    const resultado = await window.dp.adminApi<{ avisados: number }>(
+      'POST',
+      `/api/messages/${encodeURIComponent(leituras.id)}/avisar-pendentes`,
+    );
+    setAvisando(false);
+    if (!resultado.ok || !resultado.dados) {
+      setAviso(resultado.message);
+      return;
+    }
+    const total = resultado.dados.avisados;
+    setAviso(
+      total === 0
+        ? 'Ninguém para lembrar: todo mundo já leu (e confirmou, quando o comunicado pede).'
+        : `Lembrete enviado para ${total} ${total === 1 ? 'pessoa' : 'pessoas'}. O alerta volta à tela de quem estiver com o aplicativo aberto.`,
+    );
+    setLeituras(null);
   }
 
   /** Apagar comunicado é função da conta do TI. */
@@ -259,6 +298,16 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
             ))}
           </div>
 
+          <label className="caixa-marcar">
+            <input type="checkbox" checked={exigeCiencia} onChange={(e) => setExigeCiencia(e.target.checked)} />
+            <span>
+              Pedir confirmação de ciência
+              <small className="page__subtitle">
+                A pessoa precisa clicar em "Li e estou ciente"; o DP vê a data da confirmação.
+              </small>
+            </span>
+          </label>
+
           <div className="formulario__acoes">
             <button
               className="botao botao--primario"
@@ -286,6 +335,11 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
               {anexos.length > 0 && (
                 <span className="previa-toast__anexos">
                   {anexos.length} {anexos.length === 1 ? 'anexo' : 'anexos'}
+                </span>
+              )}
+              {exigeCiencia && (
+                <span className="previa-toast__anexos">
+                  <Icone nome="ciencia" tamanho={12} /> pede confirmação de leitura
                 </span>
               )}
               <div className="previa-toast__acoes">
@@ -326,7 +380,14 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
                         {TIPOS.find((t) => t.valor === comunicado.type)?.label ?? comunicado.type}
                       </span>
                     </td>
-                    <td>{comunicado.title}</td>
+                    <td>
+                      {comunicado.title}
+                      {comunicado.exigeCiencia && (
+                        <span className="etiqueta etiqueta--aviso etiqueta--solta" title="Pede confirmação de ciência">
+                          <Icone nome="ciencia" tamanho={12} /> ciência
+                        </span>
+                      )}
+                    </td>
                     <td>
                       {DESTINOS.find((d) => d.valor === comunicado.target)?.label ?? comunicado.target}
                       {comunicado.targetId ? `: ${comunicado.targetId}` : ''}
@@ -375,6 +436,11 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
                         .filter(Boolean)
                         .join(' · ')}
                     </span>
+                    {leituras.exigeCiencia && (
+                      <span className={`etiqueta ${leitura.cienteEm ? 'etiqueta--ok' : 'etiqueta--aviso'}`}>
+                        {leitura.cienteEm ? `ciente em ${quando(leitura.cienteEm)}` : 'sem confirmação'}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -398,6 +464,16 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
 
             <footer className="modal__rodape">
               <span className="modal__espaco" />
+            {(() => {
+              const semCiencia = leituras.exigeCiencia && leituras.lista.some((l) => !l.cienteEm);
+              if (leituras.pendentes.length === 0 && !semCiencia) return null;
+              return (
+                <button className="botao" onClick={() => void avisarPendentes()} disabled={avisando}>
+                  <Icone nome="sino" tamanho={14} />{' '}
+                  {avisando ? 'Avisando…' : semCiencia ? 'Avisar quem falta confirmar' : 'Avisar quem não leu'}
+                </button>
+              );
+            })()}
               <button className="botao" onClick={() => setLeituras(null)}>
                 Fechar
               </button>

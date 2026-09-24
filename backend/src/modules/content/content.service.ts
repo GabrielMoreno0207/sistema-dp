@@ -96,6 +96,7 @@ export class ContentService {
       gravado = await this.storage.salvar(storedName, dados, limiteDoTipo(aceito.tipo));
     } catch (err) {
       if ((err as Error).message === ERRO_TAMANHO) {
+        // Só documento tem teto; imagem e vídeo vão sem limite
         const limite = Math.round(limiteDoTipo(aceito.tipo) / 1024 / 1024);
         throw new AppError(`O arquivo passa do limite de ${limite} MB.`, 413, 'MIDIA_GRANDE_DEMAIS');
       }
@@ -348,7 +349,7 @@ export class ContentService {
 
   private async employeeDoPc(computerId: string) {
     const employee = await this.employees.getSessionEmployee(computerId);
-    if (!employee) throw new AppError('Entre com sua matrícula para usar esta função', 401, 'NO_EMPLOYEE');
+    if (!employee) throw new AppError('Entre com seu usuário para usar esta função', 401, 'NO_EMPLOYEE');
     return employee;
   }
 }

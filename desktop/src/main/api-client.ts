@@ -1,11 +1,10 @@
 import { createHash } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type {
   Atalho,
-  ChatContact,
-  ChatMessage,
   ComputerInfo,
   DadosAtalho,
   DpMessage,
@@ -15,8 +14,9 @@ import type {
   MidiaPublica,
   MuralPost,
   NovoChamadoInput,
+  StatusChamado,
 } from '../shared/types';
-import { parseChatContact, parseChatMessage, parseEmployee, parseMessage } from './message-validation';
+import { parseEmployee, parseMessage } from './message-validation';
 
 const REQUEST_TIMEOUT_MS = 10_000;
 /** Anexo pode ter alguns MB: mais folga que uma chamada comum */
@@ -26,6 +26,29 @@ const UPLOAD_TIMEOUT_MS = 5 * 60_000;
 /** Instalador passa de 80 MB e pode vir por rede lenta */
 const DOWNLOAD_TIMEOUT_MS = 20 * 60_000;
 
+/** Tipo (MIME) de um anexo de comunicado pelo fim do nome do arquivo */
+const TIPOS_POR_EXTENSAO: Record<string, string> = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.zip': 'application/zip',
+};
+
+export function tipoDeAnexo(nome: string): string {
+  return TIPOS_POR_EXTENSAO[nome.slice(nome.lastIndexOf('.')).toLowerCase()] ?? 'application/octet-stream';
+}
 /** Versão nova anunciada pelo servidor. */
 export interface VersaoDisponivel {
   versao: string;
@@ -49,6 +72,23 @@ export class ApiError extends Error {
   get isAuthError(): boolean {
     return this.status === 401 || this.status === 403;
   }
+}
+
+
+/**
+ * Corpo de um envio grande: o arquivo é lido do disco em partes, então uma
+ * imagem ou um vídeo de qualquer tamanho não precisa caber na memória.
+ */
+export function corpoDoArquivo(caminho: string): ReadableStream<Uint8Array> {
+  return Readable.toWeb(createReadStream(caminho)) as ReadableStream<Uint8Array>;
+}
+
+/**
+ * Tempo limite proporcional ao tamanho: 2 minutos de folga e mais 1 minuto a
+ * cada 5 MB, para um vídeo grande não ser cortado no meio em rede lenta.
+ */
+export function tempoDeEnvio(bytes: number): number {
+  return 2 * 60_000 + Math.ceil(bytes / (5 * 1024 * 1024)) * 60_000;
 }
 
 /** Cliente da API REST do backend. Só o processo main conversa com o servidor. */
@@ -102,6 +142,15 @@ export class ApiClient {
     return (data.messages ?? []).map(parseMessage).filter((m): m is DpMessage => m !== null);
   }
 
+  /** Confirma "li e estou ciente" (só vale com funcionário logado). */
+  async confirmarCiencia(messageId: string): Promise<string> {
+    const data = await this.request<{ cienteEm: string }>(
+      'POST',
+      `/api/messages/${encodeURIComponent(messageId)}/ciencia`,
+    );
+    return data.cienteEm;
+  }
+
   async markRead(messageId: string): Promise<string> {
     const data = await this.request<{ readAt: string }>('PATCH', `/api/messages/${encodeURIComponent(messageId)}/read`);
     return data.readAt;
@@ -146,32 +195,6 @@ export class ApiClient {
 
   async changeEmployeePassword(currentPassword: string, newPassword: string): Promise<void> {
     await this.request('POST', '/api/session/password', { currentPassword, newPassword });
-  }
-
-  // ---- Chat do funcionário logado com as pessoas do DP (uma conversa por pessoa) ----
-
-  async getChatContacts(): Promise<ChatContact[]> {
-    const data = await this.request<{ contacts?: unknown[] }>('GET', '/api/chat/contacts');
-    return (data.contacts ?? []).map(parseChatContact).filter((c): c is ChatContact => c !== null);
-  }
-
-  async getChat(dpUserId: string): Promise<ChatMessage[]> {
-    const data = await this.request<{ messages?: unknown[] }>(
-      'GET',
-      `/api/chat/messages?dpUserId=${encodeURIComponent(dpUserId)}`,
-    );
-    return (data.messages ?? []).map(parseChatMessage).filter((m): m is ChatMessage => m !== null);
-  }
-
-  async sendChat(dpUserId: string, content: string): Promise<ChatMessage> {
-    const data = await this.request<{ message?: unknown }>('POST', '/api/chat/messages', { dpUserId, content });
-    const message = parseChatMessage(data.message);
-    if (!message) throw new ApiError('Resposta de envio inválida', 500);
-    return message;
-  }
-
-  async markChatRead(dpUserId: string): Promise<void> {
-    await this.request('POST', '/api/chat/read', { dpUserId });
   }
 
   // ---- Atualização do aplicativo ----
@@ -251,17 +274,22 @@ export class ApiClient {
     return data.atalhos ?? [];
   }
 
-  /** Envia uma imagem ou vídeo; o arquivo vai como corpo binário, com o tipo real. */
-  async enviarMidia(conteudo: Buffer, mimeType: string, nome: string): Promise<MidiaPublica> {
+  /**
+   * Envia uma imagem ou vídeo direto do disco, em partes. Não há limite de
+   * tamanho: o arquivo nunca é carregado inteiro nem aqui nem no servidor.
+   */
+  async enviarMidia(caminho: string, mimeType: string, nome: string): Promise<MidiaPublica> {
     const headers: Record<string, string> = { 'Content-Type': mimeType, 'X-Nome': encodeURIComponent(nome) };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const { size } = await stat(caminho);
 
     const response = await fetch(`${this.baseUrl}/api/midias`, {
       method: 'POST',
       headers,
-      body: new Uint8Array(conteudo),
-      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
-    });
+      body: corpoDoArquivo(caminho),
+      duplex: 'half',
+      signal: AbortSignal.timeout(tempoDeEnvio(size)),
+    } as RequestInit & { duplex: 'half' });
     const data = (await response.json().catch(() => ({}))) as MidiaPublica & { message?: string };
     if (!response.ok) throw new ApiError(data.message ?? `Erro HTTP ${response.status}`, response.status);
     return data;
@@ -302,6 +330,69 @@ export class ApiClient {
   }
 
   // ---- Chamados do funcionário (token do PC) ----
+
+  // ---- Telas do DP/TI com o token do computador ----
+  //
+  // Quem é do setor do DP ou do TI usa o próprio login do aplicativo: o servidor
+  // reconhece o acesso pelo setor, então estas chamadas são as mesmas da conta
+  // da Central, só que com a credencial do computador.
+
+  async filaChamados(incluirEncerrados: boolean): Promise<ChamadoResumo[]> {
+    const data = await this.request<{ chamados?: ChamadoResumo[] }>(
+      'GET',
+      `/api/chamados/fila?encerrados=${incluirEncerrados ? 'true' : 'false'}`,
+    );
+    return data.chamados ?? [];
+  }
+
+  async mudarStatusChamado(id: string, status: StatusChamado): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('PUT', `/api/chamados/${encodeURIComponent(id)}/status`, { status });
+  }
+
+  async listarMural(): Promise<MuralPost[]> {
+    const data = await this.request<{ posts?: MuralPost[] }>('GET', '/api/mural/todos');
+    return data.posts ?? [];
+  }
+
+  async publicarMural(dados: { titulo: string; texto: string; midiaId: string | null; ativo: boolean }): Promise<MuralPost> {
+    return this.request<MuralPost>('POST', '/api/mural', dados);
+  }
+
+  async atualizarMural(
+    id: string,
+    dados: { titulo: string; texto: string; midiaId: string | null; ativo: boolean },
+  ): Promise<MuralPost> {
+    return this.request<MuralPost>('PUT', `/api/mural/${encodeURIComponent(id)}`, dados);
+  }
+
+  async removerMural(id: string): Promise<void> {
+    await this.request('DELETE', `/api/mural/${encodeURIComponent(id)}`);
+  }
+
+  /** Anexo de comunicado (imagem ou documento), do disco e em partes. */
+  async enviarAnexo(caminho: string, nome: string): Promise<{ id: string; name: string; size: number }> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/octet-stream',
+      'X-File-Name': encodeURIComponent(nome),
+      'X-File-Type': tipoDeAnexo(nome),
+    };
+    if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    const { size } = await stat(caminho);
+
+    const response = await fetch(`${this.baseUrl}/api/attachments`, {
+      method: 'POST',
+      headers,
+      body: corpoDoArquivo(caminho),
+      duplex: 'half',
+      signal: AbortSignal.timeout(tempoDeEnvio(size)),
+    } as RequestInit & { duplex: 'half' });
+    const data = (await response.json().catch(() => ({}))) as {
+      attachment?: { id: string; name: string; size: number };
+      message?: string;
+    };
+    if (!response.ok || !data.attachment) throw new ApiError(data.message ?? `Erro HTTP ${response.status}`, response.status);
+    return data.attachment;
+  }
 
   async listarChamados(): Promise<ChamadoResumo[]> {
     const data = await this.request<{ chamados?: ChamadoResumo[] }>('GET', '/api/chamados');

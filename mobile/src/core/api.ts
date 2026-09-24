@@ -1,8 +1,9 @@
 /** Cliente da API REST do servidor (a mesma usada pelo app do computador) */
-import type { ChatContact, ChatMessage, DpMessage, EmployeeProfile } from './types';
-import { parseChatContact, parseChatMessage, parseEmployee, parseMessage } from './validation';
+import DpNative from '../specs/NativeDpNative';
+import type { ArquivoLocal, DpMessage, EmployeeProfile, VersaoDisponivel } from './types';
+import { parseEmployee, parseMessage } from './validation';
 
-const REQUEST_TIMEOUT_MS = 10_000;
+const REQUEST_TIMEOUT_MS = 15_000;
 
 export class ApiError extends Error {
   constructor(
@@ -26,6 +27,8 @@ export interface DeviceInfoPayload {
   platform: string;
 }
 
+export type Metodo = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
 /** "servidor-dp:3000" → "http://servidor-dp:3000" (sem barra no fim) */
 export function normalizeServerUrl(raw: string): string {
   let url = raw.trim().replace(/\/+$/, '');
@@ -38,7 +41,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
-  } catch (err) {
+  } catch {
     if (controller.signal.aborted) throw new ApiError('O servidor não respondeu a tempo', 0);
     throw new ApiError('Não foi possível conectar ao servidor. Confira o Wi-Fi e o endereço.', 0);
   } finally {
@@ -67,8 +70,19 @@ export class ApiClient {
     this.token = token;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
-    const headers: Record<string, string> = { Accept: 'application/json', ...extraHeaders };
+  /** Cabeçalho para a tag de imagem buscar mídias protegidas (fotos, mural, chat) */
+  get authHeaders(): Record<string, string> {
+    return this.token ? { Authorization: `Bearer ${this.token}` } : {};
+  }
+
+  /** Endereço completo de uma mídia (/api/midias/:id) */
+  midiaUrl(midiaId: string): string {
+    return `${this.baseUrl}/api/midias/${encodeURIComponent(midiaId)}`;
+  }
+
+  /** Chamada genérica: devolve o JSON da resposta (ou {} quando o servidor responde 204) */
+  async request<T>(method: Metodo, path: string, body?: unknown): Promise<T> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     const response = await fetchWithTimeout(`${this.baseUrl}${path}`, {
@@ -81,20 +95,47 @@ export class ApiClient {
     return data as T;
   }
 
+  /**
+   * Envia um arquivo do celular como corpo binário (o que /api/midias e
+   * /api/attachments esperam). O envio é feito pelo Android, em partes,
+   * direto do arquivo: vídeos grandes não passam pela memória do JavaScript.
+   */
+  async upload<T>(path: string, arquivo: ArquivoLocal, headers: Record<string, string>): Promise<T> {
+    let resposta: { status: number; body: string };
+    try {
+      resposta = JSON.parse(
+        await DpNative.uploadFile(`${this.baseUrl}${path}`, this.token ?? '', arquivo.uri, arquivo.mimeType, JSON.stringify(headers)),
+      ) as { status: number; body: string };
+    } catch (err) {
+      throw new ApiError(err instanceof Error && err.message ? `Falha no envio: ${err.message}` : 'Falha no envio do arquivo', 0);
+    }
+    let data: { message?: string } = {};
+    try {
+      data = resposta.body ? (JSON.parse(resposta.body) as { message?: string }) : {};
+    } catch {
+      /* resposta sem JSON */
+    }
+    if (resposta.status < 200 || resposta.status > 299) {
+      throw new ApiError(data.message ?? `Erro HTTP ${resposta.status}`, resposta.status);
+    }
+    return data as T;
+  }
+
+  /** Baixa para a pasta de cache do app e devolve o caminho do arquivo */
+  async download(path: string, pasta: string, nome: string): Promise<string> {
+    try {
+      return await DpNative.downloadFile(`${this.baseUrl}${path}`, this.token ?? '', pasta, nome);
+    } catch (err) {
+      throw new ApiError(err instanceof Error && err.message ? err.message : 'Falha ao baixar o arquivo', 0);
+    }
+  }
+
+  // ---------------------------------------------------------------- aparelho e sessão
+
   async registerDevice(info: DeviceInfoPayload, secret: string): Promise<string> {
     const data = await this.request<{ token?: unknown }>('POST', '/api/computers/register', { ...info, computerSecret: secret });
     if (typeof data.token !== 'string') throw new ApiError('Resposta de registro inválida', 500);
     return data.token;
-  }
-
-  async listMessages(): Promise<DpMessage[]> {
-    const data = await this.request<{ messages?: unknown[] }>('GET', '/api/messages?limit=500');
-    return (data.messages ?? []).map(parseMessage).filter((m): m is DpMessage => m !== null);
-  }
-
-  async markRead(messageId: string): Promise<string> {
-    const data = await this.request<{ readAt: string }>('PATCH', `/api/messages/${encodeURIComponent(messageId)}/read`);
-    return data.readAt;
   }
 
   async getSession(): Promise<EmployeeProfile | null> {
@@ -117,34 +158,52 @@ export class ApiClient {
     await this.request('POST', '/api/session/password', { currentPassword, newPassword });
   }
 
-  async getChatContacts(): Promise<ChatContact[]> {
-    const data = await this.request<{ contacts?: unknown[] }>('GET', '/api/chat/contacts');
-    return (data.contacts ?? []).map(parseChatContact).filter((c): c is ChatContact => c !== null);
+  // ---------------------------------------------------------------- comunicados
+
+  async listMessages(): Promise<DpMessage[]> {
+    const data = await this.request<{ messages?: unknown[] }>('GET', '/api/messages?limit=500');
+    return (data.messages ?? []).map(parseMessage).filter((m): m is DpMessage => m !== null);
   }
 
-  async getChat(dpUserId: string): Promise<ChatMessage[]> {
-    const data = await this.request<{ messages?: unknown[] }>('GET', `/api/chat/messages?dpUserId=${encodeURIComponent(dpUserId)}`);
-    return (data.messages ?? []).map(parseChatMessage).filter((m): m is ChatMessage => m !== null);
+  async markRead(messageId: string): Promise<string> {
+    const data = await this.request<{ readAt: string }>('PATCH', `/api/messages/${encodeURIComponent(messageId)}/read`);
+    return data.readAt;
   }
 
-  async sendChat(dpUserId: string, content: string): Promise<ChatMessage> {
-    const data = await this.request<{ message?: unknown }>('POST', '/api/chat/messages', { dpUserId, content });
-    const message = parseChatMessage(data.message);
-    if (!message) throw new ApiError('Resposta de envio inválida', 500);
-    return message;
-  }
-
-  async markChatRead(dpUserId: string): Promise<void> {
-    await this.request('POST', '/api/chat/read', { dpUserId });
+  async confirmarCiencia(messageId: string): Promise<string> {
+    const data = await this.request<{ cienteEm?: string }>('POST', `/api/messages/${encodeURIComponent(messageId)}/ciencia`);
+    return data.cienteEm ?? new Date().toISOString();
   }
 
   /**
-   * Endereço temporário (5 min) para abrir um anexo. O servidor devolve um link com um
-   * bilhete de uso curto, porque nem a tag de imagem nem o navegador mandam o token do aparelho.
+   * Endereço temporário (5 min) para abrir um anexo de comunicado. O servidor
+   * devolve um link com um bilhete de uso curto, porque a tag de imagem não manda o token.
    */
   async getAttachmentLink(attachmentId: string): Promise<string> {
     const data = await this.request<{ url?: unknown }>('POST', `/api/attachments/${encodeURIComponent(attachmentId)}/link`);
     if (typeof data.url !== 'string') throw new ApiError('Resposta inválida ao abrir o anexo', 500);
     return `${this.baseUrl}${data.url}`;
+  }
+
+  // ---------------------------------------------------------------- atualização do app
+
+  async verificarAtualizacao(versaoAtual: string): Promise<VersaoDisponivel | null> {
+    const data = await this.request<{ temAtualizacao?: boolean; release?: unknown }>(
+      'GET',
+      `/api/atualizacoes/mobile/verificar?versao=${encodeURIComponent(versaoAtual)}`,
+    );
+    if (!data.temAtualizacao || !data.release) return null;
+    const release = data.release as Partial<VersaoDisponivel>;
+    if (typeof release.versao !== 'string' || typeof release.url !== 'string' || typeof release.sha256 !== 'string') {
+      throw new ApiError('Resposta de atualização inválida', 500);
+    }
+    return {
+      versao: release.versao,
+      url: release.url,
+      sha256: release.sha256.toLowerCase(),
+      tamanho: Number(release.tamanho ?? 0),
+      notas: String(release.notas ?? ''),
+      obrigatoria: release.obrigatoria === true,
+    };
   }
 }

@@ -43,6 +43,7 @@ function toMensagem(row: Row): MensagemConversa {
     midiaId: nullableText(row, 'midia_id'),
     automatica: Number(row.automatica ?? 0) === 1,
     encaminhada: Number(row.encaminhada ?? 0) === 1,
+    respondeA: row.responde_a === null || row.responde_a === undefined ? null : Number(row.responde_a),
     createdAt: text(row, 'created_at'),
     apagadaEm: nullableText(row, 'apagada_em'),
   };
@@ -176,8 +177,8 @@ export class PostgresConversaRepository implements ConversaRepository {
     return this.db.transaction(async (tx) => {
       const row = await tx.one(
         `INSERT INTO conversa_mensagens
-           (conversa_id, autor_id, autor_nome, tipo, conteudo, midia_id, automatica, encaminhada, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+           (conversa_id, autor_id, autor_nome, tipo, conteudo, midia_id, automatica, encaminhada, responde_a, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
           dados.conversaId,
           dados.autorId,
@@ -187,6 +188,7 @@ export class PostgresConversaRepository implements ConversaRepository {
           dados.midiaId,
           dados.automatica ? 1 : 0,
           dados.encaminhada ? 1 : 0,
+          dados.respondeA,
           agora,
         ],
       );
@@ -207,6 +209,17 @@ export class PostgresConversaRepository implements ConversaRepository {
           limite,
         ]);
     return rows.map(toMensagem).reverse();
+  }
+
+  async findMensagens(ids: number[]): Promise<Map<number, MensagemConversa>> {
+    const resultado = new Map<number, MensagemConversa>();
+    if (ids.length === 0) return resultado;
+    const linhas = await this.db.all('SELECT * FROM conversa_mensagens WHERE id = ANY($1::bigint[])', [ids]);
+    for (const linha of linhas) {
+      const mensagem = toMensagem(linha);
+      resultado.set(mensagem.id, mensagem);
+    }
+    return resultado;
   }
 
   async buscarMensagens(conversaId: string, termo: string, limite: number): Promise<MensagemConversa[]> {

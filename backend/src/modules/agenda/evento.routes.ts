@@ -48,8 +48,10 @@ export const eventoRoutes: FastifyPluginAsync<EventoRoutesOptions> = async (app,
 
     if (principal.type === 'COMPUTER') {
       const employee = await employees.getSessionEmployee(principal.computerId);
-      if (!employee) throw new AppError('Entre com sua matrícula para usar a agenda', 401, 'NO_EMPLOYEE');
-      return { id: employee.id, nome: employee.name, ehDp: false, ehTi: false };
+      if (!employee) throw new AppError('Entre com seu usuário para usar a agenda', 401, 'NO_EMPLOYEE');
+      // Funcionário do setor do DP/TI: o setor dá o mesmo poder da conta do DP (publicar para todos)
+      const admin = principal.admin;
+      return { id: employee.id, nome: employee.name, ehDp: admin !== null, ehTi: admin?.superAdmin ?? false };
     }
     return { id: principal.userId, nome: principal.name, ehDp: true, ehTi: principal.superAdmin };
   }

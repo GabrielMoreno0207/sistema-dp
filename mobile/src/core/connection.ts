@@ -8,11 +8,23 @@
 import { AppState, Linking, Vibration, type AppStateStatus } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import DpNative from '../specs/NativeDpNative';
-import { ApiClient, ApiError, normalizeServerUrl, testServer } from './api';
+import { ApiClient, ApiError, normalizeServerUrl, testServer, type Metodo } from './api';
+import { verificarAtualizacao } from './atualizacao';
 import { loadConfig, saveConfig } from './storage';
 import { getState, setState, type NavRequest } from './store';
-import { TYPE_LABELS, type ChatMessage, type DeviceConfig, type DpMessage, type EmployeeProfile, type OperationResult } from './types';
-import { messageSeq, parseChatMessage, parseEmployee, parseMessage } from './validation';
+import {
+  TYPE_LABELS,
+  type Atalho,
+  type AvisoDeMensagem,
+  type ConversaResumo,
+  type DeviceConfig,
+  type DpMessage,
+  type EmployeeProfile,
+  type MidiaPublica,
+  type MuralPost,
+  type OperationResult,
+} from './types';
+import { messageSeq, parseEmployee, parseMessage } from './validation';
 
 const MIN_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
@@ -26,7 +38,7 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryDelay = MIN_RETRY_MS;
 let everConnected = false;
 let booting: Promise<void> | null = null;
-let contactsTimer: ReturnType<typeof setTimeout> | null = null;
+let conversasTimer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------------------------------------------------------------- início
 
@@ -71,8 +83,30 @@ function onAppStateChange(next: AppStateStatus): void {
   const status = getState().connection.status;
   if (isConfigured() && (status === 'disconnected' || status === 'reconnecting')) reconnectNow();
   // A conversa aberta foi vista
-  const openChatId = getState().openChatId;
-  if (openChatId) void markChatRead(openChatId);
+  const aberta = getState().conversaAberta;
+  if (aberta) void marcarConversaLida(aberta);
+}
+
+/** Cliente da API já autenticado (null enquanto não conectou) */
+export function getApi(): ApiClient | null {
+  return api;
+}
+
+/**
+ * Chamada à API para as telas, no mesmo formato do app do computador:
+ * nunca lança erro, devolve { ok, dados, message }.
+ */
+export async function chamar<T = unknown>(
+  method: Metodo,
+  path: string,
+  body?: unknown,
+): Promise<{ ok: boolean; dados: T | null; message: string }> {
+  if (!api) return { ok: false, dados: null, message: 'Sem conexão com o servidor.' };
+  try {
+    return { ok: true, dados: await api.request<T>(method, path, body), message: '' };
+  } catch (err) {
+    return { ok: false, dados: null, message: friendly(err, 'Não foi possível falar com o servidor.') };
+  }
 }
 
 // ---------------------------------------------------------------- conexão
@@ -113,14 +147,16 @@ function connect(): void {
     setConnection({ status: 'not-configured', nextRetryAt: null });
     return;
   }
-  api = new ApiClient(config.serverUrl!);
+  const client = new ApiClient(config.serverUrl!);
   setConnection({ status: everConnected ? 'reconnecting' : 'connecting', nextRetryAt: null });
 
   void (async () => {
     try {
-      const token = await api!.registerDevice(deviceInfo(), config!.deviceSecret!);
+      const token = await client.registerDevice(deviceInfo(), config!.deviceSecret!);
       if (current !== generation) return;
-      api!.setToken(token);
+      client.setToken(token);
+      api = client;
+      setState((s) => ({ sessao: s.sessao + 1 }));
       openSocket(config!.serverUrl!, token, current);
     } catch (err) {
       if (current !== generation) return;
@@ -136,37 +172,70 @@ function openSocket(serverUrl: string, token: string, current: number): void {
     timeout: 10_000,
     auth: { ...deviceInfo(), token },
   });
+  const valido = () => current === generation;
 
   s.on('connect', () => {
-    if (current !== generation) return;
+    if (!valido()) return;
     everConnected = true;
     retryDelay = MIN_RETRY_MS;
     setConnection({ status: 'connected', lastError: null, nextRetryAt: null });
     void syncAll();
   });
   s.on('message:new', (payload: unknown) => {
-    if (current !== generation) return;
+    if (!valido()) return;
     const message = parseMessage(payload);
     if (message) onNewMessage(message);
   });
-  s.on('chat:message', (payload: unknown) => {
-    if (current !== generation) return;
-    const message = parseChatMessage(payload);
-    if (message) onChatMessage(message);
+  // O DP cutucou quem ainda não leu: o aviso do comunicado volta a aparecer
+  s.on('comunicado:lembrete', (payload: unknown) => {
+    if (!valido()) return;
+    const id = (payload as { messageId?: unknown } | null)?.messageId;
+    const message = getState().messages.find((m) => m.id === id);
+    if (message) alertMessage(message, true);
+    else void syncMessages();
   });
   s.on('session:changed', (payload: unknown) => {
-    if (current !== generation) return;
+    if (!valido()) return;
     const raw = typeof payload === 'object' && payload !== null ? (payload as { employee?: unknown }).employee : undefined;
     setEmployee(raw === null ? null : parseEmployee(raw));
     void syncAll();
   });
+  s.on('conversa:atualizada', (payload: unknown) => {
+    if (!valido()) return;
+    const dados = (payload ?? {}) as { conversaId?: unknown; mensagem?: AvisoDeMensagem | null };
+    if (typeof dados.conversaId === 'string') onConversaAtualizada(dados.conversaId, dados.mensagem ?? null);
+  });
+  s.on('mural:atualizado', () => {
+    if (valido()) void syncMural();
+  });
+  s.on('chamado:atualizado', (payload: unknown) => {
+    if (!valido()) return;
+    const chamadoId = (payload as { chamadoId?: unknown } | null)?.chamadoId;
+    setState((st) => ({ chamadosVersao: st.chamadosVersao + 1 }));
+    void syncChamados().then(() => {
+      if (typeof chamadoId === 'string' && !isAppActive()) {
+        void DpNative.showNotification(
+          idDaNotificacao(chamadoId, 700_000),
+          'chat',
+          'Chamado para o TI',
+          'Seu chamado tem novidade. Toque para ver.',
+          false,
+          JSON.stringify({ kind: 'chamado', chamadoId } satisfies NavRequest),
+        );
+      }
+    });
+  });
+  s.on('atualizacao:publicada', (payload: unknown) => {
+    if (!valido()) return;
+    if ((payload as { app?: unknown } | null)?.app === 'mobile') void verificarAtualizacao();
+  });
   s.on('connect_error', (err) => {
-    if (current !== generation) return;
+    if (!valido()) return;
     closeSocket();
     scheduleRetry(err, false);
   });
   s.on('disconnect', (reason) => {
-    if (current !== generation) return;
+    if (!valido()) return;
     closeSocket();
     scheduleRetry(new Error(`Conexão perdida (${reason})`), false);
   });
@@ -217,10 +286,11 @@ async function syncAll(): Promise<void> {
   } catch (err) {
     console.warn('[sessão]', err);
   }
-  await Promise.all([syncMessages(), syncContacts()]);
+  await Promise.all([syncMessages(), syncConversas(), syncMural(), syncPerfil(), syncChamados()]);
+  void verificarAtualizacao();
 }
 
-async function syncMessages(): Promise<void> {
+export async function syncMessages(): Promise<void> {
   const client = api;
   if (!client) return;
   try {
@@ -232,29 +302,77 @@ async function syncMessages(): Promise<void> {
   }
 }
 
-async function syncContacts(): Promise<void> {
+export async function syncConversas(): Promise<void> {
   const client = api;
   if (!client || !getState().employee) {
-    setState({ contacts: [], chatUnread: 0 });
+    setState({ conversas: [], conversasNaoLidas: 0 });
     return;
   }
   try {
-    const contacts = await client.getChatContacts();
-    setState({ contacts, chatUnread: contacts.reduce((sum, c) => sum + c.unreadCount, 0) });
+    const { conversas } = await client.request<{ conversas: ConversaResumo[] }>('GET', '/api/conversas');
+    const aberta = getState().conversaAberta;
+    // A conversa aberta na tela já está lida (a marcação no servidor vem logo depois)
+    const lista = conversas.map((c) => (c.id === aberta ? { ...c, naoLidas: 0 } : c));
+    setState({ conversas: lista, conversasNaoLidas: lista.reduce((soma, c) => soma + c.naoLidas, 0) });
   } catch (err) {
-    console.warn('[chat]', err);
+    console.warn('[conversas]', err);
   }
 }
 
-function syncContactsSoon(): void {
-  if (contactsTimer) clearTimeout(contactsTimer);
-  contactsTimer = setTimeout(() => void syncContacts(), 400);
+function syncConversasLogo(): void {
+  if (conversasTimer) clearTimeout(conversasTimer);
+  conversasTimer = setTimeout(() => void syncConversas(), 300);
+}
+
+export async function syncMural(): Promise<void> {
+  const client = api;
+  if (!client) return;
+  try {
+    const { post } = await client.request<{ post: MuralPost | null }>('GET', '/api/mural');
+    setState({ mural: post ?? null });
+  } catch (err) {
+    console.warn('[mural]', err);
+  }
+}
+
+/** Atalhos e foto de perfil de quem está logado */
+export async function syncPerfil(): Promise<void> {
+  const client = api;
+  if (!client || !getState().employee) {
+    setState({ atalhos: [], foto: null });
+    return;
+  }
+  try {
+    const [atalhos, foto] = await Promise.all([
+      client.request<{ atalhos?: Atalho[] }>('GET', '/api/atalhos'),
+      client.request<{ foto?: MidiaPublica | null }>('GET', '/api/perfil/foto'),
+    ]);
+    setState({ atalhos: atalhos.atalhos ?? [], foto: foto.foto ?? null });
+  } catch (err) {
+    console.warn('[perfil]', err);
+  }
+}
+
+export async function syncChamados(): Promise<void> {
+  const client = api;
+  if (!client || !getState().employee) {
+    setState({ chamadosNaoLidos: 0 });
+    return;
+  }
+  try {
+    const resumo = await client.request<{ naoLidas?: number }>('GET', '/api/chamados/resumo');
+    setState({ chamadosNaoLidos: Number(resumo.naoLidas ?? 0) });
+  } catch (err) {
+    console.warn('[chamados]', err);
+  }
 }
 
 function setEmployee(employee: EmployeeProfile | null): void {
   const previous = getState().employee;
   setState({ employee, employeeChecked: true });
-  if (!employee) setState({ contacts: [], chatUnread: 0, openChatId: null, thread: [] });
+  if (!employee) {
+    setState({ conversas: [], conversasNaoLidas: 0, conversaAberta: null, atalhos: [], foto: null, chamadosNaoLidos: 0 });
+  }
   if (previous?.id !== employee?.id) updateServiceText();
 }
 
@@ -262,6 +380,13 @@ function setEmployee(employee: EmployeeProfile | null): void {
 
 function isAppActive(): boolean {
   return AppState.currentState === 'active';
+}
+
+/** ID estável de notificação a partir de um texto (conversa, chamado) */
+function idDaNotificacao(chave: string, base: number): number {
+  let hash = 0;
+  for (const ch of chave) hash = (hash * 31 + ch.charCodeAt(0)) % 100_000;
+  return base + hash;
 }
 
 /**
@@ -274,6 +399,13 @@ const RESUMO_NOTIFICATION_ID = 9_000;
 /** Comunicados não lidos que ainda não foram avisados (ex.: chegaram com o celular desligado) */
 function alertUnseen(messages: DpMessage[]): void {
   if (!config) return;
+  // O servidor tem menos comunicados do que este celular lembra (banco recriado ou
+  // outro servidor): recomeça a contagem, senão os novos nunca seriam avisados
+  const maiorNoServidor = messages.reduce((maior, m) => Math.max(maior, messageSeq(m.id)), 0);
+  if (maiorNoServidor < config.lastAlertedSeq) {
+    config.lastAlertedSeq = maiorNoServidor;
+    void saveConfig(config);
+  }
   const unseen = messages
     .filter((m) => !m.read && messageSeq(m.id) > config!.lastAlertedSeq)
     .sort((a, b) => messageSeq(a.id) - messageSeq(b.id));
@@ -300,11 +432,17 @@ function rememberAlerted(seq: number): void {
   void saveConfig(config);
 }
 
-function alertMessage(message: DpMessage): void {
+function alertMessage(message: DpMessage, lembrete = false): void {
   const urgent = message.type === 'URGENTE';
   if (isAppActive()) {
     // App aberto: alerta na tela, com som e vibração
-    setState((s) => (s.alert ? { alertQueue: [...s.alertQueue, message] } : { alert: message }));
+    setState((s) =>
+      s.alert?.id === message.id || s.alertQueue.some((m) => m.id === message.id)
+        ? {}
+        : s.alert
+          ? { alertQueue: [...s.alertQueue, message] }
+          : { alert: message },
+    );
     DpNative.playAlertSound();
     Vibration.vibrate(urgent ? [0, 500, 200, 500] : 300);
     return;
@@ -312,7 +450,7 @@ function alertMessage(message: DpMessage): void {
   void DpNative.showNotification(
     messageSeq(message.id),
     urgent ? 'urgentes' : 'comunicados',
-    `${TYPE_LABELS[message.type]} do DP: ${message.title}`,
+    `${lembrete ? 'Lembrete: ' : ''}${TYPE_LABELS[message.type]} do DP: ${message.title}`,
     message.content,
     urgent,
     JSON.stringify({ kind: 'message', id: message.id } satisfies NavRequest),
@@ -327,39 +465,29 @@ function onNewMessage(message: DpMessage): void {
   }
 }
 
-/** ID estável da notificação de cada conversa */
-function chatNotificationId(dpUserId: string): number {
-  let hash = 0;
-  for (const ch of dpUserId) hash = (hash * 31 + ch.charCodeAt(0)) % 100_000;
-  return 500_000 + hash;
-}
+function onConversaAtualizada(conversaId: string, aviso: AvisoDeMensagem | null): void {
+  setState((s) => ({ conversaVersao: { ...s.conversaVersao, [conversaId]: (s.conversaVersao[conversaId] ?? 0) + 1 } }));
+  syncConversasLogo();
 
-function onChatMessage(message: ChatMessage): void {
-  const { openChatId, thread } = getState();
-  const existing = thread.find((m) => m.id === message.id);
-  if (openChatId === message.dpUserId) {
-    setState({
-      thread: existing ? thread.map((m) => (m.id === message.id ? message : m)) : [...thread, message].sort((a, b) => a.id - b.id),
-    });
-  }
-  syncContactsSoon();
-
-  if (message.senderType !== 'DP' || existing) return;
-  const viewing = isAppActive() && openChatId === message.dpUserId;
-  if (viewing) {
-    void markChatRead(message.dpUserId);
+  const eu = getState().employee?.id;
+  if (!aviso || aviso.autorId === eu) return;
+  const vendo = isAppActive() && getState().conversaAberta === conversaId;
+  if (vendo) {
+    void marcarConversaLida(conversaId);
     return;
   }
-  if (!isAppActive()) {
-    void DpNative.showNotification(
-      chatNotificationId(message.dpUserId),
-      'chat',
-      message.senderName,
-      message.automatic ? `🤖 ${message.content}` : message.content,
-      false,
-      JSON.stringify({ kind: 'chat', dpUserId: message.dpUserId } satisfies NavRequest),
-    );
+  if (isAppActive()) {
+    Vibration.vibrate(120);
+    return;
   }
+  void DpNative.showNotification(
+    idDaNotificacao(conversaId, 500_000),
+    'chat',
+    aviso.grupo ? `${aviso.autorNome} · ${aviso.grupo}` : aviso.autorNome,
+    aviso.resumo,
+    false,
+    JSON.stringify({ kind: 'conversa', conversaId } satisfies NavRequest),
+  );
 }
 
 async function consumeLaunchPayload(): Promise<void> {
@@ -367,7 +495,7 @@ async function consumeLaunchPayload(): Promise<void> {
   if (!payload) return;
   try {
     const request = JSON.parse(payload) as NavRequest;
-    if (request.kind === 'message' || request.kind === 'chat') setState({ navRequest: request });
+    if (['message', 'conversa', 'chamado', 'atualizacao'].includes(request.kind)) setState({ navRequest: request });
   } catch {
     /* payload inválido: ignora */
   }
@@ -383,7 +511,8 @@ export async function saveServer(rawUrl: string): Promise<OperationResult> {
   if (!serverUrl) return { ok: false, message: 'Informe o endereço do servidor.' };
   const test = await testServer(serverUrl);
   if (!test.ok) return test;
-  config = { ...config!, serverUrl };
+  // Outro servidor: a numeração dos comunicados é outra, a contagem de avisos recomeça
+  config = { ...config!, serverUrl, lastAlertedSeq: serverUrl === config!.serverUrl ? config!.lastAlertedSeq : 0 };
   await saveConfig(config);
   setState({ serverUrl });
   DpNative.setAutostart(true);
@@ -393,7 +522,7 @@ export async function saveServer(rawUrl: string): Promise<OperationResult> {
   return { ok: true, message: 'Configuração salva.' };
 }
 
-function friendly(err: unknown, fallback: string): string {
+export function friendly(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
 }
 
@@ -402,7 +531,7 @@ export async function login(registration: string, password: string): Promise<Ope
   try {
     const employee = await api.loginEmployee(registration.trim(), password);
     setEmployee(employee);
-    await Promise.all([syncMessages(), syncContacts()]);
+    await Promise.all([syncMessages(), syncConversas(), syncPerfil(), syncChamados()]);
     return { ok: true, message: `Bem-vindo(a), ${employee.name}!` };
   } catch (err) {
     return { ok: false, message: friendly(err, 'Não foi possível entrar. Tente novamente.') };
@@ -434,7 +563,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 /**
- * Endereço temporário para abrir um anexo. Null quando não há conexão com o servidor
+ * Endereço temporário para abrir um anexo de comunicado. Null quando não há conexão
  * (o link vale 5 minutos e serve tanto para a miniatura quanto para abrir o arquivo).
  */
 export async function attachmentLink(attachmentId: string): Promise<string | null> {
@@ -447,7 +576,7 @@ export async function attachmentLink(attachmentId: string): Promise<string | nul
   }
 }
 
-/** Abre o anexo no aplicativo do celular que cuida daquele tipo de arquivo. */
+/** Abre o anexo do comunicado no aplicativo do celular que cuida daquele tipo de arquivo. */
 export async function openAttachment(attachmentId: string): Promise<OperationResult> {
   const link = await attachmentLink(attachmentId);
   if (!link) {
@@ -476,44 +605,38 @@ export async function markRead(messageId: string): Promise<void> {
   }
 }
 
-export async function openChat(dpUserId: string | null): Promise<void> {
-  setState({ openChatId: dpUserId, thread: [], threadLoading: dpUserId !== null });
-  if (!dpUserId || !api) return;
-  DpNative.cancelNotification(chatNotificationId(dpUserId));
-  try {
-    const thread = await api.getChat(dpUserId);
-    if (getState().openChatId === dpUserId) setState({ thread, threadLoading: false });
-    await markChatRead(dpUserId);
-  } catch (err) {
-    setState({ threadLoading: false });
-    console.warn('[chat]', err);
-  }
-}
-
-async function markChatRead(dpUserId: string): Promise<void> {
-  const contact = getState().contacts.find((c) => c.id === dpUserId);
-  if (!api || !contact || contact.unreadCount === 0) return;
-  setState((s) => {
-    const contacts = s.contacts.map((c) => (c.id === dpUserId ? { ...c, unreadCount: 0 } : c));
-    return { contacts, chatUnread: contacts.reduce((sum, c) => sum + c.unreadCount, 0) };
-  });
-  try {
-    await api.markChatRead(dpUserId);
-  } catch (err) {
-    console.warn('[chat] leitura não registrada', err);
-  }
-}
-
-export async function sendChat(dpUserId: string, content: string): Promise<OperationResult> {
-  const text = content.trim();
-  if (!text) return { ok: false, message: 'Escreva a mensagem.' };
+/** "Li e estou ciente" de um comunicado que pede confirmação */
+export async function confirmarCiencia(messageId: string): Promise<OperationResult> {
   if (!api) return { ok: false, message: 'Sem conexão com o servidor.' };
   try {
-    const message = await api.sendChat(dpUserId, text);
-    onChatMessage(message);
-    return { ok: true, message: 'Enviada.' };
+    const cienteEm = await api.confirmarCiencia(messageId);
+    setState((s) => ({ messages: s.messages.map((m) => (m.id === messageId ? { ...m, cienteEm, read: true } : m)) }));
+    return { ok: true, message: 'Ciência confirmada.' };
   } catch (err) {
-    return { ok: false, message: friendly(err, 'Não foi possível enviar.') };
+    return { ok: false, message: friendly(err, 'Não foi possível confirmar agora.') };
+  }
+}
+
+/** A tela avisa qual conversa está aberta: enquanto ela estiver à vista, não notifica */
+export function conversaEmFoco(conversaId: string | null): void {
+  setState({ conversaAberta: conversaId });
+  if (conversaId) {
+    DpNative.cancelNotification(idDaNotificacao(conversaId, 500_000));
+    void marcarConversaLida(conversaId);
+  }
+}
+
+export async function marcarConversaLida(conversaId: string): Promise<void> {
+  const conversa = getState().conversas.find((c) => c.id === conversaId);
+  setState((s) => {
+    const conversas = s.conversas.map((c) => (c.id === conversaId ? { ...c, naoLidas: 0 } : c));
+    return { conversas, conversasNaoLidas: conversas.reduce((soma, c) => soma + c.naoLidas, 0) };
+  });
+  if (!api || (conversa && conversa.naoLidas === 0)) return;
+  try {
+    await api.request('POST', `/api/conversas/${conversaId}/lidas`);
+  } catch (err) {
+    console.warn('[conversas] leitura não registrada', err);
   }
 }
 

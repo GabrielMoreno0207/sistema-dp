@@ -42,7 +42,7 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
         chat_contact         INTEGER NOT NULL DEFAULT 1,
         super_admin          INTEGER NOT NULL DEFAULT 0
       );
-      -- Matrícula única entre funcionários (quem não tem matrícula fica de fora)
+      -- Usuário único entre funcionários (quem não tem usuário fica de fora)
       CREATE UNIQUE INDEX idx_users_registration ON users (registration) WHERE registration IS NOT NULL;
       -- Contagem de destinatários por setor/turno
       CREATE INDEX idx_users_role_sector ON users (role, sector);
@@ -99,7 +99,7 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
         read_at             TEXT NOT NULL,
         -- Em qual computador foi lida (a Central mostra "lida no PC X")
         computer_id         TEXT,
-        -- Nome e matrícula de quem leu: excluir o funcionário não apaga o histórico
+        -- Nome e usuário de quem leu: excluir o funcionário não apaga o histórico
         reader_name         TEXT,
         reader_registration TEXT,
         PRIMARY KEY (message_seq, reader_id)
@@ -400,6 +400,28 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
     sql: `
       -- Mensagem repassada de outra conversa: a tela mostra a etiqueta
       ALTER TABLE conversa_mensagens ADD COLUMN encaminhada BOOLEAN NOT NULL DEFAULT FALSE;
+    `,
+  },
+  {
+    version: 8,
+    name: 'responder citando e confirmacao de ciencia',
+    sql: `
+      -- Chat: a mensagem pode responder outra da mesma conversa
+      ALTER TABLE conversa_mensagens ADD COLUMN responde_a BIGINT;
+      CREATE INDEX idx_conversa_mensagens_responde ON conversa_mensagens (responde_a);
+
+      -- Comunicado que pede "li e estou ciente" (o DP marca ao enviar)
+      ALTER TABLE messages ADD COLUMN exige_ciencia BOOLEAN NOT NULL DEFAULT FALSE;
+      -- Quando a pessoa confirmou; ler nao e o mesmo que dar ciencia
+      ALTER TABLE message_reads ADD COLUMN ciente_em TEXT;
+    `,
+  },
+  {
+    version: 9,
+    name: 'mensagens so do dp e do ti',
+    sql: `
+      -- Pessoa do DP/TI que só recebe mensagem de quem também é do DP/TI
+      ALTER TABLE users ADD COLUMN mensagens_so_dp_ti BOOLEAN NOT NULL DEFAULT FALSE;
     `,
   },
 ];

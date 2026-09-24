@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { AdminUser, DpMessage, EmployeeProfile, MessagesState, MidiaPublica } from '../../../shared/types';
 import { Icone } from '../lib/icones';
+import { AjustarFoto } from './AjustarFoto';
 
 interface ColunaDireitaProps {
   employee: EmployeeProfile | null;
@@ -20,9 +22,13 @@ function data(iso: string): string {
 /** Coluna da direita: cartão de perfil e a lista de comunicados. */
 export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerTodos, onEntrar }: ColunaDireitaProps) {
   const recentes = messages.messages.slice(0, 6);
+  const [ajustandoFoto, setAjustandoFoto] = useState(false);
 
   return (
     <aside className="coluna-direita">
+      {ajustandoFoto && employee && !admin && (
+        <AjustarFoto temFoto={foto !== null} onFechar={() => setAjustandoFoto(false)} />
+      )}
       <div className="cartao-perfil">
         {admin ? (
           <>
@@ -33,8 +39,8 @@ export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerT
         ) : employee ? (
           <button
             className="cartao-perfil__foto cartao-perfil__foto--editavel"
-            onClick={() => void window.dp.enviarFoto()}
-            title={foto ? 'Trocar a foto' : 'Enviar uma foto'}
+            onClick={() => setAjustandoFoto(true)}
+            title={foto ? 'Trocar ou enquadrar a foto' : 'Enviar uma foto'}
           >
             {foto ? <img src={`dpmidia://m/${foto.id}`} alt="" /> : employee.name.trim().charAt(0).toUpperCase()}
             <span className="cartao-perfil__camera" aria-hidden>
@@ -52,14 +58,14 @@ export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerT
             <>
               <strong className="cartao-perfil__nome">{employee.name}</strong>
               <small className="cartao-perfil__cargo">
-                {[employee.sector, employee.registration && `mat. ${employee.registration}`].filter(Boolean).join(' · ')}
+                {[employee.sector, employee.registration && `usuário ${employee.registration}`].filter(Boolean).join(' · ')}
               </small>
             </>
           ) : (
             <>
               <strong className="cartao-perfil__nome">Sem identificação</strong>
               <button className="cartao-perfil__entrar" onClick={onEntrar}>
-                entrar com a matrícula
+                entrar com o usuário
               </button>
             </>
           ))}

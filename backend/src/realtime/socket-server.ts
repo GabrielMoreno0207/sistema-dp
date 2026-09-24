@@ -1,8 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Server } from 'socket.io';
 import type { AuthService } from '../modules/auth/auth.service';
-import type { ChatNotifier } from '../modules/chat/chat.service';
-import type { ChatMessage } from '../modules/chat/chat.types';
 import type { ComputerService } from '../modules/computers/computer.service';
 import { parseComputerInfo, type ComputerInfo } from '../modules/computers/computer.types';
 import type { EmployeeService } from '../modules/employees/employee.service';
@@ -15,8 +13,6 @@ export interface ServerToClientEvents {
   'message:new': (message: RecipientMessage) => void;
   /** A sessão do funcionário neste PC mudou por ação do servidor (expirou, desativado, senha redefinida...) */
   'session:changed': (payload: { employee: EmployeeProfile | null }) => void;
-  /** Mensagem do chat (do DP ou do próprio funcionário, enviada de outro PC) */
-  'chat:message': (message: ChatMessage) => void;
   /** O recado do mural mudou: o app busca o novo (o conteúdo não vai no evento) */
   'mural:atualizado': () => void;
   /** Saiu versão nova de um aplicativo: quem estiver conectado confere na hora */
@@ -25,6 +21,8 @@ export interface ServerToClientEvents {
   'chamado:atualizado': (payload: { chamadoId: string }) => void;
   /** Uma conversa de quem está logado neste PC mudou (mensagem, grupo, leitura) */
   'conversa:atualizada': (payload: { conversaId: string; mensagem: AvisoDeMensagem | null }) => void;
+  /** O DP pediu para lembrar quem ainda não leu um comunicado */
+  'comunicado:lembrete': (payload: { messageId: string }) => void;
 }
 
 // O cliente não envia eventos por enquanto; tudo que ele faz passa pela API REST.
@@ -74,9 +72,9 @@ function roomFor(message: Message): string | null {
 
 export interface RealtimeGateway
   extends MessageNotifier,
-    ChatNotifier,
     MuralNotifier,
     AtualizacaoNotifier,
+    LembreteNotifier,
     ChamadoNotifier,
     ConversaNotifier {
   /** Derruba as conexões de um PC (ex.: credencial liberada pelo DP) */
@@ -86,6 +84,11 @@ export interface RealtimeGateway
 /** Avisa os PCs conectados de que o mural mudou. */
 export interface MuralNotifier {
   muralAtualizado(): void;
+}
+
+/** Lembra quem ainda não leu um comunicado (o alerta volta à tela). */
+export interface LembreteNotifier {
+  lembrarComunicado(employeeIds: string[], messageId: string): number;
 }
 
 /** Avisa os PCs conectados de que saiu uma versão nova. */
@@ -215,17 +218,18 @@ export function createSocketServer(
     disconnectComputer(computerId: string): void {
       io.in(Rooms.computer(computerId)).disconnectSockets(true);
     },
-    /** Chat: entrega na sala do funcionário (onde ele estiver logado). Retorna quantos PCs receberam. */
-    async chatMessage(message: ChatMessage): Promise<number> {
-      const room = Rooms.employee(message.employeeId);
-      io.to(room).emit('chat:message', message);
-      return roomSize(room);
-    },
     /**
      * Mural trocado pelo DP: todos os PCs conectados buscam o novo recado.
      * Vai só o aviso, sem o conteúdo: assim o app usa a mesma rota de sempre
      * e não existe uma segunda versão do recado circulando.
      */
+    lembrarComunicado(employeeIds: string[], messageId: string): number {
+      for (const employeeId of employeeIds) {
+        io.to(Rooms.employee(employeeId)).emit('comunicado:lembrete', { messageId });
+      }
+      return employeeIds.length;
+    },
+
     atualizacaoPublicada(aplicativo: string, versao: string): void {
       io.to(Rooms.all).emit('atualizacao:publicada', { app: aplicativo, versao });
     },
@@ -253,7 +257,7 @@ export function createSocketServer(
     async publish(message: Message): Promise<number> {
       const room = roomFor(message);
       if (!room) return 0;
-      io.to(room).emit('message:new', { ...message, read: false, readAt: null });
+      io.to(room).emit('message:new', { ...message, read: false, readAt: null, cienteEm: null });
       return roomSize(room);
     },
   };

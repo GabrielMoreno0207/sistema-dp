@@ -121,10 +121,24 @@ export function App() {
       setConversas(resposta.dados?.conversas ?? []);
     }
     void atualizar();
-    return window.dp.onConversasChange(() => void atualizar());
+    const pararMudanca = window.dp.onConversasChange(() => void atualizar());
+    // Conversa aberta na tela de mensagens: o contador do menu tem de zerar junto
+    const pararContador = window.dp.onConversasContador(() => void atualizar());
+    return () => {
+      pararMudanca();
+      pararContador();
+    };
   }, [employeeId, adminId]);
 
   const naoLidasChat = conversas.reduce((soma, conversa) => soma + conversa.naoLidas, 0);
+
+  /**
+   * Quem pode usar as telas de administração: a conta do DP/TI aberta no
+   * aplicativo ou o funcionário cujo setor é o do DP ou o do TI.
+   */
+  const acessoDoSetor = state?.employee?.acessoAdmin ?? 'NENHUM';
+  const mostrarTelasDoDp = Boolean(state?.admin) || acessoDoSetor !== 'NENHUM';
+  const ehTi = state?.admin?.superAdmin === true || acessoDoSetor === 'TI';
 
   if (!state) return <div className="loading">Carregando...</div>;
 
@@ -148,11 +162,6 @@ export function App() {
       <LoginScreen
         connection={state.connection}
         onSkip={() => chooseSkipLogin(true)}
-        onAdminEntrou={() => {
-          // Entrou como DP/TI: segue sem funcionário identificado neste PC
-          chooseSkipLogin(true);
-          setPage('home');
-        }}
         onOpenSettings={() => {
           chooseSkipLogin(true);
           setPage('settings');
@@ -237,7 +246,7 @@ export function App() {
       content = <FilaChamadosPage />;
       break;
     case 'admin-comunicados':
-      content = <ComunicadosAdminPage ehTi={state.admin?.superAdmin ?? false} />;
+      content = <ComunicadosAdminPage ehTi={ehTi} />;
       break;
     case 'admin-cadastros':
       content = <CadastrosPage />;
@@ -246,7 +255,7 @@ export function App() {
       content = <ConversasTiPage />;
       break;
     case 'admin-ajustes':
-      content = <AjustesDpPage ehTi={state.admin?.superAdmin ?? false} />;
+      content = <AjustesDpPage ehTi={ehTi} />;
       break;
   }
 
@@ -279,7 +288,8 @@ export function App() {
           unreadChat={naoLidasChat}
           chamadosNaoLidos={chamadosNaoLidos}
           adminNome={state.admin?.name ?? null}
-          adminEhTi={state.admin?.superAdmin ?? false}
+          mostrarTelasDoDp={mostrarTelasDoDp}
+          adminEhTi={ehTi}
           appVersion={state.appVersion}
           onNavigate={navigate}
         />

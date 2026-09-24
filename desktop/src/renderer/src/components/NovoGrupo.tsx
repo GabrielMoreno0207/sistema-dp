@@ -78,7 +78,7 @@ export function NovoGrupo({ contatos, onFechar, onCriado }: NovoGrupoProps) {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Procurar por nome, setor ou matrícula"
+            placeholder="Procurar por nome, setor ou usuário"
           />
         </label>
 

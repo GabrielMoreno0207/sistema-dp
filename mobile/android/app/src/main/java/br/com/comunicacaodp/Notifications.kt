@@ -98,7 +98,7 @@ object Notifications {
     val builder =
         NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.drawable.ic_stat_dp)
-            .setColor(if (urgent) Color.rgb(220, 38, 38) else Color.rgb(29, 78, 216))
+            .setColor(if (urgent) Color.rgb(220, 38, 38) else Color.rgb(23, 179, 163))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

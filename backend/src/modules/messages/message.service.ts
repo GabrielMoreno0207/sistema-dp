@@ -27,10 +27,11 @@ function toReaderView(read: MessageRead): ReaderView {
       type: read.user.removed ? 'REMOVED' : 'EMPLOYEE',
       id: read.readerId,
       name: read.user.removed ? `${read.user.name} (excluído)` : read.user.name,
-      detail: read.user.registration ? `Matrícula ${read.user.registration}` : null,
+      detail: read.user.registration ? `Usuário ${read.user.registration}` : null,
       sector: read.user.sector,
       computer: read.readOnHostname,
       readAt: read.readAt,
+      cienteEm: read.cienteEm,
     };
   }
   if (read.readerHostname) {
@@ -42,6 +43,7 @@ function toReaderView(read: MessageRead): ReaderView {
       sector: null,
       computer: read.readerHostname,
       readAt: read.readAt,
+      cienteEm: read.cienteEm,
     };
   }
   return {
@@ -52,6 +54,7 @@ function toReaderView(read: MessageRead): ReaderView {
     sector: null,
     computer: read.readOnHostname,
     readAt: read.readAt,
+    cienteEm: read.cienteEm,
   };
 }
 
@@ -65,12 +68,16 @@ export interface SendMessageInput {
   targetId?: string;
   /** Ids devolvidos por POST /api/attachments, na ordem em que o DP escolheu os arquivos */
   attachmentIds?: string[];
+  /** true = pede "li e estou ciente" de cada destinatário */
+  exigeCiencia?: boolean;
 }
 
 /** Quem entrega a mensagem em tempo real (implementado pelo WebSocket). */
 export interface MessageNotifier {
   /** Retorna quantos computadores conectados receberam. */
   publish(message: Message): Promise<number>;
+  /** Faz o alerta do comunicado voltar à tela de quem ainda não leu. */
+  lembrarComunicado(employeeIds: string[], messageId: string): number;
 }
 
 export class MessageService {
@@ -131,10 +138,13 @@ export class MessageService {
       );
     }
 
-    const total = found.reduce((sum, attachment) => sum + attachment.size, 0);
+    // Imagem não tem teto, então também não entra na soma: a conta é dos documentos
+    const total = found.reduce((sum, attachment) => (attachment.kind === 'IMAGE' ? sum : sum + attachment.size), 0);
     if (total > ATTACHMENT_LIMITS.totalBytes) {
       throw new AppError(
-        `Os anexos somam ${formatBytes(total)}; o limite por comunicado é ${formatBytes(ATTACHMENT_LIMITS.totalBytes)}`,
+        `Os documentos anexados somam ${formatBytes(total)}; o limite por comunicado é ${formatBytes(
+          ATTACHMENT_LIMITS.totalBytes,
+        )}`,
         413,
         'ATTACHMENTS_TOO_LARGE',
       );
@@ -164,7 +174,15 @@ export class MessageService {
     const targetId = await this.resolveTarget(input.target, input.targetId);
     const attachments = await this.resolveAttachments(input.attachmentIds, senderId);
     const message = await this.repository.create(
-      { title, content, type: input.type, target: input.target, targetId, sender },
+      {
+        title,
+        content,
+        type: input.type,
+        target: input.target,
+        targetId,
+        sender,
+        exigeCiencia: input.exigeCiencia === true,
+      },
       new Date(),
     );
 
@@ -222,7 +240,7 @@ export class MessageService {
           type: 'EMPLOYEE',
           id: e.id,
           name: e.name,
-          detail: `Matrícula ${e.registration}`,
+          detail: `Usuário ${e.registration}`,
           sector: e.sector,
           situation: e.status === 'ACTIVE' ? 'Ativo' : 'Inativo',
         }));
@@ -291,9 +309,55 @@ export class MessageService {
     const recipient = await this.recipient(computerId);
     const message = await this.repository.findById(id);
     if (!message || !isRecipient(message, recipient)) throw new NotFoundError(`Mensagem ${id} não encontrada`);
-    const readAt = await this.repository.getReadAt(id, readerIdOf(recipient));
-    const [withAttachments] = await this.withAttachments([{ ...message, read: readAt !== null, readAt }]);
+    const readerId = readerIdOf(recipient);
+    const [readAt, cienteEm] = await Promise.all([
+      this.repository.getReadAt(id, readerId),
+      this.repository.getCienciaEm(id, readerId),
+    ]);
+    const [withAttachments] = await this.withAttachments([{ ...message, read: readAt !== null, readAt, cienteEm }]);
     return withAttachments;
+  }
+
+  /**
+   * "Li e estou ciente": só o funcionário logado confirma, porque a confirmação
+   * é pessoal — o computador sozinho não responde por ninguém.
+   */
+  async confirmarCiencia(id: string, computerId: string): Promise<{ id: string; cienteEm: string }> {
+    const recipient = await this.recipient(computerId);
+    if (!recipient.employee) {
+      throw new AppError('Entre com o seu usuário para confirmar a ciência.', 401, 'NO_EMPLOYEE');
+    }
+    const message = await this.repository.findById(id);
+    if (!message || !isRecipient(message, recipient)) throw new NotFoundError(`Mensagem ${id} não encontrada`);
+    if (!message.exigeCiencia) {
+      throw new AppError('Este comunicado não pede confirmação de ciência.', 400, 'CIENCIA_NAO_PEDIDA');
+    }
+
+    const reader = { name: recipient.employee.name, registration: recipient.employee.registration };
+    const cienteEm = await this.repository.markCiencia(id, recipient.employee.id, computerId, reader, new Date());
+    this.log.info(`Ciência do comunicado ${id} confirmada por ${recipient.employee.name}`);
+    return { id, cienteEm };
+  }
+
+  /**
+   * Cutuca quem ainda não leu: o alerta aparece de novo na tela dessas pessoas.
+   * Quando o comunicado pede ciência, também cutuca quem abriu mas não confirmou.
+   * Não cria comunicado novo nem mexe no histórico.
+   */
+  async avisarPendentes(id: string): Promise<{ avisados: number }> {
+    const { message, reads, pending } = await this.getReads(id);
+
+    const ids = new Set((pending ?? []).filter((p) => p.type === 'EMPLOYEE').map((p) => p.id));
+    if (message.exigeCiencia) {
+      for (const leitura of reads) {
+        if (leitura.type === 'EMPLOYEE' && leitura.cienteEm === null) ids.add(leitura.id);
+      }
+    }
+    if (ids.size === 0) return { avisados: 0 };
+
+    const avisados = this.notifier.lembrarComunicado([...ids], message.id);
+    this.log.info(`Lembrete do comunicado ${id} enviado a ${avisados} pessoa(s)`);
+    return { avisados };
   }
 
   async markRead(id: string, computerId: string): Promise<{ id: string; readAt: string }> {

@@ -122,7 +122,7 @@ export const contentRoutes: FastifyPluginAsync<{ content: ContentService }> = as
       {
         mimeType: String(request.headers['content-type'] ?? '').split(';')[0].trim(),
         nome: header(request, 'x-nome'),
-        enviadoPor: principal.type === 'ADMIN' ? principal.name : principal.computerId,
+        enviadoPor: principal.type === 'ADMIN' ? principal.name : (principal.admin?.name ?? principal.computerId),
       },
       corpo,
     );

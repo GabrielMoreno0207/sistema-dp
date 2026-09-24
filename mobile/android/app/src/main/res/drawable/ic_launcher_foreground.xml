@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ícone do app (Android 8+): balão de conversa branco sobre o azul do DP -->
+<!--
+  Ícone do app (Android 8+): o mesmo do app do computador (resources/icon.png),
+  balão de conversa branco com três pontinhos sobre o verde-água do sistema.
+  As medidas vêm do desenho de 256 px; o grupo reduz o balão para caber na
+  área que o Android nunca recorta (os 66 dp do meio).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-  <path
-      android:fillColor="#FFFFFFFF"
-      android:pathData="M34,32h40a6,6 0,0 1,6 6v26a6,6 0,0 1,-6 6H50l-12,10v-10h-4a6,6 0,0 1,-6 -6V38a6,6 0,0 1,6 -6z" />
-  <path
-      android:fillColor="#FF1D4ED8"
-      android:pathData="M40,43h28v5H40zM40,54h19v5H40z" />
+    android:viewportWidth="256"
+    android:viewportHeight="256">
+  <group
+      android:pivotX="128"
+      android:pivotY="130"
+      android:scaleX="0.72"
+      android:scaleY="0.72">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M82,60H173A30,30 0,0 1,203 90V136A30,30 0,0 1,173 166H104L73,201L76,166H82A30,30 0,0 1,52 136V90A30,30 0,0 1,82 60Z" />
+    <path
+        android:fillColor="#FF17B3A3"
+        android:pathData="M78.5,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0zM114,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0zM149.5,113a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0z" />
+  </group>
 </vector>

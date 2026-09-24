@@ -183,6 +183,14 @@ h2 {
   min-width: 0;
 }
 
+/*
+ * Na tela inicial a barra de rolagem do conteúdo ficava encostada nos cartões
+ * da direita. Este respiro afasta a barra da coluna, sem mexer nas outras telas.
+ */
+.app__corpo:has(.coluna-direita) .app__conteudo {
+  padding-right: 12px;
+}
+
 .main {
   overflow: hidden;
   min-width: 0;
@@ -736,6 +744,96 @@ button.stat:hover {
   color: var(--text-soft);
 }
 
+/* Marca de enviada (um certo) / lida (dois certos) nas minhas mensagens */
+.bubble__lida {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  vertical-align: middle;
+  color: var(--muted);
+}
+
+.bubble--mine .bubble__lida svg {
+  vertical-align: middle;
+}
+
+/* Bloco da mensagem citada, dentro do balão da resposta */
+.bubble__citacao {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 6px 9px;
+  border: 0;
+  border-left: 3px solid var(--acento);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--acento) 12%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bubble__citacao:hover {
+  background: color-mix(in srgb, var(--acento) 20%, transparent);
+}
+
+.bubble__citacao-autor {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--acento-texto, var(--text));
+}
+
+.bubble__citacao-texto {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bubble__citacao-texto--apagada {
+  font-style: italic;
+}
+
+/* Citação acima do campo de escrever, enquanto a resposta não é enviada */
+.chat__respondendo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 6px 8px 6px 10px;
+  border-left: 3px solid var(--acento);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.chat__respondendo-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat__respondendo-autor {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.chat__respondendo-texto {
+  font-size: 12.5px;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat__composer {
   padding: 12px 28px 16px;
   border-top: 1px solid var(--border);
@@ -1094,6 +1192,55 @@ button.stat:hover {
 
 .detail__id {
   font-family: Consolas, monospace;
+}
+
+.detail__lida {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Faixa de "li e estou ciente" dentro do comunicado */
+.ciencia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--aviso-texto);
+  border-radius: 10px;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
+}
+
+.ciencia--feita {
+  border-color: var(--ok-texto);
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
+}
+
+.ciencia__texto {
+  flex: 1 1 220px;
+  margin: 0;
+  font-size: 13.5px;
+}
+
+.ciencia .btn {
+  flex: none;
+}
+
+.msg-item__ciencia {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .icon-btn {
@@ -1641,36 +1788,15 @@ input[type='radio'] {
   overflow-y: auto;
 }
 
-.menu-lateral__marca {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 6px 16px;
-}
-
-.menu-lateral__logo {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  flex: none;
-  place-items: center;
-}
-
-.menu-lateral__titulo strong {
-  display: block;
-  font-size: 13px;
-  color: #fff;
-}
-
-.menu-lateral__titulo small {
-  color: #8fa6b4;
-  font-size: 11px;
-}
-
 .menu-lateral__nav {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* Sem a faixa da marca, o primeiro item não pode encostar na barra de título */
+.menu-lateral__nav--topo {
+  padding-top: 4px;
 }
 
 .item-menu {
@@ -1719,6 +1845,31 @@ input[type='radio'] {
   color: #fff;
   font-size: 11px;
   text-align: center;
+}
+
+/* Tela que ainda não foi liberada: fica visível, mas não abre */
+.item-menu--construcao,
+.item-menu--construcao:hover {
+  background: transparent;
+  /* O menu tem fundo escuro nos dois temas: o tom vem daqui, não dos tokens */
+  color: #8fa6b4;
+  cursor: default;
+}
+
+/* Nome em cima, "em construção" embaixo: no menu estreito o rótulo não quebra */
+.item-menu__texto {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.item-menu__construcao {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .menu-lateral__rodape {
@@ -1971,12 +2122,64 @@ input[type='radio'] {
   color: var(--info-texto);
 }
 
+.etiqueta--ok {
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
+}
+
+/* Etiqueta que acompanha um texto na mesma linha (ex.: título do comunicado) */
+.etiqueta--solta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* Explicação dos setores que dão acesso, acima da lista de setores */
+.aviso-setores {
+  max-width: 900px;
+  margin: 0 0 12px;
+}
+
+/* Caixa de marcar com explicação embaixo, nos formulários do DP.
+   O seletor leva o .formulario junto para vencer o "label { display: block }" de lá. */
+.caixa-marcar,
+.formulario label.caixa-marcar {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0 4px;
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.caixa-marcar input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+  accent-color: var(--primary);
+}
+
+.caixa-marcar span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.caixa-marcar small {
+  font-weight: 400;
+}
+
 /* ---------------- Coluna da direita ---------------- */
 .coluna-direita {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 20px 20px 24px 0;
+  padding: 20px 20px 24px 4px;
   overflow-y: auto;
 }
 
@@ -2116,6 +2319,11 @@ input[type='radio'] {
 @media (max-width: 1180px) {
   .app__corpo:has(.coluna-direita) {
     grid-template-columns: 210px minmax(0, 1fr);
+  }
+
+  /* Sem a coluna, o conteúdo volta a usar a largura toda */
+  .app__corpo:has(.coluna-direita) .app__conteudo {
+    padding-right: 0;
   }
 
   .coluna-direita {
@@ -2347,10 +2555,23 @@ input[type='radio'] {
 }
 
 /* ---------------- Foto de perfil ---------------- */
+/*
+ * Uma célula do tamanho do círculo: sem isso a linha do grid cresce com a
+ * altura da imagem e a foto vira um oval (em pé ou deitado, conforme a foto).
+ */
+.menu-usuario__avatar,
+.cartao-perfil__foto {
+  grid-template: 100% / 100%;
+}
+
 .menu-usuario__avatar img,
 .cartao-perfil__foto img {
+  display: block;
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -2505,18 +2726,27 @@ input[type='radio'] {
 
 .opcao-icone {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  flex: none;
   place-items: center;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
+  /* O ícone acompanha a cor do texto: sem isto ele sumiria no tema escuro */
+  color: var(--text);
   cursor: pointer;
+}
+
+.opcao-icone:hover {
+  border-color: var(--acento);
 }
 
 .opcao-icone--ativa {
   border-color: var(--acento);
   background: var(--realce);
+  color: var(--acento-texto, var(--text));
 }
 
 .opcao-cor {
@@ -2886,6 +3116,35 @@ input[type='radio'] {
   flex-wrap: wrap;
 }
 
+.campos-texto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.campos-texto__rotulo {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.campos-texto__campo {
+  padding: 3px 10px;
+  border: 1px solid var(--campo-borda);
+  border-radius: 999px;
+  background: var(--surface-alta);
+  color: var(--link);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.campos-texto__campo:hover,
+.campos-texto__campo:focus-visible {
+  border-color: var(--link);
+}
+
 .anexo-chip {
   display: inline-flex;
   align-items: center;
@@ -2912,6 +3171,74 @@ input[type='radio'] {
 
 .modal__caixa--estreita {
   width: min(420px, 100%);
+}
+
+/* ---------------- Enquadrar a foto de perfil ---------------- */
+.ajustar-foto__dica {
+  margin: -6px 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ajustar-foto__visor {
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 3px solid var(--acento);
+  border-radius: 50%;
+  background: var(--surface-alta);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.ajustar-foto__visor:active {
+  cursor: grabbing;
+}
+
+.ajustar-foto__visor:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 3px;
+}
+
+.ajustar-foto__visor--vazio {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  cursor: default;
+}
+
+.ajustar-foto__visor img {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+}
+
+.ajustar-foto__zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px auto 0;
+  width: 260px;
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.modal__caixa--estreita.ajustar-foto {
+  width: min(470px, 100%);
+}
+
+.ajustar-foto .modal__rodape {
+  flex-wrap: wrap;
+}
+
+.ajustar-foto .modal__rodape .botao {
+  white-space: nowrap;
+}
+
+.ajustar-foto__zoom input {
+  flex: 1;
+  accent-color: var(--acento);
 }
 
 .erro-login {
@@ -3290,6 +3617,12 @@ input[type='radio'] {
   border-left: 3px solid var(--warning);
 }
 
+/* A etiqueta de ciência fica alinhada à esquerda, sem esticar na linha */
+.leituras__item .etiqueta {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
 /* ------------------------------------------------------------------
  * Conversas do chat: lista, grupos, anexos e a área de leitura do TI.
  * Reaproveita o layout do chat antigo (.chat-layout, .contact, .bubble)
@@ -3336,6 +3669,111 @@ input[type='radio'] {
   text-align: center;
 }
 
+/* Arrastar arquivo para dentro da conversa */
+.chat {
+  position: relative;
+}
+
+.chat--soltar::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border: 2px dashed var(--acento);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--acento) 10%, transparent);
+  pointer-events: none;
+}
+
+.chat__soltar-aviso {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.chat__soltar-aviso strong {
+  font-size: 15px;
+}
+
+.chat__soltar-aviso span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+/* Código colado na conversa */
+.codigo {
+  display: block;
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.codigo__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 8px;
+  background: var(--desligado-fundo);
+  color: var(--desligado-texto);
+  font-size: 11px;
+}
+
+.codigo__linguagem {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.codigo__copiar {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.codigo__corpo {
+  display: block;
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  /* A indentação é o que dá sentido ao código: nada de quebrar linha sozinho */
+  white-space: pre;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* Trecho curto entre crases, dentro da frase */
+.codigo-curto {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--desligado-fundo);
+  color: var(--desligado-texto);
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 12.5px;
+}
+
+/* Endereço dentro de uma mensagem */
+.link-mensagem {
+  color: var(--link);
+  text-decoration: underline;
+  cursor: pointer;
+  word-break: break-all;
+}
+
 .chat__anexo {
   display: flex;
   align-items: center;
@@ -3346,6 +3784,78 @@ input[type='radio'] {
   border-radius: 8px;
   color: var(--text-soft);
   font-size: 13px;
+}
+
+.bubble__imagem-botao {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.bubble__imagem-botao:focus-visible {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ---------------- Imagem do chat aberta em tamanho grande ---------------- */
+.visualizador {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px 24px;
+  background: rgba(8, 14, 20, 0.88);
+  cursor: zoom-out;
+}
+
+.visualizador__barra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  cursor: default;
+}
+
+.visualizador__nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: #f2f5f8;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visualizador__fechar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f2f5f8;
+  cursor: pointer;
+}
+
+.visualizador__fechar:hover,
+.visualizador__fechar:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.visualizador__imagem {
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: default;
 }
 
 .bubble__imagem {
@@ -3965,7 +4475,6 @@ svg {
 
 /* Ícone do sistema no lugar das letras "DP" */
 .sidebar__logo img,
-.menu-lateral__logo img,
 .barra-superior__logo img {
   width: 100%;
   height: 100%;

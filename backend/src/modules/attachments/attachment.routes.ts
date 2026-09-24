@@ -1,10 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
+import type { Readable } from 'node:stream';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import { requireAdmin } from '../auth/principal';
 import { formatMessageId } from '../messages/message.types';
 import type { MessageService } from '../messages/message.service';
 import type { AttachmentService } from './attachment.service';
-import { ATTACHMENT_ID_PATTERN, ATTACHMENT_LIMITS, type StoredAttachment } from './attachment.types';
+import { ATTACHMENT_ID_PATTERN, type StoredAttachment } from './attachment.types';
 
 const idParamsSchema = {
   type: 'object',
@@ -52,8 +53,10 @@ export const attachmentRoutes: FastifyPluginAsync<AttachmentRoutesOptions> = asy
    */
   async function authorize(request: FastifyRequest, attachment: StoredAttachment): Promise<void> {
     const principal = request.principal;
-    if (principal?.type === 'ADMIN') {
-      if (attachment.messageSeq === null && attachment.uploadedBy !== principal.userId) {
+    // Conta do DP, ou funcionário do setor do DP/TI (o acesso vem do setor)
+    const comoDp = principal?.type === 'ADMIN' ? principal : (principal?.type === 'COMPUTER' ? principal.admin : null);
+    if (comoDp) {
+      if (attachment.messageSeq === null && attachment.uploadedBy !== comoDp.userId) {
         throw new NotFoundError('Anexo não encontrado');
       }
       return;
@@ -70,16 +73,15 @@ export const attachmentRoutes: FastifyPluginAsync<AttachmentRoutesOptions> = asy
   // DP envia um arquivo. Ele só entra no comunicado quando o envio citar o id devolvido aqui.
   app.post(
     '/attachments',
-    {
-      bodyLimit: ATTACHMENT_LIMITS.maxBytes,
-      onRequest: async (request) => void requireAdmin(request),
-    },
+    { onRequest: async (request) => void requireAdmin(request) },
     async (request, reply) => {
       const admin = requireAdmin(request);
-      const content = request.body;
-      if (!Buffer.isBuffer(content)) {
+      const corpo = request.body as Buffer | Readable | undefined;
+      const emFluxo = corpo !== undefined && typeof (corpo as Readable).pipe === 'function';
+      if (!Buffer.isBuffer(corpo) && !emFluxo) {
         throw new AppError('Envie o arquivo como application/octet-stream', 415, 'VALIDATION_ERROR');
       }
+      const content = corpo as Buffer | Readable;
       const attachment = await attachments.upload(
         { name: header(request, 'x-file-name'), mimeType: header(request, 'x-file-type'), content },
         admin.userId,

@@ -7,6 +7,8 @@ interface Funcionario {
   registration: string;
   sector: string | null;
   shift: string | null;
+  /** Acesso que o setor dá: quem é do DP ou do TI usa as telas de administração */
+  acessoAdmin?: 'NENHUM' | 'DP' | 'TI';
   status: 'ACTIVE' | 'INACTIVE';
 }
 
@@ -153,7 +155,7 @@ export function CadastrosPage() {
                 <input id="func-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
               </div>
               <div>
-                <label htmlFor="func-matricula">Matrícula</label>
+                <label htmlFor="func-matricula">Usuário</label>
                 <input id="func-matricula" value={matricula} onChange={(e) => setMatricula(e.target.value)} />
               </div>
             </div>
@@ -194,7 +196,7 @@ export function CadastrosPage() {
               <thead>
                 <tr>
                   <th>Nome</th>
-                  <th>Matrícula</th>
+                  <th>Usuário</th>
                   <th>Setor</th>
                   <th>Turno</th>
                   <th>Situação</th>
@@ -206,7 +208,21 @@ export function CadastrosPage() {
                   <tr key={funcionario.id}>
                     <td>{funcionario.name}</td>
                     <td>{funcionario.registration}</td>
-                    <td>{funcionario.sector ?? '—'}</td>
+                    <td>
+                      {funcionario.sector ?? '—'}
+                      {funcionario.acessoAdmin && funcionario.acessoAdmin !== 'NENHUM' && (
+                        <span
+                          className="etiqueta etiqueta--solta"
+                          title={
+                            funcionario.acessoAdmin === 'TI'
+                              ? 'Este setor dá acesso às telas do DP e do TI'
+                              : 'Este setor dá acesso às telas do Departamento Pessoal'
+                          }
+                        >
+                          acesso {funcionario.acessoAdmin}
+                        </span>
+                      )}
+                    </td>
                     <td>{funcionario.shift ?? '—'}</td>
                     <td>{funcionario.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}</td>
                     <td className="tabela__acoes">
@@ -230,6 +246,12 @@ export function CadastrosPage() {
 
       {aba === 'setores' && (
         <>
+          <p className="page__subtitle aviso-setores">
+            Quem estiver nos setores <strong>Departamento Pessoal</strong> (ou "DP") e <strong>TI</strong> usa as telas
+            de administração com o próprio login do aplicativo — o do DP abre Comunicados, Mural, Cadastros e Ajustes;
+            o do TI abre também a Fila e as Conversas. Qualquer outro nome de setor não dá acesso nenhum.
+          </p>
+
           <div className="cartao formulario">
             <label htmlFor="setor-novo">Novo setor</label>
             <div className="formulario__linha">
