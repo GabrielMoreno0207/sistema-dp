@@ -13,6 +13,7 @@ export interface AdminChatData {
   deleteMessages(dpUserId: string | null, before: Date | null): Promise<number>;
 }
 import type { MessageRepository } from '../messages/message.repository';
+import type { LimpezaNotifier } from '../../realtime/socket-server';
 import type { UserRepository } from '../users/user.repository';
 import { toPublicUser, type PublicUser } from '../users/user.types';
 
@@ -48,6 +49,8 @@ export class AdminService {
     private readonly tokens: TokenRepository,
     private readonly attachments: AttachmentService,
     private readonly log: FastifyBaseLogger,
+    /** Avisa os aparelhos para buscarem as listas de novo (sem isso, o apagado continua na tela) */
+    private readonly realtime: LimpezaNotifier | null = null,
   ) {}
 
   // ---------------------------------------------------------------- comunicados
@@ -56,6 +59,7 @@ export class AdminService {
     if (!(await this.messages.delete(messageId))) throw new NotFoundError('Comunicado não encontrado');
     this.log.warn(`TI apagou o comunicado ${messageId}`);
     await this.sweepAttachments();
+    this.realtime?.dadosLimpos('comunicados');
   }
 
   /** Os anexos saem junto com o comunicado (o registro cai por cascata; o arquivo, aqui) */
@@ -71,6 +75,7 @@ export class AdminService {
         : await this.messages.deleteAll();
     this.log.warn(`TI apagou ${removed} comunicado(s)${olderThanDays ? ` com mais de ${olderThanDays} dia(s)` : ''}`);
     await this.sweepAttachments();
+    if (removed > 0) this.realtime?.dadosLimpos('comunicados');
     return removed;
   }
 
@@ -97,6 +102,7 @@ export class AdminService {
   async deleteConversation(dpUserId: string, employeeId: string): Promise<number> {
     const removed = await this.chat.deleteConversation(dpUserId, employeeId);
     this.log.warn(`TI apagou uma conversa (${removed} mensagem(ns))`);
+    this.realtime?.dadosLimpos('conversas');
     return removed;
   }
 
@@ -106,6 +112,7 @@ export class AdminService {
     const before = olderThanDays && olderThanDays > 0 ? new Date(Date.now() - olderThanDays * 86_400_000) : null;
     const removed = await this.chat.deleteMessages(dpUserId, before);
     this.log.warn(`TI apagou ${removed} mensagem(ns) de chat`);
+    this.realtime?.dadosLimpos('conversas');
     return removed;
   }
 

@@ -57,8 +57,9 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
   const [novoNome, setNovoNome] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   // limpeza: quantos dias manter (vazio = apagar tudo)
-  const [diasComunicados, setDiasComunicados] = useState('90');
-  const [diasConversas, setDiasConversas] = useState('90');
+  // Vazio = apaga tudo (antes vinha 90 e, num sistema novo, a limpeza não achava nada)
+  const [diasComunicados, setDiasComunicados] = useState('');
+  const [diasConversas, setDiasConversas] = useState('');
   const [confirmando, setConfirmando] = useState<{ texto: string; acao: () => Promise<void> } | null>(null);
 
   const carregar = useCallback(async () => {
@@ -165,7 +166,14 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
     const resultado = await window.dp.adminApi<{ removed: number }>('POST', '/api/admin/messages/purge', {
       olderThanDays: dias,
     });
-    setAviso(resultado.ok ? `${resultado.dados?.removed ?? 0} comunicado(s) apagado(s).` : resultado.message);
+    const removidos = resultado.dados?.removed ?? 0;
+    setAviso(
+      !resultado.ok
+        ? resultado.message
+        : removidos === 0 && dias
+          ? `Nenhum comunicado com mais de ${dias} dias. Para apagar todos, deixe o campo vazio.`
+          : `${removidos} comunicado(s) apagado(s).`,
+    );
     await carregar();
   }
 
@@ -176,7 +184,16 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
       dpUserId: null,
       olderThanDays: dias,
     });
-    setAviso(resultado.ok ? `${resultado.dados?.removed ?? 0} mensagem(ns) de chat apagada(s).` : resultado.message);
+    const removidas = resultado.dados?.removed ?? 0;
+    setAviso(
+      !resultado.ok
+        ? resultado.message
+        : removidas === 0 && dias
+          ? `Nenhuma mensagem com mais de ${dias} dias. Para apagar todas as conversas, deixe o campo vazio.`
+          : dias
+            ? `${removidas} mensagem(ns) de conversa apagada(s).`
+            : `Todas as conversas foram apagadas (${removidas} mensagens).`,
+    );
     await carregar();
   }
 
@@ -405,6 +422,7 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
                 <input
                   id="limpeza-comunicados"
                   value={diasComunicados}
+                  placeholder="vazio = todos"
                   inputMode="numeric"
                   onChange={(e) => setDiasComunicados(e.target.value.replace(/[^0-9]/g, ''))}
                 />
@@ -431,6 +449,7 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
                 <input
                   id="limpeza-conversas"
                   value={diasConversas}
+                  placeholder="vazio = todas"
                   inputMode="numeric"
                   onChange={(e) => setDiasConversas(e.target.value.replace(/[^0-9]/g, ''))}
                 />

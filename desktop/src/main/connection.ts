@@ -25,6 +25,8 @@ export interface ServerConnectionEvents {
   atualizacao: [string];
   /** O DP pediu para lembrar deste comunicado: o alerta volta à tela */
   lembrete: [string];
+  /** O TI apagou comunicados ou conversas no servidor */
+  limpeza: ['comunicados' | 'conversas'];
 }
 
 /** Resumo da mensagem que vem junto do aviso do servidor. */
@@ -211,6 +213,13 @@ export class ServerConnection extends EventEmitter<ServerConnectionEvents> {
       if (this.isStale(generation)) return;
       const versao = (payload as { versao?: unknown } | null)?.versao;
       this.emit('atualizacao', typeof versao === 'string' ? versao : '');
+    });
+
+    // O TI apagou dados: a tela busca as listas de novo (o apagado não pode continuar aparecendo)
+    socket.on('dados:limpos', (payload: unknown) => {
+      if (this.isStale(generation)) return;
+      const o = (payload as { o?: unknown } | null)?.o;
+      if (o === 'comunicados' || o === 'conversas') this.emit('limpeza', o);
     });
 
     // O DP cutucou quem ainda não leu: o alerta do comunicado volta a aparecer

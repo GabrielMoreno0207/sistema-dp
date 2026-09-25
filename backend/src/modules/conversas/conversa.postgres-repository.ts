@@ -310,6 +310,23 @@ export class PostgresConversaRepository implements ConversaRepository {
       : this.db.run('DELETE FROM conversa_mensagens WHERE conversa_id = ANY($1::text[])', [conversaIds]);
   }
 
+  async apagarConversas(conversaIds: string[]): Promise<number> {
+    if (conversaIds.length === 0) return 0;
+    const mensagens = await this.db.run('DELETE FROM conversa_mensagens WHERE conversa_id = ANY($1::text[])', [conversaIds]);
+    await this.db.run('DELETE FROM conversas WHERE id = ANY($1::text[])', [conversaIds]);
+    return mensagens;
+  }
+
+  async apagarDiretasVazias(conversaIds: string[]): Promise<void> {
+    if (conversaIds.length === 0) return;
+    await this.db.run(
+      `DELETE FROM conversas c
+        WHERE c.id = ANY($1::text[]) AND c.tipo = 'DIRETA'
+          AND NOT EXISTS (SELECT 1 FROM conversa_mensagens m WHERE m.conversa_id = c.id)`,
+      [conversaIds],
+    );
+  }
+
   async registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void> {
     await this.db.run(
       'INSERT INTO conversa_acessos_ti (conversa_id, usuario_id, usuario_nome, created_at) VALUES ($1, $2, $3, $4)',

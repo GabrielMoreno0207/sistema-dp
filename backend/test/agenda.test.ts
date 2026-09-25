@@ -238,3 +238,52 @@ describe('agenda: DP pelo setor', () => {
     assert.ok(daAna.json().eventos.some((e: { titulo: string }) => e.titulo === 'Entrega do ponto'));
   });
 });
+
+describe('limpeza de dados pelo setor do TI', () => {
+  test('funcionário do setor TI apaga comunicados e conversas, e elas somem da lista', async () => {
+    await app.inject({ method: 'POST', url: '/api/sectors', headers: comToken(tokenTi), payload: { name: 'TI' } });
+    await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Bruno TI', registration: 'brunoti', sector: 'TI', password: 'Senha-Bruno-limpeza' },
+    });
+    const pc = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/computers/register',
+        payload: { computerId: 'PC-AAEE11110009', hostname: 'pc-ti', appVersion: '1.34.0', platform: 'win32', computerSecret: 'd'.repeat(40) },
+      })
+    ).json().token;
+    await app.inject({ method: 'POST', url: '/api/session/login', headers: comToken(pc), payload: { registration: 'brunoti', password: 'Senha-Bruno-limpeza' } });
+
+    // Um comunicado de hoje e uma conversa com mensagem
+    await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: comToken(tokenTi),
+      payload: { title: 'Aviso de hoje', content: 'Texto.', type: 'COMUNICADO', target: 'ALL' },
+    });
+    const contatos = (await app.inject({ method: 'GET', url: '/api/contatos', headers: comToken(pc) })).json();
+    const ana = contatos.contatos.find((p: { nome: string }) => p.nome.startsWith('Ana'));
+    const conversa = (await app.inject({ method: 'POST', url: '/api/conversas/direta', headers: comToken(pc), payload: { comUsuarioId: ana.id } })).json();
+    await app.inject({ method: 'POST', url: `/api/conversas/${conversa.id}/mensagens`, headers: comToken(pc), payload: { conteudo: 'oi Ana' } });
+
+    // Pelo prazo (90 dias), o que é de hoje fica
+    const prazo = await app.inject({ method: 'POST', url: '/api/admin/messages/purge', headers: comToken(pc), payload: { olderThanDays: 90 } });
+    assert.equal(prazo.statusCode, 200);
+    assert.equal(prazo.json().removed, 0);
+
+    // Tudo: comunicados e conversas somem da lista
+    const comunicados = await app.inject({ method: 'POST', url: '/api/admin/messages/purge', headers: comToken(pc), payload: { olderThanDays: null } });
+    assert.equal(comunicados.statusCode, 200);
+    assert.ok(comunicados.json().removed >= 1);
+    assert.equal((await app.inject({ method: 'GET', url: '/api/messages?limit=500', headers: comToken(pcAna) })).json().messages.length, 0);
+
+    const conversas = await app.inject({ method: 'POST', url: '/api/admin/chats/purge', headers: comToken(pc), payload: { dpUserId: null, olderThanDays: null } });
+    assert.equal(conversas.statusCode, 200);
+    assert.ok(conversas.json().removed >= 1);
+    const daAna = (await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcAna) })).json().conversas;
+    assert.equal(daAna.length, 0);
+  });
+});

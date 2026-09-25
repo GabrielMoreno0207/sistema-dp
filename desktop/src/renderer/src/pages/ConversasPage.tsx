@@ -105,6 +105,27 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     await window.dp.conversasApi('POST', `/api/conversas/${conversaId}/lidas`);
   }, []);
 
+  /**
+   * O TI apagou conversas: a aberta é lida de novo do zero (juntar manteria o que foi
+   * apagado na tela) e, se ela não existe mais, fecha.
+   */
+  const recarregarDoZero = useCallback(async (conversaId: string) => {
+    const resposta = await window.dp.conversasApi<{ mensagens: MensagemConversa[] }>(
+      'GET',
+      `/api/conversas/${conversaId}/mensagens`,
+    );
+    if (abertaRef.current !== conversaId) return;
+    if (!resposta.ok) {
+      abertaRef.current = null;
+      setAbertaId(null);
+      setMensagens([]);
+      return;
+    }
+    const lista = resposta.dados?.mensagens ?? [];
+    setMensagens(lista);
+    setTemMais(lista.length >= 50);
+  }, []);
+
   useEffect(() => {
     void window.dp.conversasIdentidade().then(setIdentidade);
     // Entrar ou sair da conta do DP/TI troca quem está conversando
@@ -130,10 +151,12 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
   // Mensagem nova, grupo alterado: o servidor avisa e a tela busca o que mudou
   useEffect(() => {
     if (!identidade) return;
-    const parar = window.dp.onConversasChange(() => {
+    const parar = window.dp.onConversasChange((conversaId) => {
       void carregarLista();
       const id = abertaRef.current;
-      if (id) void carregarMensagens(id);
+      if (!id) return;
+      if (conversaId === '*') void recarregarDoZero(id);
+      else void carregarMensagens(id);
     });
     // A conta do DP/TI não tem aviso em tempo real neste PC (o socket é do computador)
     if (!identidade.ehDp) return parar;
@@ -146,7 +169,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       parar();
       clearInterval(timer);
     };
-  }, [identidade, carregarLista, carregarMensagens]);
+  }, [identidade, carregarLista, carregarMensagens, recarregarDoZero]);
 
   // Desce até a última mensagem ao abrir a conversa e a cada mensagem nova
   useEffect(() => {

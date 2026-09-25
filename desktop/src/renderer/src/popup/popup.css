@@ -55,8 +55,8 @@ body.popup-body {
 }
 
 .toast {
-  --accent: #2563eb;
-  --accent-soft: #e8efff;
+  --accent: #17b3a3;
+  --accent-soft: #e3f5f2;
   position: relative;
   height: 100%;
   display: flex;
@@ -73,7 +73,10 @@ body.popup-body {
     toast-glow 1.4s ease-out 300ms 3;
 }
 
-.toast--announcement { --accent: #2563eb; --accent-soft: #e8efff; }
+.toast--announcement { --accent: #17b3a3; --accent-soft: #e3f5f2; }
+/* Comunicado: o mesmo verde-água da prévia do alerta (rótulo e botão com texto escuro, legíveis) */
+.toast--announcement .toast__kicker { color: #0b6f64; }
+.toast--announcement .btn--primary { color: #06312c; }
 .toast--info { --accent: #0891b2; --accent-soft: #e0f6fa; }
 /* Mensagem do chat: mesmo formato, no verde-água do sistema */
 .toast--mensagem { --accent: #12968a; --accent-soft: #e0f5f2; }

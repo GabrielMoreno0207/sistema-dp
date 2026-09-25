@@ -788,6 +788,30 @@ describe('conta do TI: poderes extras na Central', () => {
     assert.equal((await call('GET', '/api/messages?limit=500', adminToken)).json().messages.length, 0);
   });
 
+  test('a limpeza avisa os aparelhos conectados, para a tela não mostrar o apagado', async () => {
+    const { io } = await import('socket.io-client');
+    const token = (await register('PC-AAAA0000CAFE')).json().token;
+    // O servidor já está escutando (teste do WebSocket lá em cima)
+    const { port } = app.server.address() as { port: number };
+    const socket = io(`http://127.0.0.1:${port}`, {
+      transports: ['websocket'],
+      reconnection: false,
+      auth: { computerId: 'PC-AAAA0000CAFE', hostname: 'HOST-LIMPEZA', appVersion: '1.34.0', platform: 'win32', token },
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        socket.on('session:ready', () => resolve());
+        socket.on('connect_error', reject);
+      });
+      await sendMessage({ title: 'Some já', content: 'x', type: 'COMUNICADO', target: 'ALL' });
+      const aviso = new Promise<unknown>((resolve) => socket.on('dados:limpos', resolve));
+      assert.equal((await call('POST', '/api/admin/messages/purge', adminToken, { olderThanDays: null })).statusCode, 200);
+      assert.deepEqual(await aviso, { o: 'comunicados' });
+    } finally {
+      socket.disconnect();
+    }
+  });
+
   test('TI vê só os números das conversas e pode apagá-las', async () => {
     const summary = (await call('GET', '/api/admin/chats', adminToken)).json().summary;
     const comConversa = summary.find((s: { messages: number }) => s.messages > 0);

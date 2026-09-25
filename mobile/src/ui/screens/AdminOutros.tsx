@@ -602,8 +602,9 @@ export function AdminAjustesScreen() {
   const [novoUsuario, setNovoUsuario] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
-  const [diasComunicados, setDiasComunicados] = useState('90');
-  const [diasConversas, setDiasConversas] = useState('90');
+  // Vazio = apaga tudo (com 90, num sistema novo, a limpeza não achava nada)
+  const [diasComunicados, setDiasComunicados] = useState('');
+  const [diasConversas, setDiasConversas] = useState('');
   const [resultado, setResultado] = useState<OperationResult | null>(null);
   const { pedir, dialogo } = useConfirmacao();
 
@@ -865,6 +866,7 @@ export function AdminAjustesScreen() {
               </Text>
               <Field
                 label="Apagar comunicados com mais de (dias)"
+                placeholder="vazio = todos"
                 value={diasComunicados}
                 onChangeText={(v) => setDiasComunicados(campoNumero(v))}
                 keyboardType="number-pad"
@@ -882,7 +884,14 @@ export function AdminAjustesScreen() {
                       const r = await chamar<{ removed: number }>('POST', '/api/admin/messages/purge', {
                         olderThanDays: diasComunicados ? Number(diasComunicados) : null,
                       });
-                      setResultado(r.ok ? { ok: true, message: `${r.dados?.removed ?? 0} comunicado(s) apagado(s).` } : { ok: false, message: r.message });
+                      const removidos = r.dados?.removed ?? 0;
+                      setResultado(
+                        !r.ok
+                          ? { ok: false, message: r.message }
+                          : removidos === 0 && diasComunicados
+                            ? { ok: true, message: `Nenhum comunicado com mais de ${diasComunicados} dias. Para apagar todos, deixe o campo vazio.` }
+                            : { ok: true, message: `${removidos} comunicado(s) apagado(s).` },
+                      );
                     },
                   })
                 }
@@ -890,6 +899,7 @@ export function AdminAjustesScreen() {
               <View style={styles.espaco} />
               <Field
                 label="Apagar conversas com mais de (dias)"
+                placeholder="vazio = todas"
                 value={diasConversas}
                 onChangeText={(v) => setDiasConversas(campoNumero(v))}
                 keyboardType="number-pad"
@@ -908,7 +918,16 @@ export function AdminAjustesScreen() {
                         dpUserId: null,
                         olderThanDays: diasConversas ? Number(diasConversas) : null,
                       });
-                      setResultado(r.ok ? { ok: true, message: `${r.dados?.removed ?? 0} mensagem(ns) apagada(s).` } : { ok: false, message: r.message });
+                      const removidas = r.dados?.removed ?? 0;
+                      setResultado(
+                        !r.ok
+                          ? { ok: false, message: r.message }
+                          : removidas === 0 && diasConversas
+                            ? { ok: true, message: `Nenhuma mensagem com mais de ${diasConversas} dias. Para apagar todas, deixe o campo vazio.` }
+                            : diasConversas
+                              ? { ok: true, message: `${removidas} mensagem(ns) apagada(s).` }
+                              : { ok: true, message: `Todas as conversas foram apagadas (${removidas} mensagens).` },
+                      );
                       await carregar();
                     },
                   })

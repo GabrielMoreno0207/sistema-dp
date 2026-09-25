@@ -333,7 +333,7 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
   const nav = useNav();
   const insets = useSafeAreaInsets();
   const { maxWidth } = useLayout();
-  const { conversas, employee, conversaVersao } = useApp();
+  const { conversas, employee, conversaVersao, limpezaConversas } = useApp();
   const meuId = employee?.id ?? '';
   const lista = useRef<FlatList<Linha>>(null);
   const carregouUmaVez = useRef(false);
@@ -402,6 +402,24 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
   useEffect(() => {
     void carregarRecentes();
   }, [carregarRecentes, versao]);
+
+  // O TI apagou conversas: lê de novo do zero (juntar manteria o apagado na tela);
+  // se esta conversa não existe mais, volta para a lista
+  const limpezaInicial = useRef(limpezaConversas);
+  useEffect(() => {
+    if (limpezaConversas === limpezaInicial.current) return;
+    limpezaInicial.current = limpezaConversas;
+    void chamar<{ mensagens: MensagemConversa[] }>('GET', `/api/conversas/${conversaId}/mensagens`).then((r) => {
+      if (!r.ok) {
+        nav.pop();
+        return;
+      }
+      const lista = r.dados?.mensagens ?? [];
+      setMensagens(lista);
+      setTemMais(lista.length >= LIMITES.paginaMensagens);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limpezaConversas]);
 
   async function carregarAnteriores() {
     if (!temMais || carregandoMais || mensagens.length === 0) return;

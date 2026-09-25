@@ -1134,6 +1134,8 @@ function start(): void {
    * não estiver nesta lista é recusado antes de sair do aplicativo.
    */
   const MIDIA_ID = new RegExp('^MID-[0-9a-f]{24}$');
+  /** Aviso para a tela: as conversas foram apagadas pelo TI (troca a lista em vez de juntar) */
+  const CONVERSAS_LIMPAS = '*';
   /** Caracteres que o Windows não aceita em nome de arquivo */
   const NOME_PROIBIDO = new RegExp('[\\/:*?"<>|]', 'g');
   const CNV = 'CNV-[0-9a-f]{24}';
@@ -1518,6 +1520,16 @@ function start(): void {
     popup.enqueue([message]);
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible() && !mainWindow.isFocused()) {
       mainWindow.flashFrame(true);
+    }
+  });
+
+  // O TI apagou comunicados ou conversas: refaz as listas a partir do servidor
+  connection.on('limpeza', (o) => {
+    console.log(`[limpeza] o TI apagou ${o}: atualizando`);
+    if (o === 'comunicados') void syncWithServer();
+    else {
+      sendToMain(IpcChannels.ConversasChanged, CONVERSAS_LIMPAS);
+      void syncNaoLidasConversas();
     }
   });
 

@@ -50,6 +50,8 @@ export interface AppData {
   conversaAberta: string | null;
   /** Aumenta a cada "conversa:atualizada": a conversa aberta recarrega */
   conversaVersao: Record<string, number>;
+  /** Sobe quando o TI apaga conversas: a conversa aberta é lida de novo do zero */
+  limpezaConversas: number;
 
   chamadosNaoLidos: number;
   /** Aumenta a cada "chamado:atualizado" */
@@ -84,6 +86,7 @@ let state: AppData = {
   conversasNaoLidas: 0,
   conversaAberta: null,
   conversaVersao: {},
+  limpezaConversas: 0,
   chamadosNaoLidos: 0,
   chamadosVersao: 0,
   mural: null,

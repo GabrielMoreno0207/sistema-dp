@@ -828,7 +828,10 @@ describe('limpeza de conversas pelo TI', () => {
     assert.equal(limpeza.statusCode, 200);
     assert.ok(limpeza.json().removed > 0);
 
+    // "Apagar tudo" tira a conversa da lista (antes ficava lá, vazia, e parecia que não tinha apagado)
     const depois = await app.inject({ method: 'GET', url: `/api/conversas/${direta.id}/mensagens`, headers: comToken(pcMaria) });
-    assert.equal(depois.json().mensagens.length, 0);
+    assert.equal(depois.statusCode, 404);
+    const lista = (await app.inject({ method: 'GET', url: '/api/conversas', headers: comToken(pcMaria) })).json().conversas;
+    assert.ok(!lista.some((c: { id: string }) => c.id === direta.id));
   });
 });

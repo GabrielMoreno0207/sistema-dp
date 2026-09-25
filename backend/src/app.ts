@@ -155,6 +155,7 @@ export function buildApp({
     repositories.tokens,
     attachments,
     app.log,
+    realtime,
   );
 
   const armazemDeAtualizacoes = new UpdateStorage(updatesPath);

@@ -153,11 +153,13 @@ h2 {
 /* Cores por tipo de mensagem */
 .tone-urgent { --tone: #dc2626; }
 .tone-warning { --tone: #d97706; }
-.tone-announcement { --tone: #2563eb; }
+.tone-announcement { --tone: var(--acento); } /* mesmo verde-água da prévia do alerta */
 .tone-info { --tone: #0891b2; }
 .tone-urgent, .tone-warning, .tone-announcement, .tone-info {
   --tone-soft: color-mix(in srgb, var(--tone) 16%, var(--surface));
 }
+/* Texto no verde-água claro fica apagado: o rótulo usa o tom escuro, como na prévia */
+.tone-announcement .detail__type { color: var(--link); }
 
 /* ================= Estrutura ================= */
 /* Barra superior fixa e, abaixo dela, menu lateral + conteúdo + coluna da direita */

@@ -216,6 +216,16 @@ function openSocket(serverUrl: string, token: string, current: number): void {
   s.on('mural:atualizado', () => {
     if (valido()) void syncMural();
   });
+  // O TI apagou comunicados ou conversas: as listas vêm de novo do servidor
+  s.on('dados:limpos', (payload: unknown) => {
+    if (!valido()) return;
+    const o = (payload as { o?: unknown } | null)?.o;
+    if (o === 'comunicados') void syncMessages();
+    if (o === 'conversas') {
+      setState((st) => ({ limpezaConversas: st.limpezaConversas + 1 }));
+      void syncConversas();
+    }
+  });
   s.on('chamado:atualizado', (payload: unknown) => {
     if (!valido()) return;
     const chamadoId = (payload as { chamadoId?: unknown } | null)?.chamadoId;

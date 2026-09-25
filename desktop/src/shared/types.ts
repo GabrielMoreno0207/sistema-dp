@@ -503,7 +503,8 @@ export interface DesktopApi {
   caminhoDoArquivo(arquivo: File): string;
   /** Baixa o arquivo de uma mensagem e abre no programa padrão do Windows */
   conversasAbrirArquivo(midiaId: string, nome: string): Promise<OperationResult>;
-  onConversasChange(listener: () => void): () => void;
+  /** conversaId que mudou; "*" = o TI apagou conversas (a tela troca tudo pelo que está no servidor) */
+  onConversasChange(listener: (conversaId: string) => void): () => void;
   /** As não lidas mudaram (a pessoa abriu uma conversa): só o contador */
   onConversasContador(listener: () => void): () => void;
   /** Abre um link (http/https) no navegador padrão do Windows */

@@ -36,6 +36,10 @@ export interface ConversaRepository {
   contarMensagensPorConversa(conversaIds: string[]): Promise<Map<string, number>>;
   /** Limpeza do TI: apaga mensagens das conversas indicadas, opcionalmente só as antigas */
   apagarMensagens(conversaIds: string[], antesDe: string | null): Promise<number>;
+  /** Apaga as conversas inteiras (membros e mensagens vão junto). Devolve quantas mensagens saíram */
+  apagarConversas(conversaIds: string[]): Promise<number>;
+  /** Tira da lista as conversas diretas que ficaram sem nenhuma mensagem */
+  apagarDiretasVazias(conversaIds: string[]): Promise<void>;
 
   /** Auditoria: registra que o TI abriu uma conversa */
   registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void>;

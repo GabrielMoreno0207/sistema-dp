@@ -61,6 +61,11 @@ export class ConversasDoTi implements AdminChatData {
       }
       ids.push(conversa.id);
     }
-    return this.conversas.apagarMensagens(ids, antes ? antes.toISOString() : null);
+    // "Apagar tudo": as conversas somem da lista de todo mundo (grupos inclusive)
+    if (!antes) return this.conversas.apagarConversas(ids);
+    const removidas = await this.conversas.apagarMensagens(ids, antes.toISOString());
+    // Pelo prazo: sai o que é antigo; a conversa direta que ficou vazia também sai da lista
+    await this.conversas.apagarDiretasVazias(ids);
+    return removidas;
   }
 }

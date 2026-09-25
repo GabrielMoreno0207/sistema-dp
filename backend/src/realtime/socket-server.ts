@@ -18,6 +18,8 @@ export interface ServerToClientEvents {
   'mural:atualizado': () => void;
   /** Saiu versão nova de um aplicativo: quem estiver conectado confere na hora */
   'atualizacao:publicada': (payload: { app: string; versao: string }) => void;
+  /** O TI apagou comunicados ou conversas: os aplicativos buscam a lista de novo */
+  'dados:limpos': (payload: { o: 'comunicados' | 'conversas' }) => void;
   /** Um chamado de quem está logado neste PC mudou (resposta do TI, status novo) */
   'chamado:atualizado': (payload: { chamadoId: string }) => void;
   /** Uma conversa de quem está logado neste PC mudou (mensagem, grupo, leitura) */
@@ -86,6 +88,7 @@ function ipDoAparelho(handshake: { address: string; headers: Record<string, stri
 
 export interface RealtimeGateway
   extends MessageNotifier,
+    LimpezaNotifier,
     MuralNotifier,
     AtualizacaoNotifier,
     LembreteNotifier,
@@ -108,6 +111,11 @@ export interface LembreteNotifier {
 /** Avisa os PCs conectados de que saiu uma versão nova. */
 export interface AtualizacaoNotifier {
   atualizacaoPublicada(app: string, versao: string): void;
+}
+
+/** Avisa todos os aparelhos de que o TI apagou dados (a tela não pode continuar mostrando). */
+export interface LimpezaNotifier {
+  dadosLimpos(o: 'comunicados' | 'conversas'): void;
 }
 
 /** Avisa quem abriu o chamado de que houve resposta ou mudança de status. */
@@ -246,6 +254,10 @@ export function createSocketServer(
 
     atualizacaoPublicada(aplicativo: string, versao: string): void {
       io.to(Rooms.all).emit('atualizacao:publicada', { app: aplicativo, versao });
+    },
+
+    dadosLimpos(o: 'comunicados' | 'conversas'): void {
+      io.to(Rooms.all).emit('dados:limpos', { o });
     },
 
     muralAtualizado(): void {
