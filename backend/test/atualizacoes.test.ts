@@ -268,6 +268,16 @@ describe('página pública e downloads', () => {
     assert.equal(outro.statusCode, 404);
   });
 
+  test('a animação da página vem do próprio servidor (o CSP só aceita script daqui)', async () => {
+    const pagina = await app.inject({ method: 'GET', url: '/' });
+    assert.match(String(pagina.headers['content-security-policy']), /script-src 'self'/);
+    assert.match(pagina.body, /<script src="\/site-animacao\.js" defer><\/script>/);
+    assert.match(pagina.body, /class="vitrine"/);
+    const script = await app.inject({ method: 'GET', url: '/site-animacao.js' });
+    assert.equal(script.statusCode, 200);
+    assert.match(String(script.headers['content-type']), /javascript/);
+  });
+
   test('a logo aparece', async () => {
     const resposta = await app.inject({ method: 'GET', url: '/icone.png' });
     assert.equal(resposta.statusCode, 200);

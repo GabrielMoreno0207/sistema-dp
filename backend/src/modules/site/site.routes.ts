@@ -21,10 +21,11 @@ const DOWNLOADS: Record<string, { app: AppName; semVersao: string }> = {
 };
 
 /** Nada de página do sistema dentro de outro site; a página não roda script */
-const CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+const CSP =
+  "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 
-function lerIcone(): Buffer | null {
-  const caminho = join(PROJECT_ROOT, 'public', 'icone.png');
+function lerPublico(nome: string): Buffer | null {
+  const caminho = join(PROJECT_ROOT, 'public', nome);
   return existsSync(caminho) ? readFileSync(caminho) : null;
 }
 
@@ -45,7 +46,14 @@ function html(reply: FastifyReply, corpo: string, status = 200) {
 }
 
 export const siteRoutes: FastifyPluginAsync<{ updates: UpdateService }> = async (app, { updates }) => {
-  const icone = lerIcone();
+  const icone = lerPublico('icone.png');
+  // Animação da página (a única página com script; o CSP só aceita script vindo daqui)
+  const animacao = lerPublico('site-animacao.js');
+
+  app.get('/site-animacao.js', async (_request, reply) => {
+    if (!animacao) return reply.code(404).send();
+    return reply.type('text/javascript; charset=utf-8').header('Cache-Control', 'no-cache').send(animacao);
+  });
 
   app.get('/', async (request, reply) => {
     const [desktop, celular] = await Promise.all([ultimaOuNada(updates, 'desktop'), ultimaOuNada(updates, 'mobile')]);

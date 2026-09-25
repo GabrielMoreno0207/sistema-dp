@@ -4,6 +4,7 @@
  * Cores iguais às do aplicativo (verde #17B3A3 e azul-escuro #20374A).
  */
 import type { ReleasePublico } from '../updates/update.types';
+import { VITRINE_CSS, vitrine } from './site.vitrine';
 
 function escapar(texto: string): string {
   return texto.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
@@ -44,10 +45,12 @@ const ESTILO = `
                 linear-gradient(160deg, var(--azul) 0%, var(--azul-fundo) 100%);
     color: #fff; padding: 28px 20px 96px;
   }
-  .barra { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .barra { max-width: 1180px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
   .barra img { width: 40px; height: 40px; border-radius: 10px; }
   .barra strong { font-size: 18px; letter-spacing: .2px; }
-  .heroi { max-width: 1040px; margin: 56px auto 0; display: grid; gap: 18px; }
+  .heroi { max-width: 1180px; margin: 48px auto 0; display: grid; gap: 40px; align-items: center; }
+  .heroi__texto { display: grid; gap: 18px; }
+  @media (min-width: 980px) { .heroi { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); } }
   .heroi h1 { margin: 0; font-size: clamp(32px, 6vw, 52px); line-height: 1.1; letter-spacing: -.5px; }
   .heroi h1 span { color: var(--verde); }
   .heroi p { margin: 0; max-width: 620px; font-size: clamp(16px, 2.2vw, 19px); color: #c9d6df; }
@@ -103,6 +106,7 @@ const ESTILO = `
     .acoes .botao { flex: 1 1 100%; justify-content: center; }
   }
   @media (prefers-reduced-motion: reduce) { .botao { transition: none; } .botao:hover { transform: none; } }
+${VITRINE_CSS}
 `;
 
 const ICONES = {
@@ -188,12 +192,15 @@ export function paginaInicial(dados: { desktop: ReleasePublico | null; celular: 
 <header class="topo">
   <div class="barra"><img src="/icone.png" alt=""><strong>Comunica Trinys</strong></div>
   <div class="heroi">
-    <h1>A comunicação da empresa, <span>num lugar só.</span></h1>
-    <p>Comunicados do Departamento Pessoal, conversas entre colegas, avisos urgentes e o calendário da empresa, no computador e no celular.</p>
-    <div class="acoes">
-      <a class="botao botao--cheio" href="#baixar">${ICONES.baixar} Baixar o aplicativo</a>
-      <a class="botao botao--vazado" href="#como-usar">Como começar</a>
+    <div class="heroi__texto">
+      <h1>A comunicação da empresa, <span>num lugar só.</span></h1>
+      <p>Comunicados do Departamento Pessoal, conversas entre colegas, avisos urgentes e o calendário da empresa, no computador e no celular.</p>
+      <div class="acoes">
+        <a class="botao botao--cheio" href="#baixar">${ICONES.baixar} Baixar o aplicativo</a>
+        <a class="botao botao--vazado" href="#como-usar">Como começar</a>
+      </div>
     </div>
+    ${vitrine()}
   </div>
 </header>
 
@@ -243,7 +250,8 @@ export function paginaInicial(dados: { desktop: ReleasePublico | null; celular: 
   </section>
 </main>
 
-<footer>Comunica Trinys · uso interno da Trinys. Dúvidas? Fale com o TI.</footer>`,
+<footer>Comunica Trinys · uso interno da Trinys. Dúvidas? Fale com o TI.</footer>
+<script src="/site-animacao.js" defer></script>`,
   );
 }
 
