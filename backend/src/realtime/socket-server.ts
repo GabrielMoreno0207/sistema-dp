@@ -77,13 +77,38 @@ function roomFor(message: Message): string | null {
  * IP de onde o aparelho se conectou. Atrás de um proxy confiável (TRUST_PROXY)
  * vale o primeiro endereço do X-Forwarded-For; sem proxy, o da própria conexão.
  */
-function ipDoAparelho(handshake: { address: string; headers: Record<string, string | string[] | undefined> }): string | null {
-  if (env.trustProxy) {
-    const encaminhado = handshake.headers['x-forwarded-for'];
-    const primeiro = (Array.isArray(encaminhado) ? encaminhado[0] : encaminhado)?.split(',')[0];
-    if (primeiro) return limparIp(primeiro);
+/**
+ * IP do aparelho. Atrás do nginx (acesso pelo domínio), a conexão chega do IP do
+ * proxy; o do aparelho vem no X-Forwarded-For / X-Real-IP que o proxy acrescenta.
+ *
+ * Só olha esses cabeçalhos quando TRUST_PROXY manda: "true" confia em qualquer
+ * origem; uma lista ("192.168.20.10") só quando a conexão veio de um desses IPs.
+ * Com lista, vale o último endereço da cadeia que não é proxy: o aparelho não
+ * consegue se passar por outro escrevendo um X-Forwarded-For falso.
+ */
+export function ipDoAparelho(
+  handshake: { address: string; headers: Record<string, string | string[] | undefined> },
+  confiar: boolean | string = env.trustProxy,
+): string | null {
+  const direto = limparIp(handshake.address);
+  if (!confiar) return direto;
+  const proxies =
+    typeof confiar === 'string' ? confiar.split(',').map((ip) => limparIp(ip)).filter((ip): ip is string => ip !== null) : [];
+  if (typeof confiar === 'string' && (!direto || !proxies.includes(direto))) return direto;
+
+  const cabecalho = (nome: string) => {
+    const valor = handshake.headers[nome];
+    return (Array.isArray(valor) ? valor.join(',') : valor) ?? '';
+  };
+  const cadeia = cabecalho('x-forwarded-for')
+    .split(',')
+    .map((ip) => limparIp(ip))
+    .filter((ip): ip is string => ip !== null);
+  if (cadeia.length > 0) {
+    if (confiar === true) return cadeia[0];
+    for (let i = cadeia.length - 1; i >= 0; i -= 1) if (!proxies.includes(cadeia[i])) return cadeia[i];
   }
-  return limparIp(handshake.address);
+  return limparIp(cabecalho('x-real-ip')) ?? direto;
 }
 
 export interface RealtimeGateway

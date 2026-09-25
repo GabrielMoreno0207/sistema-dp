@@ -149,6 +149,24 @@ describe('registro de computadores', () => {
     assert.equal((await register('PC-AAAA00000001', secret('c'))).statusCode, 403);
   });
 
+  test('IP do aparelho atrás do nginx: lê o encaminhado só quando vem do proxy confiável', async () => {
+    const { ipDoAparelho } = await import('../src/realtime/socket-server');
+    const pelo = (address: string, headers: Record<string, string> = {}) => ({ address, headers });
+    const nginx = '192.168.20.10';
+
+    // Sem TRUST_PROXY: o que chega (era o que acontecia: todo mundo com o IP do nginx)
+    assert.equal(ipDoAparelho(pelo(nginx, { 'x-forwarded-for': '192.168.20.55' }), false), nginx);
+    // Com o nginx configurado: o IP real do aparelho
+    assert.equal(ipDoAparelho(pelo(`::ffff:${nginx}`, { 'x-forwarded-for': '192.168.20.55' }), nginx), '192.168.20.55');
+    assert.equal(ipDoAparelho(pelo(nginx, { 'x-real-ip': '192.168.20.56' }), nginx), '192.168.20.56');
+    // Aparelho que escreve um X-Forwarded-For falso: vale o que o nginx viu (o último)
+    assert.equal(ipDoAparelho(pelo(nginx, { 'x-forwarded-for': '10.9.9.9, 192.168.20.57' }), nginx), '192.168.20.57');
+    // Conexão direta (sem passar pelo nginx) não pode escolher o próprio IP pelo cabeçalho
+    assert.equal(ipDoAparelho(pelo('192.168.20.58', { 'x-forwarded-for': '1.2.3.4' }), nginx), '192.168.20.58');
+    // Sem cabeçalho nenhum, fica o do proxy
+    assert.equal(ipDoAparelho(pelo(nginx), nginx), nginx);
+  });
+
   test('celular (CEL-) se registra como os PCs; outros prefixos são recusados', async () => {
     assert.equal((await register('CEL-AAAA00000001')).statusCode, 200);
     assert.equal((await register('TAB-AAAA00000001')).statusCode, 400);
