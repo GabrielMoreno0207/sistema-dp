@@ -1,13 +1,15 @@
 import {
   app,
   clipboard,
+  ClipboardItem,
   dialog,
   ipcMain,
   Menu,
+  nativeImage,
   powerMonitor,
   protocol,
   shell,
-  type BrowserWindow,
+  BrowserWindow,
   type IpcMainInvokeEvent,
 } from 'electron';
 import { createHash, timingSafeEqual } from 'node:crypto';
@@ -1301,6 +1303,87 @@ function start(): void {
       await rm(arquivo, { force: true }).catch(() => undefined);
     }
   });
+
+  /**
+   * Imagem colada no campo da conversa (print, imagem copiada do navegador). Chega
+   * em memória, vai para um arquivo temporário e sobe como os outros anexos.
+   */
+  handle(IpcChannels.ConversasColarImagem, async (bruto) => {
+    const entrada = bruto as { dados?: unknown; mimeType?: unknown } | null;
+    const dados = entrada?.dados instanceof ArrayBuffer ? Buffer.from(entrada.dados) : null;
+    const mimeType = typeof entrada?.mimeType === 'string' ? entrada.mimeType.toLowerCase() : '';
+    const extensao = ({ 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp' } as Record<string, string>)[mimeType];
+    if (!dados || dados.length === 0 || !extensao) return { ok: false, midia: null, message: 'Esse conteúdo não é uma imagem que dá para enviar.' };
+
+    const pasta = join(app.getPath('temp'), 'comunicacao-dp-conversas');
+    const agora = new Date();
+    const doDia = `${agora.getFullYear()}${String(agora.getMonth() + 1).padStart(2, '0')}${String(agora.getDate()).padStart(2, '0')}`;
+    const hora = `${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}${String(agora.getSeconds()).padStart(2, '0')}`;
+    const nome = `imagem-${doDia}-${hora}${extensao}`;
+    const arquivo = join(pasta, `colada-${Date.now()}-${Math.random().toString(16).slice(2)}${extensao}`);
+    try {
+      await mkdir(pasta, { recursive: true });
+      await writeFile(arquivo, dados);
+      const envio = usandoComoDp()
+        ? await comAdmin((client) => client.enviarMidia(arquivo, mimeType, nome))
+        : await comApi((client) => client.enviarMidia(arquivo, mimeType, nome));
+      return 'dados' in envio ? { ok: true, midia: envio.dados, message: '' } : { ok: false, midia: null, message: envio.message };
+    } catch (err) {
+      console.error('[conversas] falha ao enviar a imagem colada:', err);
+      return { ok: false, midia: null, message: 'Não foi possível enviar a imagem colada.' };
+    } finally {
+      await rm(arquivo, { force: true }).catch(() => undefined);
+    }
+  });
+
+  /**
+   * Copia a imagem de uma mensagem para a área de transferência (para colar no
+   * WhatsApp, Word, e-mail...). PNG e JPG vão direto; WEBP, GIF e BMP passam
+   * pelo decodificador do Chromium (uma janela escondida) e viram PNG.
+   */
+  handle(IpcChannels.ConversasCopiarImagem, async (bruto): Promise<OperationResult> => {
+    const midiaId = typeof bruto === 'string' && MIDIA_ID.test(bruto) ? bruto : null;
+    if (!midiaId) return { ok: false, message: 'Imagem inválida.' };
+    const baixada = usandoComoDp()
+      ? await comAdmin((client) => client.baixarMidia(midiaId))
+      : await comApi((client) => client.baixarMidia(midiaId));
+    if (!('dados' in baixada)) return baixada;
+    try {
+      let imagem = nativeImage.createFromBuffer(baixada.dados);
+      if (imagem.isEmpty()) imagem = await decodificarNoChromium(baixada.dados);
+      if (imagem.isEmpty()) return { ok: false, message: 'Não consegui copiar essa imagem.' };
+      // Electron 44: área de transferência no padrão do navegador (ClipboardItem)
+      await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(imagem.toPNG())], { type: 'image/png' }) })]);
+      return { ok: true, message: 'Imagem copiada. Cole com Ctrl+V.' };
+    } catch (err) {
+      console.error('[conversas] falha ao copiar a imagem:', err);
+      return { ok: false, message: 'Não consegui copiar essa imagem.' };
+    }
+  });
+
+  /** WEBP/GIF/BMP: o nativeImage só lê PNG e JPG; o Chromium desenha e devolve PNG */
+  async function decodificarNoChromium(dados: Buffer): Promise<Electron.NativeImage> {
+    const janela = new BrowserWindow({ show: false, width: 1, height: 1, webPreferences: { offscreen: true, sandbox: true } });
+    try {
+      await janela.loadURL('data:text/html,<html></html>');
+      const png: string = await janela.webContents.executeJavaScript(`
+        (async () => {
+          const bytes = Uint8Array.from(atob(${JSON.stringify(dados.toString('base64'))}), (c) => c.charCodeAt(0));
+          const bitmap = await createImageBitmap(new Blob([bytes]));
+          const tela = document.createElement('canvas');
+          tela.width = bitmap.width;
+          tela.height = bitmap.height;
+          tela.getContext('2d').drawImage(bitmap, 0, 0);
+          return tela.toDataURL('image/png');
+        })()
+      `);
+      return nativeImage.createFromDataURL(png);
+    } catch {
+      return nativeImage.createEmpty();
+    } finally {
+      janela.destroy();
+    }
+  }
 
   /** Documento recebido no chat: baixa e abre no programa padrão do Windows. */
   handle(IpcChannels.ConversasAbrirArquivo, async (bruto): Promise<OperationResult> => {

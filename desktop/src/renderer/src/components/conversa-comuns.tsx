@@ -319,6 +319,8 @@ interface MensagemProps {
   /** Realce de quem veio da busca */
   destacada?: boolean;
   onErro(mensagem: string): void;
+  /** Recado de sucesso (ex.: "Imagem copiada") */
+  onAviso?(mensagem: string): void;
 }
 
 /**
@@ -331,23 +333,32 @@ function VisualizadorImagem(props: {
   nome: string;
   abrindo: boolean;
   onAbrirNoWindows(): void;
+  onCopiar(): void;
   onFechar(): void;
 }) {
-  const { midiaId, nome, abrindo, onAbrirNoWindows, onFechar } = props;
+  const { midiaId, nome, abrindo, onAbrirNoWindows, onCopiar, onFechar } = props;
 
   useEffect(() => {
     function tecla(evento: KeyboardEvent) {
       if (evento.key === 'Escape') onFechar();
+      // Ctrl+C com a imagem aberta: copia a imagem (não há texto selecionado aqui)
+      if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 'c') {
+        evento.preventDefault();
+        onCopiar();
+      }
     }
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [onFechar]);
+  }, [onFechar, onCopiar]);
 
   // No body: um ancestral com transform/overflow do chat não prende a camada
   return createPortal(
     <div className="visualizador" role="dialog" aria-modal="true" aria-label={nome} onClick={onFechar}>
       <div className="visualizador__barra" onClick={(e) => e.stopPropagation()}>
         <span className="visualizador__nome">{nome}</span>
+        <button type="button" className="botao" onClick={onCopiar} title="Copiar imagem (Ctrl+C)">
+          Copiar imagem
+        </button>
         <button type="button" className="botao" onClick={onAbrirNoWindows} disabled={abrindo}>
           {abrindo ? 'Abrindo...' : 'Abrir no Windows'}
         </button>
@@ -367,7 +378,7 @@ function VisualizadorImagem(props: {
  * baixa e abre no programa padrão do Windows.
  */
 export function MensagemDaConversa(props: MensagemProps) {
-  const { mensagem, minha, emGrupo, onApagar, onEncaminhar, onResponder, onIrAte, lida, destacada, onErro } = props;
+  const { mensagem, minha, emGrupo, onApagar, onEncaminhar, onResponder, onIrAte, lida, destacada, onErro, onAviso } = props;
   const [abrindo, setAbrindo] = useState(false);
   const [imagemAberta, setImagemAberta] = useState(false);
 
@@ -377,6 +388,12 @@ export function MensagemDaConversa(props: MensagemProps) {
         {mensagem.conteudo}
       </div>
     );
+  }
+
+  async function copiarImagem(midiaId: string) {
+    const resultado = await window.dp.conversasCopiarImagem(midiaId);
+    if (resultado.ok) onAviso?.(resultado.message);
+    else onErro(resultado.message);
   }
 
   async function abrirArquivo(midiaId: string, nome: string) {
@@ -431,7 +448,23 @@ export function MensagemDaConversa(props: MensagemProps) {
       ) : (
         <>
           {midia?.tipo === 'IMAGEM' && (
-            <button type="button" className="bubble__imagem-botao" onClick={() => setImagemAberta(true)} title="Abrir imagem">
+            <button
+              type="button"
+              className="bubble__imagem-botao"
+              onClick={() => setImagemAberta(true)}
+              // Botão direito ou Ctrl+C com a imagem em foco: copia
+              onContextMenu={(e) => {
+                e.preventDefault();
+                void copiarImagem(midia.id);
+              }}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+                  e.preventDefault();
+                  void copiarImagem(midia.id);
+                }
+              }}
+              title="Abrir imagem (botão direito copia)"
+            >
               <img className="bubble__imagem" src={`dpmidia://m/${midia.id}`} alt={midia.nome} />
             </button>
           )}
@@ -441,6 +474,7 @@ export function MensagemDaConversa(props: MensagemProps) {
               nome={midia.nome}
               abrindo={abrindo}
               onAbrirNoWindows={() => void abrirArquivo(midia.id, midia.nome)}
+              onCopiar={() => void copiarImagem(midia.id)}
               onFechar={() => setImagemAberta(false)}
             />
           )}

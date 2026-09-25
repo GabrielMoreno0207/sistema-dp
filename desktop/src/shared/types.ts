@@ -493,6 +493,10 @@ export interface DesktopApi {
   conversasAnexar(): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
   /** Arquivo arrastado para dentro da conversa: envia pelo caminho no disco */
   conversasSoltarArquivo(caminho: string): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Imagem colada no campo (Ctrl+V): sobe como anexo, igual ao clipe */
+  conversasColarImagem(dados: ArrayBuffer, mimeType: string): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
+  /** Copia a imagem de uma mensagem para a área de transferência do Windows (Ctrl+C) */
+  conversasCopiarImagem(midiaId: string): Promise<OperationResult>;
   /** Mensagem de voz gravada na tela: sobe para o servidor como mídia de áudio */
   conversasEnviarAudio(
     dados: ArrayBuffer,
@@ -585,6 +589,8 @@ export const IpcChannels = {
   ConversasAnexar: 'conversas:anexar',
   ConversasSoltarArquivo: 'conversas:soltar-arquivo',
   ConversasEnviarAudio: 'conversas:enviar-audio',
+  ConversasColarImagem: 'conversas:colar-imagem',
+  ConversasCopiarImagem: 'conversas:copiar-imagem',
   ConversasAbrirArquivo: 'conversas:abrir-arquivo',
   ConversasChanged: 'conversas:changed',
   ConversasContador: 'conversas:contador',

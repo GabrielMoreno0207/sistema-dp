@@ -4,6 +4,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type ClipboardEvent,
   type DragEvent,
   type FormEvent,
   type KeyboardEvent,
@@ -361,6 +362,36 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     }
   }
 
+  /**
+   * Ctrl+V no campo: imagem da área de transferência (print, copiada do navegador)
+   * ou arquivo copiado no Explorer vira anexo, igual ao clipe. Texto cola normal.
+   */
+  async function colar(evento: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!abertaId || !online) return;
+    const arquivo = [...evento.clipboardData.files][0];
+    if (!arquivo) return; // só texto: deixa o navegador colar
+    evento.preventDefault();
+    if (anexo) setAviso('A imagem colada substituiu o anexo anterior.');
+    setErro(null);
+    setEnviandoAnexo(true);
+    try {
+      // Arquivo copiado no Explorer tem caminho no disco: sobe como o arrastar
+      const caminho = window.dp.caminhoDoArquivo(arquivo);
+      const resultado = caminho
+        ? await window.dp.conversasSoltarArquivo(caminho)
+        : arquivo.type.startsWith('image/')
+          ? await window.dp.conversasColarImagem(await arquivo.arrayBuffer(), arquivo.type)
+          : { ok: false, midia: null, message: 'Só dá para colar imagem ou arquivo.' };
+      if (!resultado.ok) {
+        if (resultado.message) setErro(resultado.message);
+        return;
+      }
+      setAnexo(resultado.midia);
+    } finally {
+      setEnviandoAnexo(false);
+    }
+  }
+
   async function anexar() {
     setErro(null);
     const resultado = await window.dp.conversasAnexar();
@@ -714,6 +745,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       onResponder={() => responder(mensagem)}
                       onIrAte={(id) => void irAte(id)}
                       onErro={setErro}
+                      onAviso={setAviso}
                     />
                   </Fragment>
                 );
@@ -781,6 +813,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
                   onKeyDown={aoDigitar}
+                  onPaste={(e) => void colar(e)}
                   placeholder={`Escreva para ${aberta.titulo}... (Enter envia, Shift+Enter quebra a linha)`}
                   maxLength={4000}
                   rows={2}

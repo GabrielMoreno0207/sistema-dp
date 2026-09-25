@@ -2656,10 +2656,11 @@ input[type='radio'] {
   font-weight: 600;
 }
 
-.botao--primario:hover {
+/* Mesmo peso do ".botao:hover:not(:disabled)": sem isso o fundo ficava quase branco com texto branco */
+.botao--primario:hover:not(:disabled) {
   background: var(--acento-escuro);
   border-color: var(--acento-escuro);
-  color: #fff;
+  color: var(--sobre-acento);
 }
 
 .botao--perigo {
