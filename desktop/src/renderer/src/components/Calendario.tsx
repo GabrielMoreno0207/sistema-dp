@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import type { EventoAgenda } from '../../../shared/types';
 import { Icone } from '../lib/icones';
 
@@ -197,9 +197,20 @@ export function Calendario({ meuId, ehTi, podePublicar, disponivel }: Calendario
               if (!doMes) classes.push('agenda__dia--fora');
               if (chave === chaveDoDia(hoje)) classes.push('agenda__dia--hoje');
               if (chave === escolhido) classes.push('agenda__dia--escolhido');
+              // Evento publicado pelo DP para a empresa: o dia todo fica destacado na cor do evento
+              const daEmpresa = doDia.filter((evento) => evento.escopo === 'GERAL');
+              if (daEmpresa.length > 0) classes.push('agenda__dia--empresa');
+              const estilo = daEmpresa.length > 0 ? ({ '--cor-empresa': daEmpresa[0].cor } as CSSProperties) : undefined;
+              const titulo = daEmpresa.map((evento) => evento.titulo).join('\n') || undefined;
 
               return (
-                <button key={chave} className={classes.join(' ')} onClick={() => setEscolhido(chave)}>
+                <button
+                  key={chave}
+                  className={classes.join(' ')}
+                  style={estilo}
+                  title={titulo}
+                  onClick={() => setEscolhido(chave)}
+                >
                   <span className="agenda__numero">{data.getDate()}</span>
                   {doDia.length > 0 && (
                     <span className="agenda__marcas">

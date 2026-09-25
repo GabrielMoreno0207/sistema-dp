@@ -162,19 +162,32 @@ export function Agenda() {
           const marcas = porDia.get(chave) ?? [];
           const ehEscolhido = chave === escolhido;
           const ehHoje = chave === chaveHoje;
+          // Evento publicado pelo DP para a empresa: o dia fica destacado na cor do evento
+          const daEmpresa = marcas.filter((e) => e.escopo === 'GERAL');
+          const corEmpresa = daEmpresa[0]?.cor;
           return (
             <Pressable
               key={chave}
               onPress={() => setEscolhido(chave)}
-              accessibilityLabel={`${porExtenso(chave)}${marcas.length ? `, ${marcas.length} evento${marcas.length > 1 ? 's' : ''}` : ''}`}
-              style={styles.celula}>
+              accessibilityLabel={`${porExtenso(chave)}${daEmpresa.length ? `, evento da empresa: ${daEmpresa.map((e) => e.titulo).join(', ')}` : ''}${marcas.length ? `, ${marcas.length} evento${marcas.length > 1 ? 's' : ''}` : ''}`}
+              style={[
+                styles.celula,
+                corEmpresa
+                  ? { backgroundColor: `${corEmpresa}${doMes ? '3D' : '1F'}`, borderColor: `${corEmpresa}99`, borderWidth: 1, borderRadius: 10 }
+                  : null,
+              ]}>
               <View
                 style={[
                   styles.numeroCaixa,
                   ehEscolhido && { backgroundColor: t.primary },
                   !ehEscolhido && ehHoje && { borderWidth: 2, borderColor: t.primary },
                 ]}>
-                <Text style={[styles.numero, { color: ehEscolhido ? t.onPrimary : doMes ? t.text : t.muted, opacity: doMes ? 1 : 0.5 }]}>
+                <Text
+                  style={[
+                    styles.numero,
+                    { color: ehEscolhido ? t.onPrimary : doMes ? t.text : t.muted, opacity: doMes ? 1 : 0.5 },
+                    corEmpresa ? styles.numeroEmpresa : null,
+                  ]}>
                   {data.getDate()}
                 </Text>
               </View>
@@ -284,6 +297,7 @@ const styles = StyleSheet.create({
   celula: { width: '14.28%', alignItems: 'center', paddingVertical: 3, minHeight: 44 },
   numeroCaixa: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   numero: { fontSize: 14, fontWeight: '600' },
+  numeroEmpresa: { fontWeight: '900' },
   marcas: { flexDirection: 'row', gap: 2, height: 6, marginTop: 2 },
   marca: { width: 5, height: 5, borderRadius: 3 },
   lado: { borderTopWidth: 1, marginTop: 8, paddingTop: 10, gap: 8 },

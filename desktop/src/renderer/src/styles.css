@@ -4738,3 +4738,22 @@ svg {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* Dia com evento da empresa (publicado pelo DP): fundo e borda na cor do evento */
+.agenda__dia--empresa {
+  border-color: color-mix(in srgb, var(--cor-empresa) 60%, transparent);
+  background: color-mix(in srgb, var(--cor-empresa) 24%, var(--surface));
+}
+
+.agenda__dia--empresa .agenda__numero {
+  font-weight: 800;
+}
+
+.agenda__dia--empresa.agenda__dia--fora {
+  background: color-mix(in srgb, var(--cor-empresa) 12%, transparent);
+}
+
+.agenda__dia--empresa.agenda__dia--escolhido {
+  border-color: var(--acento);
+  box-shadow: inset 0 0 0 1px var(--acento);
+}
