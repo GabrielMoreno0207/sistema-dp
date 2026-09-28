@@ -51,7 +51,7 @@ notepad .env
 | `ADMIN_PASSWORD`          | *(obrigatória na 1ª vez)* | Senha desse usuário. Mínimo de 8 caracteres |
 | `ADMIN_NAME`              | `Departamento Pessoal`  | Nome que aparece como remetente das mensagens |
 | `SESSION_TTL_HOURS`       | `12`                    | Validade do login da conta do DP/TI (`ti`), em horas |
-| `EMPLOYEE_SESSION_HOURS`  | `12`                    | Validade do login do funcionário no app (PC compartilhado: se ele esquecer de sair, a sessão acaba sozinha) |
+| `SESSAO_DIAS_SEM_USO`     | `30`                    | O login do funcionário persiste (reiniciar o PC não desloga); sai sozinho após tantos dias sem o aparelho conectar |
 | `TLS_CERT_FILE` / `TLS_KEY_FILE` | *(vazio)*        | Certificado e chave para HTTPS direto no backend (veja "HTTPS") |
 | `TRUST_PROXY`             | *(vazio)*               | IP do proxy reverso com HTTPS (IIS/nginx/Caddy), se usar um |
 
@@ -479,7 +479,7 @@ istro é **aberto** a qualquer aparelho que alcance o servidor — não há chav
   - **Funcionários:** entram no app com usuário e senha (hash scrypt). Regras:
     - no primeiro acesso, e depois de uma redefinição pelo DP, a troca de senha é obrigatória;
     - erros de login são limitados por usuário+PC, por PC (vários usuários) e por usuário (vários PCs), e a troca de senha também tem limite;
-    - a sessão expira em `EMPLOYEE_SESSION_HOURS` e termina no logoff do Windows;
+    - a sessão persiste (reiniciar o PC não desloga) e só expira após `SESSAO_DIAS_SEM_USO` dias sem o aparelho conectar;
     - redefinir a senha ou desativar o funcionário tira ele de todos os PCs.
   - **Tokens:** o banco guarda só o hash (SHA-256) de cada token.
 - Todos os dados recebidos pela API e pelo WebSocket são validados (JSON Schema / validação manual).

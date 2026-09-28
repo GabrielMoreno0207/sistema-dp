@@ -128,7 +128,7 @@ export function buildApp({
     repositories.users,
     computers,
     repositories.sectors,
-    { sessionHours: env.employeeSessionHours },
+    { sessaoDiasSemUso: env.sessaoDiasSemUso },
     app.log,
   );
   const sectors = new SectorService(repositories.sectors, employees, app.log);

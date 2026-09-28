@@ -84,7 +84,7 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
     private readonly users: UserRepository,
     private readonly computers: ComputerService,
     private readonly sectors: SectorRepository,
-    private readonly options: { sessionHours: number },
+    private readonly options: { sessaoDiasSemUso: number },
     private readonly log: FastifyBaseLogger,
   ) {
     super();
@@ -236,10 +236,17 @@ export class EmployeeService extends EventEmitter<EmployeeEvents> implements Sec
 
   // ------------------------------------------------------------------ sessão no computador
 
-  /** A sessão do funcionário neste computador ainda está dentro da validade? */
-  private sessionValid(computer: { currentUserSince: string | null }): boolean {
-    const since = computer.currentUserSince ? Date.parse(computer.currentUserSince) : 0;
-    return Date.now() - since <= this.options.sessionHours * 3_600_000;
+  /**
+   * A sessão do funcionário neste aparelho ainda vale? Persiste: enquanto o aparelho
+   * está conectado, sempre; desconectado (PC desligado, celular sem rede), até
+   * SESSAO_DIAS_SEM_USO dias desde a última vez que ele esteve online. Quem troca
+   * de pessoa no PC usa o "Sair".
+   */
+  private sessionValid(computer: { currentUserSince: string | null; lastSeenAt?: string; status?: string }): boolean {
+    if (!computer.currentUserSince) return false;
+    if (computer.status === 'ONLINE') return true;
+    const ultimaVez = Math.max(Date.parse(computer.currentUserSince) || 0, Date.parse(computer.lastSeenAt ?? '') || 0);
+    return Date.now() - ultimaVez <= this.options.sessaoDiasSemUso * 86_400_000;
   }
 
   /**

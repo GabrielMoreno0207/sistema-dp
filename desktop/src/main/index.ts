@@ -220,17 +220,10 @@ function start(): void {
     });
     win.on('maximize', () => sendToMain(IpcChannels.JanelaEstado, true));
     win.on('unmaximize', () => sendToMain(IpcChannels.JanelaEstado, false));
-    // Logoff/desligamento do Windows: grava o cache e tira o funcionário do PC (PC compartilhado:
-    // o próximo a usar não herda a sessão). Melhor esforço: o Windows não espera muito.
+    // Logoff/desligamento do Windows: só grava o cache. O login persiste: ao ligar o PC de
+    // novo, a pessoa continua logada (para trocar de pessoa, "Sair" no aplicativo).
     win.on('session-end', () => {
       store.flush();
-      const client = api;
-      if (employee && client && connection.getState().status === 'connected') {
-        console.log(`[funcionário] logoff do Windows: saindo (${employee.name})`);
-        void Promise.race([client.logoutEmployee(), new Promise((resolve) => setTimeout(resolve, 2_000))]).catch(
-          () => undefined,
-        );
-      }
     });
     win.on('focus', () => win.flashFrame(false));
     win.webContents.on('did-finish-load', updateUnreadIndicators);

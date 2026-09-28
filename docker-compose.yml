@@ -48,7 +48,7 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-TI}
 
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
-      EMPLOYEE_SESSION_HOURS: ${EMPLOYEE_SESSION_HOURS:-12}
+      SESSAO_DIAS_SEM_USO: ${SESSAO_DIAS_SEM_USO:-30}
 
       # Só quando houver um proxy reverso (nginx, Traefik, Caddy) com HTTPS na frente:
       # assim o bloqueio de tentativas de login enxerga o IP real de cada pessoa

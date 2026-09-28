@@ -332,6 +332,31 @@ describe('funcionários e login no app', () => {
     assert.equal(computers.find((c: { computerId: string }) => c.computerId === 'PC-CCCC00000001').currentUserId, mariaId);
   });
 
+  test('o login persiste: PC desligado dias continua logado; só sai após 30 dias sem conectar', async () => {
+    const token = (await register('PC-CCCC0000BEEF')).json().token;
+    await employeeRequest('POST', '/api/session/login', token, { registration: '2002', password: 'Senha-Joao-2002' });
+    const { Client } = await import('pg');
+    const banco = new Client({ connectionString: POSTGRES_URL });
+    await banco.connect();
+    const voltarNoTempo = async (dias: number) => {
+      const quando = new Date(Date.now() - dias * 86_400_000).toISOString();
+      await banco.query(
+        `UPDATE ${TEST_SCHEMA}.computers SET status = 'OFFLINE', last_seen_at = $1, current_user_since = $1 WHERE computer_id = 'PC-CCCC0000BEEF'`,
+        [quando],
+      );
+    };
+    try {
+      // Desligou o PC na sexta e ligou na segunda (antes eram 12 h e a pessoa saía)
+      await voltarNoTempo(3);
+      assert.equal((await employeeRequest('GET', '/api/session', token)).json().employee?.registration, '2002');
+      // Mais de 30 dias sem o aparelho aparecer: sai sozinho
+      await voltarNoTempo(31);
+      assert.equal((await employeeRequest('GET', '/api/session', token)).json().employee, null);
+    } finally {
+      await banco.end();
+    }
+  });
+
   test('comunicado para uma pessoa só chega para ela', async () => {
     const individual = await sendMessage({ title: 'Para Maria', content: 'Individual.', type: 'AVISO', target: 'EMPLOYEE', targetId: mariaId });
     assert.equal(individual.statusCode, 201);

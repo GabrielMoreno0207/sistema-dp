@@ -35,7 +35,11 @@ export interface Env {
   admin: { username: string; password: string | null; name: string };
   sessionTtlHours: number;
   /** Validade da sessão do funcionário no computador (PCs compartilhados) */
-  employeeSessionHours: number;
+  /**
+   * Login do funcionário no aparelho: vale enquanto o aparelho estiver conectado e
+   * até N dias sem conectar (desligar o PC não desloga ninguém)
+   */
+  sessaoDiasSemUso: number;
   /** HTTPS direto no backend (opcional): caminhos do certificado e da chave */
   tls: { certFile: string; keyFile: string } | null;
   /** Atrás de um proxy reverso (IIS, nginx, Caddy): confiar no X-Forwarded-For */
@@ -154,7 +158,8 @@ export const env: Env = Object.freeze({
   midiasPath: readMidiasPath(),
   admin: readAdmin(),
   sessionTtlHours: readInteger('SESSION_TTL_HOURS', 12, 1, 720),
-  employeeSessionHours: readInteger('EMPLOYEE_SESSION_HOURS', 12, 1, 168),
+  // EMPLOYEE_SESSION_HOURS (12 h desde o login) deixou de valer: o login agora persiste
+  sessaoDiasSemUso: readInteger('SESSAO_DIAS_SEM_USO', 30, 1, 365),
   tls: readTls(),
   trustProxy: readTrustProxy(),
 });
