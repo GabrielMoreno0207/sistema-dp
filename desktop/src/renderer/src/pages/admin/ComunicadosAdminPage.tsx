@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { CampoAgendar, dataPorExtenso, ListaAgendados, paraIso } from '../../components/Agendamento';
 import { quando } from '../../components/chamados-comuns';
 import { Icone } from '../../lib/icones';
 
@@ -61,7 +62,11 @@ interface Pendente {
 
 /** Novo comunicado e histórico de enviados, dentro do aplicativo. */
 export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
-  const [aba, setAba] = useState<'novo' | 'enviados'>('novo');
+  const [aba, setAba] = useState<'novo' | 'agendados' | 'enviados'>('novo');
+  // Agendar: o servidor envia na data e hora escolhidas
+  const [agendar, setAgendar] = useState(false);
+  const [quandoEnviar, setQuandoEnviar] = useState('');
+  const [versaoAgendados, setVersaoAgendados] = useState(0);
   const [enviados, setEnviados] = useState<EnviadoResumo[]>([]);
   const [leituras, setLeituras] = useState<{
     id: string;
@@ -146,9 +151,14 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
       setAviso('Escolha o destino.');
       return;
     }
+    const executarEm = agendar ? paraIso(quandoEnviar) : null;
+    if (agendar && !executarEm) {
+      setAviso('Escolha a data e a hora do envio.');
+      return;
+    }
     setEnviando(true);
     setAviso('');
-    const resultado = await window.dp.adminApi('POST', '/api/messages', {
+    const corpo = {
       title: titulo,
       content: texto,
       type: tipo,
@@ -156,7 +166,10 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
       ...(destino === 'ALL' ? {} : { targetId: destinoId }),
       ...(anexos.length > 0 ? { attachmentIds: anexos.map((a) => a.id) } : {}),
       ...(exigeCiencia ? { exigeCiencia: true } : {}),
-    });
+    };
+    const resultado = executarEm
+      ? await window.dp.adminApi('POST', '/api/agendamentos/comunicado', { ...corpo, executarEm })
+      : await window.dp.adminApi('POST', '/api/messages', corpo);
     setEnviando(false);
     if (!resultado.ok) {
       setAviso(resultado.message);
@@ -166,7 +179,10 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
     setTexto('');
     setAnexos([]);
     setExigeCiencia(false);
-    setAviso('Comunicado enviado.');
+    setAgendar(false);
+    setQuandoEnviar('');
+    setVersaoAgendados((v) => v + 1);
+    setAviso(executarEm ? `Comunicado agendado para ${dataPorExtenso(executarEm)}. Veja na aba Agendados.` : 'Comunicado enviado.');
   }
 
   async function verLeituras(comunicado: EnviadoResumo) {
@@ -230,6 +246,9 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
         <div className="login-card__abas abas--linha">
           <button className={`login-aba ${aba === 'novo' ? 'login-aba--ativa' : ''}`} onClick={() => setAba('novo')}>
             Novo comunicado
+          </button>
+          <button className={`login-aba ${aba === 'agendados' ? 'login-aba--ativa' : ''}`} onClick={() => setAba('agendados')}>
+            Agendados
           </button>
           <button className={`login-aba ${aba === 'enviados' ? 'login-aba--ativa' : ''}`} onClick={() => setAba('enviados')}>
             Enviados
@@ -308,13 +327,15 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
             </span>
           </label>
 
+          <CampoAgendar ativo={agendar} onAtivo={setAgendar} quando={quandoEnviar} onQuando={setQuandoEnviar} />
+
           <div className="formulario__acoes">
             <button
               className="botao botao--primario"
               onClick={() => void enviar()}
-              disabled={enviando || !titulo.trim() || !texto.trim()}
+              disabled={enviando || !titulo.trim() || !texto.trim() || (agendar && !quandoEnviar)}
             >
-              {enviando ? 'Enviando…' : 'Enviar comunicado'}
+              {enviando ? (agendar ? 'Agendando…' : 'Enviando…') : agendar ? 'Agendar envio' : 'Enviar comunicado'}
             </button>
           </div>
         </div>
@@ -350,6 +371,8 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
           </div>
         </aside>
         </div>
+      ) : aba === 'agendados' ? (
+        <ListaAgendados tipo="COMUNICADO" versao={versaoAgendados} onAviso={setAviso} />
       ) : (
         <div className="tabela-caixa">
           <table className="tabela">

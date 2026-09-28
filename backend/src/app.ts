@@ -16,6 +16,8 @@ import { ContentService } from './modules/content/content.service';
 import { MidiaStorage } from './modules/content/content.storage';
 import { TIPOS_ACEITOS } from './modules/content/content.types';
 import { eventoRoutes } from './modules/agenda/evento.routes';
+import { agendamentoRoutes } from './modules/agendamentos/agendamento.routes';
+import { AgendamentoService } from './modules/agendamentos/agendamento.service';
 import { EventoService } from './modules/agenda/evento.service';
 import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
@@ -175,6 +177,9 @@ export function buildApp({
 
   const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);
   const eventos = new EventoService(repositories.eventos, app.log);
+  const agendamentos = new AgendamentoService(repositories.agendamentos, messages, content, app.log);
+  // Os testes disparam a conferência na mão (sem esperar o relógio)
+  app.decorate('agendamentos', agendamentos);
 
   registerAuthentication(app, auth, employees);
 
@@ -198,6 +203,7 @@ export function buildApp({
       await api.register(ticketRoutes, { tickets });
       await api.register(conversaRoutes, { conversas, employees, users: repositories.users });
       await api.register(eventoRoutes, { eventos, employees });
+      await api.register(agendamentoRoutes, { agendamentos });
     },
     { prefix: '/api' },
   );
@@ -226,11 +232,15 @@ export function buildApp({
       attachments.sweep().catch((err) => app.log.error({ err }, 'Falha na faxina de anexos'));
     }, ATTACHMENT_SWEEP_INTERVAL_MS);
     attachmentTimer.unref();
+
+    // Comunicados e mural agendados: envia o que venceu (inclusive com o servidor desligado) e confere de tempos em tempos
+    await agendamentos.iniciar().catch((err) => app.log.error({ err }, 'Falha ao iniciar os agendamentos'));
   });
   app.addHook('onClose', async () => {
     if (purgeTimer) clearInterval(purgeTimer);
     if (sessionTimer) clearInterval(sessionTimer);
     if (attachmentTimer) clearInterval(attachmentTimer);
+    agendamentos.parar();
   });
 
   return app;

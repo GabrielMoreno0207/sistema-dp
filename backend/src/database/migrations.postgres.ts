@@ -443,4 +443,27 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       ALTER TABLE midias ADD COLUMN duracao_ms INTEGER;
     `,
   },
+  {
+    version: 12,
+    name: 'agendamentos',
+    sql: `
+      -- Comunicado ou recado do mural que o DP/TI deixa pronto para sair numa data e hora
+      CREATE TABLE agendamentos (
+        id              TEXT PRIMARY KEY,
+        tipo            TEXT NOT NULL CHECK (tipo IN ('COMUNICADO', 'MURAL')),
+        -- o mesmo corpo do envio na hora (comunicado) ou do recado (mural)
+        dados           JSONB NOT NULL,
+        -- ISO em UTC (toISOString): dá para comparar como texto
+        executar_em     TEXT NOT NULL,
+        status          TEXT NOT NULL CHECK (status IN ('PENDENTE', 'ENVIANDO', 'ENVIADO', 'FALHOU', 'CANCELADO')),
+        criado_por_id   TEXT NOT NULL,
+        criado_por_nome TEXT NOT NULL,
+        resultado_id    TEXT,
+        erro            TEXT,
+        enviado_em      TEXT,
+        created_at      TEXT NOT NULL
+      );
+      CREATE INDEX idx_agendamentos_fila ON agendamentos (executar_em) WHERE status = 'PENDENTE';
+    `,
+  },
 ];

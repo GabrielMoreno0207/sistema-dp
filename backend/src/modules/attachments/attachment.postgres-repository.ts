@@ -96,9 +96,17 @@ export class PostgresAttachmentRepository implements AttachmentRepository {
   }
 
   async listAbandoned(before: Date): Promise<StoredAttachment[]> {
-    const rows = await this.db.all('SELECT * FROM attachments WHERE message_seq IS NULL AND created_at < $1', [
-      before.toISOString(),
-    ]);
+    // Anexo de comunicado agendado fica guardado até a hora do envio
+    const rows = await this.db.all(
+      `SELECT * FROM attachments a
+        WHERE a.message_seq IS NULL AND a.created_at < $1
+          AND NOT EXISTS (
+            SELECT 1 FROM agendamentos g
+             WHERE g.tipo = 'COMUNICADO' AND g.status IN ('PENDENTE', 'ENVIANDO')
+               AND g.dados -> 'attachmentIds' @> to_jsonb(a.id)
+          )`,
+      [before.toISOString()],
+    );
     return rows.map(toStored);
   }
 

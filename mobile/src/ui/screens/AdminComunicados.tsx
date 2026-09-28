@@ -27,6 +27,7 @@ import {
   TypeTag,
   useListStyle,
 } from '../components';
+import { avisarAgendamento, CampoAgendar, dataPorExtenso, ListaAgendados, paraIso, SEM_AGENDAR, type Agendar } from '../agendamento';
 import { useNav } from '../nav';
 import { formatDate, TONES, useTheme } from '../theme';
 
@@ -139,6 +140,7 @@ export function AdminComunicadosScreen() {
           <View style={styles.topo}>
             <Button title="Escrever novo comunicado" onPress={() => nav.push({ name: 'adminNovoComunicado' })} />
             <Feedback result={resultado} />
+            <ListaAgendados tipo="COMUNICADO" />
           </View>
         }
         ListEmptyComponent={enviados === null ? <Loading /> : <Empty icon="📤" text="Nenhum comunicado enviado ainda." />}
@@ -195,6 +197,7 @@ export function AdminNovoComunicadoScreen() {
   const [anexos, setAnexos] = useState<{ id: string; name: string; size: number }[]>([]);
   const [anexando, setAnexando] = useState(false);
   const [exigeCiencia, setExigeCiencia] = useState(false);
+  const [agendar, setAgendar] = useState<Agendar>(SEM_AGENDAR);
   const [enviando, setEnviando] = useState(false);
   const [resultado, setResultado] = useState<OperationResult | null>(null);
 
@@ -252,9 +255,14 @@ export function AdminNovoComunicadoScreen() {
       setResultado({ ok: false, message: 'Escolha o destino.' });
       return;
     }
+    const executarEm = agendar.ativo ? paraIso(agendar.data, agendar.hora) : null;
+    if (agendar.ativo && !executarEm) {
+      setResultado({ ok: false, message: 'Informe a data (dd/mm/aaaa) e a hora (hh:mm) do envio.' });
+      return;
+    }
     setEnviando(true);
     setResultado(null);
-    const r = await chamar('POST', '/api/messages', {
+    const corpo = {
       title: titulo.trim(),
       content: texto.trim(),
       type: tipo,
@@ -262,7 +270,10 @@ export function AdminNovoComunicadoScreen() {
       ...(destino === 'ALL' ? {} : { targetId: destinoId }),
       ...(anexos.length > 0 ? { attachmentIds: anexos.map((a) => a.id) } : {}),
       ...(exigeCiencia ? { exigeCiencia: true } : {}),
-    });
+    };
+    const r = executarEm
+      ? await chamar('POST', '/api/agendamentos/comunicado', { ...corpo, executarEm })
+      : await chamar('POST', '/api/messages', corpo);
     setEnviando(false);
     if (!r.ok) {
       setResultado({ ok: false, message: r.message });
@@ -272,7 +283,9 @@ export function AdminNovoComunicadoScreen() {
     setTexto('');
     setAnexos([]);
     setExigeCiencia(false);
-    setResultado({ ok: true, message: 'Comunicado enviado.' });
+    setAgendar(SEM_AGENDAR);
+    if (executarEm) avisarAgendamento();
+    setResultado({ ok: true, message: executarEm ? `Comunicado agendado para ${dataPorExtenso(executarEm)}.` : 'Comunicado enviado.' });
   }
 
   const tone = TONES[tipo];
@@ -311,7 +324,13 @@ export function AdminNovoComunicadoScreen() {
             value={exigeCiencia}
             onChange={setExigeCiencia}
           />
-          <Button title="Enviar comunicado" onPress={() => void enviar()} loading={enviando} disabled={!titulo.trim() || !texto.trim()} />
+          <CampoAgendar valor={agendar} onChange={setAgendar} />
+          <Button
+            title={agendar.ativo ? 'Agendar envio' : 'Enviar comunicado'}
+            onPress={() => void enviar()}
+            loading={enviando}
+            disabled={!titulo.trim() || !texto.trim()}
+          />
           <Feedback result={resultado} />
         </Card>
 

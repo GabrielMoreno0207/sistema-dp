@@ -1087,6 +1087,10 @@ function start(): void {
     { metodo: 'DELETE', padrao: /^\/api\/admin\/chats\/[\w-]{1,64}\/[\w-]{1,64}$/ },
     { metodo: 'POST', padrao: /^\/api\/admin\/chats\/purge$/ },
     { metodo: 'POST', padrao: /^\/api\/admin\/messages\/purge$/ },
+    // Comunicado e mural agendados
+    { metodo: 'GET', padrao: /^\/api\/agendamentos(\?tipo=(COMUNICADO|MURAL))?$/ },
+    { metodo: 'POST', padrao: /^\/api\/agendamentos\/(comunicado|mural)$/ },
+    { metodo: 'DELETE', padrao: /^\/api\/agendamentos\/AGD-[0-9a-f]{24}$/ },
   ];
 
   handle(IpcChannels.AdminApi, async (bruto) => {

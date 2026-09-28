@@ -24,6 +24,10 @@ import { PostgresEventoRepository } from '../modules/agenda/evento.postgres-repo
 import type { EventoRepository } from '../modules/agenda/evento.repository';
 import { PostgresConversaRepository } from '../modules/conversas/conversa.postgres-repository';
 import type { ConversaRepository } from '../modules/conversas/conversa.repository';
+import {
+  PostgresAgendamentoRepository,
+  type AgendamentoRepository,
+} from '../modules/agendamentos/agendamento.repository';
 import type { PostgresDatabase } from './postgres';
 
 /** Tudo que a aplicação precisa da camada de dados (só interfaces). */
@@ -47,6 +51,8 @@ export interface Repositories {
   conversas: ConversaRepository;
   /** Eventos do calendário da tela inicial */
   eventos: EventoRepository;
+  /** Comunicados e recados do mural agendados */
+  agendamentos: AgendamentoRepository;
 }
 
 /** Implementações PostgreSQL: é o único banco do sistema. */
@@ -65,5 +71,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     chamados: new PostgresChamadoRepository(db),
     conversas: new PostgresConversaRepository(db),
     eventos: new PostgresEventoRepository(db),
+    agendamentos: new PostgresAgendamentoRepository(db),
   };
 }

@@ -166,6 +166,18 @@ export class MessageService {
   }
 
   /** Salva a mensagem e entrega imediatamente aos destinatários conectados. */
+  /**
+   * Confere um comunicado sem enviar (agendamento): o destino existe e os anexos
+   * estão disponíveis. O erro aparece para quem agenda, e não na hora do envio.
+   */
+  async validarEnvio(input: SendMessageInput, senderId: string): Promise<void> {
+    if (!input.title.trim() || !input.content.trim()) {
+      throw new AppError('Título e conteúdo não podem ficar em branco', 400, 'VALIDATION_ERROR');
+    }
+    await this.resolveTarget(input.target, input.targetId);
+    await this.resolveAttachments(input.attachmentIds, senderId);
+  }
+
   async send(input: SendMessageInput, sender: string, senderId: string): Promise<{ message: Message; deliveredTo: number }> {
     const title = input.title.trim();
     const content = input.content.trim();

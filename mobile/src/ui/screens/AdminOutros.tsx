@@ -30,6 +30,7 @@ import {
   Select,
   Tag,
 } from '../components';
+import { avisarAgendamento, CampoAgendar, ListaAgendados, paraIso, SEM_AGENDAR, type Agendar } from '../agendamento';
 import { useNav, type FuncionarioAdmin } from '../nav';
 import { formatDate, useTheme } from '../theme';
 
@@ -96,6 +97,7 @@ export function AdminMuralScreen() {
       <Page refreshControl={<RefreshControl refreshing={false} onRefresh={() => void carregar()} colors={[t.primary]} />}>
         <Button title="Publicar recado novo" onPress={() => nav.push({ name: 'adminMuralEditar', post: null })} />
         <Feedback result={resultado} />
+        <ListaAgendados tipo="MURAL" />
         <SectionTitle>Recados</SectionTitle>
         {posts === null ? <Loading /> : null}
         {posts?.length === 0 ? <Empty icon="📌" text="Nenhum recado publicado ainda." /> : null}
@@ -149,6 +151,8 @@ export function AdminMuralEditarScreen({ post }: { post: MuralPost | null }) {
   const [texto, setTexto] = useState(post?.texto ?? '');
   const [midia, setMidia] = useState<MidiaPublica | null>(post?.midia ?? null);
   const [ativo, setAtivo] = useState(post?.ativo ?? true);
+  // Recado novo pode ser agendado; editar um já publicado é na hora
+  const [agendar, setAgendar] = useState<Agendar>(SEM_AGENDAR);
   const [enviandoMidia, setEnviandoMidia] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [resultado, setResultado] = useState<OperationResult | null>(null);
@@ -165,6 +169,23 @@ export function AdminMuralEditarScreen({ post }: { post: MuralPost | null }) {
   }
 
   async function salvar() {
+    if (!post && agendar.ativo) {
+      const executarEm = paraIso(agendar.data, agendar.hora);
+      if (!executarEm) {
+        setResultado({ ok: false, message: 'Informe a data (dd/mm/aaaa) e a hora (hh:mm) da publicação.' });
+        return;
+      }
+      setSalvando(true);
+      const r = await chamar('POST', '/api/agendamentos/mural', { titulo: titulo.trim(), texto: texto.trim(), midiaId: midia?.id ?? null, executarEm });
+      setSalvando(false);
+      if (!r.ok) {
+        setResultado({ ok: false, message: r.message });
+        return;
+      }
+      avisarAgendamento();
+      nav.pop();
+      return;
+    }
     setSalvando(true);
     const corpo = { titulo: titulo.trim(), texto: texto.trim(), midiaId: midia?.id ?? null, ativo };
     const r = post ? await chamar('PUT', `/api/mural/${post.id}`, corpo) : await chamar('POST', '/api/mural', corpo);
@@ -203,9 +224,10 @@ export function AdminMuralEditarScreen({ post }: { post: MuralPost | null }) {
             />
             {midia ? <Button title="Tirar" small variant="secondary" onPress={() => setMidia(null)} /> : null}
           </ButtonRow>
-          <CheckRow label="Em exibição no aplicativo" value={ativo} onChange={setAtivo} />
+          {!agendar.ativo ? <CheckRow label="Em exibição no aplicativo" value={ativo} onChange={setAtivo} /> : null}
+          {!post ? <CampoAgendar valor={agendar} onChange={setAgendar} /> : null}
           <Button
-            title={post ? 'Salvar alterações' : 'Publicar no mural'}
+            title={post ? 'Salvar alterações' : agendar.ativo ? 'Agendar publicação' : 'Publicar no mural'}
             onPress={() => void salvar()}
             loading={salvando}
             disabled={!titulo.trim() || !texto.trim() || enviandoMidia}

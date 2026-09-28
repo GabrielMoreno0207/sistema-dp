@@ -194,6 +194,13 @@ export class ContentService {
     return { ...resto, midia: midia ? midiaPublica(midia) : null };
   }
 
+  /** Confere um recado sem publicar (agendamento): texto dentro do limite e mídia existente. */
+  async validarMural(dados: { titulo: string; texto: string; midiaId: string | null }): Promise<void> {
+    textoObrigatorio(dados.titulo, 'o título', LIMITES_CONTEUDO.maxTitulo);
+    textoObrigatorio(dados.texto, 'o texto', LIMITES_CONTEUDO.maxTexto);
+    await this.midiaExistente(dados.midiaId);
+  }
+
   async criarMural(dados: DadosMural, criadoPor: string): Promise<MuralPostCompleto> {
     const agora = new Date().toISOString();
     const post: MuralPost = {

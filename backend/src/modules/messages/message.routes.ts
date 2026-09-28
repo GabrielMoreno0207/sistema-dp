@@ -4,7 +4,8 @@ import type { MessageService, SendMessageInput } from './message.service';
 import { ATTACHMENT_ID_PATTERN, ATTACHMENT_LIMITS } from '../attachments/attachment.types';
 import { IMPLEMENTED_TARGETS, MESSAGE_ID_PATTERN, MESSAGE_LIMITS, MESSAGE_TYPES } from './message.types';
 
-const sendMessageSchema = {
+/** Corpo do comunicado (reaproveitado no agendamento) */
+export const sendMessageSchema = {
   type: 'object',
   additionalProperties: false,
   required: ['title', 'content', 'type'],

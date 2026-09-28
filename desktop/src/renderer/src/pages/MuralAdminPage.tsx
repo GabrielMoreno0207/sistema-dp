@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { MidiaPublica, MuralPost } from '../../../shared/types';
 import { quando } from '../components/chamados-comuns';
+import { CampoAgendar, dataPorExtenso, ListaAgendados, paraIso } from '../components/Agendamento';
 
 /** Publicação do mural pela conta do DP, dentro do próprio aplicativo. */
 export function MuralAdminPage() {
@@ -12,6 +13,10 @@ export function MuralAdminPage() {
   const [ativo, setAtivo] = useState(true);
   const [aviso, setAviso] = useState('');
   const [salvando, setSalvando] = useState(false);
+  // Agendar: o recado entra no mural na data e hora escolhidas
+  const [agendar, setAgendar] = useState(false);
+  const [quandoPublicar, setQuandoPublicar] = useState('');
+  const [versaoAgendados, setVersaoAgendados] = useState(0);
 
   const carregar = useCallback(async () => {
     const resultado = await window.dp.adminListarMural();
@@ -29,6 +34,8 @@ export function MuralAdminPage() {
     setTexto('');
     setMidia(null);
     setAtivo(true);
+    setAgendar(false);
+    setQuandoPublicar('');
     setAviso('');
   }
 
@@ -42,6 +49,10 @@ export function MuralAdminPage() {
   }
 
   async function salvar() {
+    if (agendar && !editando) {
+      await agendarRecado();
+      return;
+    }
     setSalvando(true);
     const resultado = await window.dp.adminSalvarMural({
       id: editando,
@@ -58,6 +69,29 @@ export function MuralAdminPage() {
     limpar();
     setAviso(resultado.message);
     await carregar();
+  }
+
+  async function agendarRecado() {
+    const executarEm = paraIso(quandoPublicar);
+    if (!executarEm) {
+      setAviso('Escolha a data e a hora da publicação.');
+      return;
+    }
+    setSalvando(true);
+    const resultado = await window.dp.adminApi('POST', '/api/agendamentos/mural', {
+      titulo,
+      texto,
+      midiaId: midia?.id ?? null,
+      executarEm,
+    });
+    setSalvando(false);
+    if (!resultado.ok) {
+      setAviso(resultado.message);
+      return;
+    }
+    limpar();
+    setVersaoAgendados((v) => v + 1);
+    setAviso(`Recado agendado para ${dataPorExtenso(executarEm)}.`);
   }
 
   function editar(post: MuralPost) {
@@ -131,10 +165,17 @@ export function MuralAdminPage() {
           </div>
         </div>
 
-        <label className="caixa">
-          <input type="checkbox" checked={ativo} onChange={(evento) => setAtivo(evento.target.checked)} />
-          em exibição no aplicativo
-        </label>
+        {!agendar && (
+          <label className="caixa">
+            <input type="checkbox" checked={ativo} onChange={(evento) => setAtivo(evento.target.checked)} />
+            em exibição no aplicativo
+          </label>
+        )}
+
+        {/* Editar um recado já publicado é na hora; agendar vale para recado novo */}
+        {!editando && (
+          <CampoAgendar ativo={agendar} onAtivo={setAgendar} quando={quandoPublicar} onQuando={setQuandoPublicar} />
+        )}
 
         {aviso && <p className="aviso-em-breve">{aviso}</p>}
 
@@ -147,12 +188,15 @@ export function MuralAdminPage() {
           <button
             className="botao botao--primario"
             onClick={() => void salvar()}
-            disabled={salvando || !titulo.trim() || !texto.trim()}
+            disabled={salvando || !titulo.trim() || !texto.trim() || (agendar && !editando && !quandoPublicar)}
           >
-            {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : 'Publicar no mural'}
+            {salvando ? 'Salvando…' : editando ? 'Salvar alterações' : agendar ? 'Agendar publicação' : 'Publicar no mural'}
           </button>
         </div>
       </div>
+
+      <h2 className="mural-admin__titulo">Agendados</h2>
+      <ListaAgendados tipo="MURAL" versao={versaoAgendados} onAviso={setAviso} />
 
       <h2 className="mural-admin__titulo">Recados anteriores</h2>
       <div className="mural-admin__lista">
