@@ -25,8 +25,8 @@ interface Computador {
   lastSeenAt: string;
   appVersion: string;
   currentUserId: string | null;
-  /** Último IP de onde o aparelho se conectou (servidor 1.9.0+) */
-  ip?: string | null;
+  /** Quem está logado no aparelho (servidor 1.16.0+) */
+  currentUserName?: string | null;
 }
 
 type Aba = 'funcionarios' | 'setores' | 'dispositivos';
@@ -296,12 +296,10 @@ export function CadastrosPage() {
           <TabelaAparelhos
             titulo="Computadores"
             aparelhos={computadores.filter((c) => !c.computerId.startsWith('CEL-'))}
-            onCopiado={setAviso}
           />
           <TabelaAparelhos
             titulo="Celulares"
             aparelhos={computadores.filter((c) => c.computerId.startsWith('CEL-'))}
-            onCopiado={setAviso}
           />
         </>
       )}
@@ -310,20 +308,7 @@ export function CadastrosPage() {
 }
 
 /** Uma lista de aparelhos (computadores ou celulares), com o IP e o botão de copiar. */
-function TabelaAparelhos({
-  titulo,
-  aparelhos,
-  onCopiado,
-}: {
-  titulo: string;
-  aparelhos: Computador[];
-  onCopiado(aviso: string): void;
-}) {
-  async function copiar(ip: string) {
-    const resultado = await window.dp.copiarTexto(ip);
-    onCopiado(resultado.ok ? `IP ${ip} copiado.` : resultado.message);
-  }
-
+function TabelaAparelhos({ titulo, aparelhos }: { titulo: string; aparelhos: Computador[] }) {
   const online = aparelhos.filter((a) => a.status === 'ONLINE').length;
   return (
     <section className="aparelhos">
@@ -336,7 +321,7 @@ function TabelaAparelhos({
             <tr>
               <th>Nome</th>
               <th>Identificador</th>
-              <th>IP</th>
+              <th>Quem está usando</th>
               <th>Situação</th>
               <th>Versão</th>
               <th>Visto por último</th>
@@ -355,15 +340,10 @@ function TabelaAparelhos({
                   <td>{aparelho.hostname}</td>
                   <td>{aparelho.computerId}</td>
                   <td>
-                    {aparelho.ip ? (
-                      <span className="aparelhos__ip">
-                        <code>{aparelho.ip}</code>
-                        <button className="link-btn" onClick={() => void copiar(aparelho.ip!)} title="Copiar o IP">
-                          copiar
-                        </button>
-                      </span>
+                    {aparelho.currentUserName ? (
+                      <strong className="aparelhos__pessoa">{aparelho.currentUserName}</strong>
                     ) : (
-                      <span className="aparelhos__sem-ip">—</span>
+                      <span className="aparelhos__ninguem">ninguém logado</span>
                     )}
                   </td>
                   <td>

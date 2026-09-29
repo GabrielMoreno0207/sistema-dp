@@ -13,7 +13,8 @@ function toComputer(row: Row): Computer {
     lastSeenAt: text(row, 'last_seen_at'),
     currentUserId: nullableText(row, 'current_user_id'),
     currentUserSince: nullableText(row, 'current_user_since'),
-    ip: nullableText(row, 'last_ip'),
+    // Só nas consultas que juntam com users (lista e detalhe do aparelho)
+    currentUserName: nullableText(row, 'current_user_name'),
   };
 }
 
@@ -65,16 +66,23 @@ export class PostgresComputerRepository implements ComputerRepository {
   }
 
   async findById(computerId: string): Promise<Computer | null> {
-    const row = await this.db.one('SELECT * FROM computers WHERE computer_id = $1', [computerId]);
+    const row = await this.db.one(
+      `SELECT c.*, u.name AS current_user_name
+         FROM computers c LEFT JOIN users u ON u.id = c.current_user_id
+        WHERE c.computer_id = $1`,
+      [computerId],
+    );
     return row ? toComputer(row) : null;
   }
 
   async findAll(): Promise<Computer[]> {
-    return (await this.db.all('SELECT * FROM computers ORDER BY hostname')).map(toComputer);
-  }
-
-  async setIp(computerId: string, ip: string): Promise<void> {
-    await this.db.run('UPDATE computers SET last_ip = $1 WHERE computer_id = $2', [ip, computerId]);
+    return (
+      await this.db.all(
+        `SELECT c.*, u.name AS current_user_name
+           FROM computers c LEFT JOIN users u ON u.id = c.current_user_id
+          ORDER BY c.hostname`,
+      )
+    ).map(toComputer);
   }
 
   async updateStatus(computerId: string, status: ComputerStatus, now: Date): Promise<void> {

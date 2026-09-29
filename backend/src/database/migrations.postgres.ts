@@ -466,4 +466,12 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       CREATE INDEX idx_agendamentos_fila ON agendamentos (executar_em) WHERE status = 'PENDENTE';
     `,
   },
+  {
+    version: 13,
+    name: 'sem ip do aparelho',
+    sql: `
+      -- A tela de aparelhos mostra quem está logado em cada um; o IP deixou de ser usado
+      ALTER TABLE computers DROP COLUMN IF EXISTS last_ip;
+    `,
+  },
 ];

@@ -254,8 +254,8 @@ interface Computador {
   lastSeenAt: string;
   appVersion: string;
   currentUserId: string | null;
-  /** Último IP de onde o aparelho se conectou */
-  ip?: string | null;
+  /** Quem está logado no aparelho (servidor 1.16.0+) */
+  currentUserName?: string | null;
 }
 
 type Aba = 'funcionarios' | 'setores' | 'aparelhos';
@@ -397,12 +397,10 @@ export function AdminCadastrosScreen() {
             <ListaAparelhos
               titulo="Computadores"
               aparelhos={computadores.filter((c) => !c.computerId.startsWith('CEL-'))}
-              onCopiado={(ip) => setResultado({ ok: true, message: `IP ${ip} copiado.` })}
             />
             <ListaAparelhos
               titulo="Celulares"
               aparelhos={computadores.filter((c) => c.computerId.startsWith('CEL-'))}
-              onCopiado={(ip) => setResultado({ ok: true, message: `IP ${ip} copiado.` })}
             />
           </>
         ) : null}
@@ -412,8 +410,8 @@ export function AdminCadastrosScreen() {
   );
 }
 
-/** Computadores ou celulares, com o IP e o botão de copiar */
-function ListaAparelhos({ titulo, aparelhos, onCopiado }: { titulo: string; aparelhos: Computador[]; onCopiado: (ip: string) => void }) {
+/** Computadores ou celulares, com quem está usando cada um */
+function ListaAparelhos({ titulo, aparelhos }: { titulo: string; aparelhos: Computador[] }) {
   const t = useTheme();
   const online = aparelhos.filter((a) => a.status === 'ONLINE').length;
   return (
@@ -435,21 +433,10 @@ function ListaAparelhos({ titulo, aparelhos, onCopiado }: { titulo: string; apar
             <Text style={[styles.detalhe, { color: t.muted }]}>
               {c.computerId} · versão {c.appVersion} · {c.status === 'ONLINE' ? 'online' : `visto ${formatDate(c.lastSeenAt)}`}
             </Text>
-            <Text style={[styles.detalhe, styles.ip, { color: c.ip ? t.text : t.muted }]} selectable>
-              IP: {c.ip ?? '—'}
+            <Text style={[styles.detalhe, styles.pessoa, { color: c.currentUserName ? t.text : t.muted }]}>
+              {c.currentUserName ? `👤 ${c.currentUserName}` : 'ninguém logado'}
             </Text>
           </View>
-          {c.ip ? (
-            <Button
-              title="Copiar"
-              small
-              variant="secondary"
-              onPress={() => {
-                DpNative.copyText(c.ip!);
-                onCopiado(c.ip!);
-              }}
-            />
-          ) : null}
         </Card>
       ))}
     </>
@@ -981,7 +968,7 @@ const styles = StyleSheet.create({
   play: { fontSize: 36, color: '#fff' },
   acaoPerigo: { fontSize: 13.5, fontWeight: '700' },
   ponto: { width: 10, height: 10, borderRadius: 5 },
-  ip: { fontFamily: 'monospace', marginTop: 2 },
+  pessoa: { fontWeight: '700', marginTop: 2 },
   area: { borderWidth: 1, borderRadius: 12, minHeight: 110, padding: 12, fontSize: 15, textAlignVertical: 'top' },
   campos: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginVertical: 10 },
   campoChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },

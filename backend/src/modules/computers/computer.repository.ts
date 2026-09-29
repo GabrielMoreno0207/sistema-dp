@@ -10,8 +10,6 @@ export interface ComputerRepository {
   findById(computerId: string): Promise<Computer | null>;
   findAll(): Promise<Computer[]>;
   updateStatus(computerId: string, status: ComputerStatus, now: Date): Promise<void>;
-  /** Guarda o último IP de onde o aparelho se conectou */
-  setIp(computerId: string, ip: string): Promise<void>;
   /** Na inicialização do backend nenhum PC está conectado ainda. */
   markAllOffline(): Promise<void>;
   getSecretHash(computerId: string): Promise<string | null>;

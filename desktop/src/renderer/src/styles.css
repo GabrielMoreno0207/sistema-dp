@@ -3428,18 +3428,11 @@ input[type='radio'] {
   font-weight: 400;
 }
 
-.aparelhos__ip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.aparelhos__pessoa {
+  font-weight: 600;
 }
 
-.aparelhos__ip code {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 13px;
-}
-
-.aparelhos__sem-ip {
+.aparelhos__ninguem {
   color: var(--muted);
 }
 

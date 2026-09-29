@@ -149,31 +149,13 @@ describe('registro de computadores', () => {
     assert.equal((await register('PC-AAAA00000001', secret('c'))).statusCode, 403);
   });
 
-  test('IP do aparelho atrás do nginx: lê o encaminhado só quando vem do proxy confiável', async () => {
-    const { ipDoAparelho } = await import('../src/realtime/socket-server');
-    const pelo = (address: string, headers: Record<string, string> = {}) => ({ address, headers });
-    const nginx = '192.168.20.10';
-
-    // Sem TRUST_PROXY: o que chega (era o que acontecia: todo mundo com o IP do nginx)
-    assert.equal(ipDoAparelho(pelo(nginx, { 'x-forwarded-for': '192.168.20.55' }), false), nginx);
-    // Com o nginx configurado: o IP real do aparelho
-    assert.equal(ipDoAparelho(pelo(`::ffff:${nginx}`, { 'x-forwarded-for': '192.168.20.55' }), nginx), '192.168.20.55');
-    assert.equal(ipDoAparelho(pelo(nginx, { 'x-real-ip': '192.168.20.56' }), nginx), '192.168.20.56');
-    // Aparelho que escreve um X-Forwarded-For falso: vale o que o nginx viu (o último)
-    assert.equal(ipDoAparelho(pelo(nginx, { 'x-forwarded-for': '10.9.9.9, 192.168.20.57' }), nginx), '192.168.20.57');
-    // Conexão direta (sem passar pelo nginx) não pode escolher o próprio IP pelo cabeçalho
-    assert.equal(ipDoAparelho(pelo('192.168.20.58', { 'x-forwarded-for': '1.2.3.4' }), nginx), '192.168.20.58');
-    // Sem cabeçalho nenhum, fica o do proxy
-    assert.equal(ipDoAparelho(pelo(nginx), nginx), nginx);
-  });
-
   test('celular (CEL-) se registra como os PCs; outros prefixos são recusados', async () => {
     assert.equal((await register('CEL-AAAA00000001')).statusCode, 200);
     assert.equal((await register('TAB-AAAA00000001')).statusCode, 400);
     assert.equal((await register('cel-aaaa00000001')).statusCode, 400);
   });
 
-  test('ao conectar pelo WebSocket, o aparelho fica online com o IP de onde veio', async () => {
+  test('ao conectar pelo WebSocket, o aparelho fica online', async () => {
     const { io } = await import('socket.io-client');
     const token = (await register('CEL-AAAA00000002')).json().token;
     const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
@@ -190,7 +172,6 @@ describe('registro de computadores', () => {
       const lista = (await app.inject({ method: 'GET', url: '/api/computers', headers: as(adminToken) })).json().computers;
       const celular = lista.find((c: { computerId: string }) => c.computerId === 'CEL-AAAA00000002');
       assert.equal(celular.status, 'ONLINE');
-      assert.equal(celular.ip, '127.0.0.1');
     } finally {
       socket.disconnect();
     }
@@ -329,7 +310,11 @@ describe('funcionários e login no app', () => {
     const session = (await employeeRequest('GET', '/api/session', pcToken)).json();
     assert.equal(session.employee.registration, '2001');
     const computers = (await employeeRequest('GET', '/api/computers', adminToken)).json().computers;
-    assert.equal(computers.find((c: { computerId: string }) => c.computerId === 'PC-CCCC00000001').currentUserId, mariaId);
+    const pc = computers.find((c: { computerId: string }) => c.computerId === 'PC-CCCC00000001');
+    assert.equal(pc.currentUserId, mariaId);
+    // Cadastros -> Aparelhos mostra quem está logado (o IP deixou de existir)
+    assert.equal(pc.currentUserName, 'Maria Souza');
+    assert.equal('ip' in pc, false);
   });
 
   test('o login persiste: PC desligado dias continua logado; só sai após 30 dias sem conectar', async () => {
