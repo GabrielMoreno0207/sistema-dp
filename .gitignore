@@ -10,6 +10,7 @@ build/
 
 # Pacotes de publicação / deploy (gerados a partir do código-fonte)
 publicar/
+entrega-servidor/
 *.rar
 *.zip
 *.tar.gz
