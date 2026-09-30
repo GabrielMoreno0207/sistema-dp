@@ -1,3 +1,4 @@
+import type { ReacaoRepository } from '../reacoes/reacao';
 import type { ConversaRepository } from '../conversas/conversa.repository';
 import type { UserRepository } from '../users/user.repository';
 import type { AdminChatData } from './admin.service';
@@ -10,6 +11,7 @@ export class ConversasDoTi implements AdminChatData {
   constructor(
     private readonly conversas: ConversaRepository,
     private readonly users: UserRepository,
+    private readonly reacoes: ReacaoRepository,
   ) {}
 
   /** Conversas e mensagens de cada login do DP (contas da Central) */
@@ -44,7 +46,9 @@ export class ConversasDoTi implements AdminChatData {
   async deleteConversation(dpUserId: string, employeeId: string): Promise<number> {
     const conversa = await this.conversas.findDireta(dpUserId, employeeId);
     if (!conversa) return 0;
-    return this.conversas.apagarMensagens([conversa.id], null);
+    const removidas = await this.conversas.apagarMensagens([conversa.id], null);
+    await this.reacoes.limparOrfas();
+    return removidas;
   }
 
   /**
@@ -62,8 +66,13 @@ export class ConversasDoTi implements AdminChatData {
       ids.push(conversa.id);
     }
     // "Apagar tudo": as conversas somem da lista de todo mundo (grupos inclusive)
-    if (!antes) return this.conversas.apagarConversas(ids);
+    if (!antes) {
+      const total = await this.conversas.apagarConversas(ids);
+      await this.reacoes.limparOrfas();
+      return total;
+    }
     const removidas = await this.conversas.apagarMensagens(ids, antes.toISOString());
+    await this.reacoes.limparOrfas();
     // Pelo prazo: sai o que é antigo; a conversa direta que ficou vazia também sai da lista
     await this.conversas.apagarDiretasVazias(ids);
     return removidas;

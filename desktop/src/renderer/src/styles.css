@@ -4820,3 +4820,154 @@ svg {
 .agendado__quando {
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- reações */
+.reacoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+/* No balão sem reações, a linha não ocupa espaço: o botão "reagir" flutua no canto */
+.bubble {
+  position: relative;
+}
+
+.bubble .reacoes:not(.reacoes--tem) {
+  position: absolute;
+  top: -10px;
+  right: 8px;
+}
+
+.bubble--mine .reacoes:not(.reacoes--tem) {
+  right: auto;
+  left: 8px;
+}
+
+.bubble .reacoes--tem {
+  margin: 4px 0 2px;
+}
+
+.reacao {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+
+.reacao:disabled {
+  cursor: default;
+}
+
+.reacao:hover:not(:disabled) {
+  border-color: var(--acento);
+}
+
+.reacao--minha {
+  border-color: var(--acento);
+  background: var(--realce);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.reacao__emoji {
+  font-size: 14px;
+}
+
+.reacoes__novo {
+  position: relative;
+  display: inline-flex;
+}
+
+.reacoes__botao {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.reacoes__botao:hover,
+.reacoes__botao[aria-expanded='true'] {
+  border-color: var(--acento);
+  color: var(--link);
+}
+
+/* No balão o botão só aparece com o mouse em cima (ou pelo teclado); no mural fica à vista */
+.bubble .reacoes:not(.reacoes--visivel) .reacoes__botao {
+  opacity: 0;
+}
+
+.bubble:hover .reacoes__botao,
+.bubble .reacoes__botao:focus-visible,
+.bubble .reacoes__botao[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.reacoes__seletor {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px var(--sombra-forte);
+}
+
+.bubble--mine .reacoes__seletor {
+  right: 0;
+  left: auto;
+}
+
+.reacoes__opcao {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.reacoes__opcao:hover,
+.reacoes__opcao:focus-visible {
+  background: var(--surface-alta);
+  transform: scale(1.2);
+}
+
+.reacoes__opcao--minha {
+  background: var(--realce);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reacoes__opcao {
+    transition: none;
+  }
+  .reacoes__opcao:hover,
+  .reacoes__opcao:focus-visible {
+    transform: none;
+  }
+}
+
+.mural__reacoes {
+  margin-top: 10px;
+}

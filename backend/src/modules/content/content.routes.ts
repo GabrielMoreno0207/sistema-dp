@@ -164,8 +164,33 @@ export const contentRoutes: FastifyPluginAsync<{ content: ContentService }> = as
   /** O recado em exibição (aplicativo e Central). */
   app.get('/mural', async (request) => {
     if (!request.principal) throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
-    return { post: await content.muralAtivo() };
+    // Com alguém logado, o recado vem com a reação dessa pessoa marcada
+    const quem = await content.pessoaDe(request.principal);
+    return { post: await content.muralAtivo(quem?.id ?? null) };
   });
+
+  /** Reagir ao recado: { emoji: "👍" } põe ou troca; { emoji: null } tira. */
+  app.put(
+    '/mural/:id/reacao',
+    {
+      schema: {
+        params: muralParams,
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['emoji'],
+          properties: { emoji: { type: ['string', 'null'], maxLength: 16 } },
+        },
+      },
+    },
+    async (request) => {
+      if (!request.principal) throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
+      const quem = await content.pessoaDe(request.principal);
+      if (!quem) throw new AppError('Entre com seu usuário para reagir', 401, 'NO_EMPLOYEE');
+      const { emoji } = request.body as { emoji: string | null };
+      return { reacoes: await content.reagirMural(quem, (request.params as { id: string }).id, emoji) };
+    },
+  );
 
   /** Link temporário para a Central exibir a mídia no navegador. */
   app.post('/midias/:id/link', { ...adminOnly, schema: { params: midiaParams } }, async (request) => {

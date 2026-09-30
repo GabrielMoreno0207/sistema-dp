@@ -49,6 +49,7 @@ const api: DesktopApi = {
   reordenarAtalhos: (ids) => ipcRenderer.invoke(IpcChannels.AtalhoReorder, ids),
   onAtalhosChange: (listener) => subscribe(IpcChannels.AtalhosChanged, listener),
   onMuralChange: (listener) => subscribe(IpcChannels.MuralChanged, listener),
+  muralReagir: (postId, emoji) => ipcRenderer.invoke(IpcChannels.MuralReagir, { postId, emoji }),
   escolherFoto: () => ipcRenderer.invoke(IpcChannels.FotoEscolher),
   fotoAtual: () => ipcRenderer.invoke(IpcChannels.FotoAtual),
   salvarFoto: (jpeg) => ipcRenderer.invoke(IpcChannels.FotoSalvar, jpeg),

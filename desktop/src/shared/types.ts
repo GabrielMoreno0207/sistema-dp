@@ -105,11 +105,22 @@ export interface MidiaPublica {
 }
 
 /** Recado que a Central do DP deixa fixado na tela inicial */
+/** Reações de uma mensagem ou recado: uma linha por emoji usado */
+export interface ReacaoResumo {
+  emoji: string;
+  total: number;
+  /** Quem está usando o aplicativo reagiu com este emoji */
+  minha: boolean;
+  nomes: string[];
+}
+
 export interface MuralPost {
   id: string;
   titulo: string;
   texto: string;
   midia: MidiaPublica | null;
+  /** Servidores antigos não mandam */
+  reacoes?: ReacaoResumo[];
   ativo: boolean;
   criadoPor: string;
   createdAt: string;
@@ -235,6 +246,8 @@ export interface MensagemConversa {
   respondeA: number | null;
   /** Pedaço da mensagem citada, para desenhar o bloco da resposta */
   respondida: CitacaoConversa | null;
+  /** Reações da mensagem (servidores antigos não mandam) */
+  reacoes?: ReacaoResumo[];
   createdAt: string;
   apagadaEm: string | null;
 }
@@ -425,6 +438,8 @@ export interface DesktopApi {
   reordenarAtalhos(ids: string[]): Promise<OperationResult>;
   onAtalhosChange(listener: (atalhos: Atalho[]) => void): () => void;
   onMuralChange(listener: (mural: MuralPost | null) => void): () => void;
+  /** Reage ao recado do mural (emoji null = tira a reação) */
+  muralReagir(postId: string, emoji: string | null): Promise<OperationResult>;
   /** Abre o seletor de arquivo e devolve a imagem para a pessoa enquadrar (não envia ainda) */
   escolherFoto(): Promise<{ ok: boolean; dataUrl: string | null; message: string }>;
   /** A foto atual, para enquadrar de novo sem escolher outra */
@@ -545,6 +560,7 @@ export const IpcChannels = {
   EmployeeChangePassword: 'employee:change-password',
   EmployeeChanged: 'employee:changed',
   MuralChanged: 'mural:changed',
+  MuralReagir: 'mural:reagir',
   AtalhosChanged: 'atalhos:changed',
   AtalhoCreate: 'atalhos:create',
   AtalhoUpdate: 'atalhos:update',

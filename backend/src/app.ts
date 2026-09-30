@@ -148,12 +148,13 @@ export function buildApp({
     autoReplies,
     realtime,
     app.log,
+    repositories.reacoes,
   );
   // Poderes extras da conta do TI (apagar comunicados e conversas, gerenciar os logins do DP)
   const admin = new AdminService(
     repositories.users,
     repositories.messages,
-    new ConversasDoTi(repositories.conversas, repositories.users),
+    new ConversasDoTi(repositories.conversas, repositories.users, repositories.reacoes),
     repositories.tokens,
     attachments,
     app.log,
@@ -173,6 +174,7 @@ export function buildApp({
     new MidiaStorage(midiasPath),
     realtime,
     app.log,
+    repositories.reacoes,
   );
 
   const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);

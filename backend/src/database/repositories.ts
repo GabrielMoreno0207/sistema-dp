@@ -24,6 +24,7 @@ import { PostgresEventoRepository } from '../modules/agenda/evento.postgres-repo
 import type { EventoRepository } from '../modules/agenda/evento.repository';
 import { PostgresConversaRepository } from '../modules/conversas/conversa.postgres-repository';
 import type { ConversaRepository } from '../modules/conversas/conversa.repository';
+import { PostgresReacaoRepository, type ReacaoRepository } from '../modules/reacoes/reacao';
 import {
   PostgresAgendamentoRepository,
   type AgendamentoRepository,
@@ -53,6 +54,8 @@ export interface Repositories {
   eventos: EventoRepository;
   /** Comunicados e recados do mural agendados */
   agendamentos: AgendamentoRepository;
+  /** Reações nas mensagens e nos recados do mural */
+  reacoes: ReacaoRepository;
 }
 
 /** Implementações PostgreSQL: é o único banco do sistema. */
@@ -72,5 +75,6 @@ export function createPostgresRepositories(db: PostgresDatabase): Repositories {
     conversas: new PostgresConversaRepository(db),
     eventos: new PostgresEventoRepository(db),
     agendamentos: new PostgresAgendamentoRepository(db),
+    reacoes: new PostgresReacaoRepository(db),
   };
 }

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
 import { Icone } from '../lib/icones';
 import { PlayerDeAudio } from './audio';
+import { BarraDeReacoes } from './Reacoes';
 
 /** "Ana Paula" → "AP"; "Livia (DP)" → "L" */
 export function iniciais(nome: string): string {
@@ -318,6 +319,8 @@ interface MensagemProps {
   lida?: boolean;
   /** Realce de quem veio da busca */
   destacada?: boolean;
+  /** Ausente na área do TI: reagir à mensagem (null = tirar a reação) */
+  onReagir?: (emoji: string | null) => void;
   onErro(mensagem: string): void;
   /** Recado de sucesso (ex.: "Imagem copiada") */
   onAviso?(mensagem: string): void;
@@ -378,7 +381,7 @@ function VisualizadorImagem(props: {
  * baixa e abre no programa padrão do Windows.
  */
 export function MensagemDaConversa(props: MensagemProps) {
-  const { mensagem, minha, emGrupo, onApagar, onEncaminhar, onResponder, onIrAte, lida, destacada, onErro, onAviso } = props;
+  const { mensagem, minha, emGrupo, onApagar, onEncaminhar, onResponder, onIrAte, onReagir, lida, destacada, onErro, onAviso } = props;
   const [abrindo, setAbrindo] = useState(false);
   const [imagemAberta, setImagemAberta] = useState(false);
 
@@ -500,6 +503,8 @@ export function MensagemDaConversa(props: MensagemProps) {
           )}
         </>
       )}
+
+      {!mensagem.apagadaEm && <BarraDeReacoes reacoes={mensagem.reacoes} onReagir={onReagir} />}
 
       <span className="bubble__meta">
         {horaDoDia(mensagem.createdAt)}

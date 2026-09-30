@@ -1150,6 +1150,7 @@ function start(): void {
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/lidas$') },
     { metodo: 'GET', padrao: new RegExp('^/api/conversas/' + CNV + '/buscar[?]termo=.{1,200}$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/mensagens/\\d{1,12}$') },
+    { metodo: 'PUT', padrao: new RegExp('^/api/conversas/mensagens/\\d{1,12}/reacao$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/membros$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/conversas/' + CNV + '/membros/[\\w-]{1,64}$') },
     { metodo: 'POST', padrao: new RegExp('^/api/conversas/' + CNV + '/sair$') },
@@ -1436,6 +1437,18 @@ function start(): void {
       return { ok: false, message: mensagem };
     }
   }
+
+  /** Reação ao recado do mural, em nome do funcionário logado neste PC */
+  handle(IpcChannels.MuralReagir, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { postId?: unknown; emoji?: unknown } | null;
+    const postId = typeof entrada?.postId === 'string' && /^MUR-[0-9a-f]{24}$/.test(entrada.postId) ? entrada.postId : null;
+    const emoji = typeof entrada?.emoji === 'string' && entrada.emoji.length <= 16 ? entrada.emoji : null;
+    if (!postId) return { ok: false, message: 'Recado inválido.' };
+    const resposta = await comApi((client) => client.chamar('PUT', `/api/mural/${postId}/reacao`, { emoji }));
+    if (!('dados' in resposta)) return resposta;
+    await syncMural(); // o recado volta com as reações atualizadas
+    return { ok: true, message: '' };
+  });
 
   handle(IpcChannels.AtalhoCreate, async (bruto): Promise<OperationResult> => {
     const dados = lerDadosAtalho(bruto);

@@ -3,6 +3,7 @@ import { AppError, NotFoundError } from '../../errors/app-error';
 import type { AutoReplyService } from '../auto-replies/auto-reply.service';
 import { renderAutoReply } from '../auto-replies/auto-reply.types';
 import type { MidiaRepository } from '../content/content.repository';
+import { emojiValido, type ReacaoRepository, type ReacaoResumo } from '../reacoes/reacao';
 import { acessoDoSetor } from '../auth/acesso-por-setor';
 import type { UserRepository } from '../users/user.repository';
 import type { User } from '../users/user.types';
@@ -42,6 +43,8 @@ export interface Citacao {
 export interface MensagemComMidia extends MensagemConversa {
   midia: MidiaPublica | null;
   respondida: Citacao | null;
+  /** Reações da mensagem, uma linha por emoji (vazio = ninguém reagiu) */
+  reacoes: ReacaoResumo[];
 }
 
 export interface ConversaNotifier {
@@ -59,6 +62,7 @@ export class ConversaService {
     private readonly autoReplies: AutoReplyService,
     private readonly realtime: ConversaNotifier,
     private readonly log: FastifyBaseLogger,
+    private readonly reacoes: ReacaoRepository,
   ) {}
 
   // ---------------------------------------------------------------- DP/TI só entre si
@@ -351,7 +355,7 @@ export class ConversaService {
   async mensagens(quem: Pessoa, conversaId: string, antesDoId?: number): Promise<MensagemComMidia[]> {
     await this.exigirMembro(conversaId, quem);
     const mensagens = await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId);
-    return this.comMidias(mensagens);
+    return this.comMidias(mensagens, quem.id);
   }
 
   /**
@@ -359,7 +363,7 @@ export class ConversaService {
    * tipo para decidir entre mostrar a imagem, tocar o vídeo ou oferecer o
    * download.
    */
-  private async comMidias(mensagens: MensagemConversa[]): Promise<MensagemComMidia[]> {
+  private async comMidias(mensagens: MensagemConversa[], meuId: string | null): Promise<MensagemComMidia[]> {
     const idsDeMidia = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
     const idsCitados = [...new Set(mensagens.map((m) => m.respondeA).filter((id): id is number => id !== null))];
 
@@ -371,11 +375,17 @@ export class ConversaService {
     const porId = new Map<string, MidiaPublica>();
     for (const midia of encontradas) if (midia) porId.set(midia.id, midiaPublica(midia));
     const tiposCitados = await this.tiposDasMidias([...citadas.values()]);
+    const reacoes = await this.reacoes.resumos(
+      'MENSAGEM',
+      mensagens.map((m) => String(m.id)),
+      meuId,
+    );
 
     return mensagens.map((m) => {
       const citada = m.respondeA === null ? null : citadas.get(m.respondeA);
       return {
         ...m,
+        reacoes: m.apagadaEm ? [] : (reacoes.get(String(m.id)) ?? []),
         midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null,
         respondida: citada
           ? {
@@ -399,7 +409,7 @@ export class ConversaService {
     await this.exigirMembro(conversaId, quem);
     const procurado = termo.trim();
     if (procurado.length < 2) throw new AppError('Escreva pelo menos 2 letras para procurar.', 400, 'TERMO_CURTO');
-    return this.comMidias(await this.conversas.buscarMensagens(conversaId, procurado, LIMITES_CONVERSA.buscaMaxima));
+    return this.comMidias(await this.conversas.buscarMensagens(conversaId, procurado, LIMITES_CONVERSA.buscaMaxima), quem.id);
   }
 
   async enviar(
@@ -470,7 +480,28 @@ export class ConversaService {
     await this.respostaAutomatica(conversa, quem).catch((err) =>
       this.log.error({ err }, 'Falha na resposta automática do DP'),
     );
-    return { ...mensagem, midia, respondida: citacao };
+    return { ...mensagem, midia, respondida: citacao, reacoes: [] };
+  }
+
+  /**
+   * Reage a uma mensagem (emoji null = tira a reação). Só quem participa da
+   * conversa; cada pessoa tem uma reação por mensagem. Devolve como ficou.
+   */
+  async reagir(quem: Pessoa, mensagemId: number, emoji: string | null): Promise<ReacaoResumo[]> {
+    const mensagem = await this.conversas.findMensagem(mensagemId);
+    if (!mensagem || mensagem.apagadaEm) throw new NotFoundError('Mensagem não encontrada');
+    await this.exigirMembro(mensagem.conversaId, quem);
+    if (mensagem.tipo === 'SISTEMA') throw new AppError('Não dá para reagir a esse aviso.', 400, 'REACAO_INVALIDA');
+
+    const alvo = String(mensagemId);
+    if (emoji === null) await this.reacoes.remover('MENSAGEM', alvo, quem.id);
+    else {
+      if (!emojiValido(emoji)) throw new AppError('Reação não disponível.', 400, 'REACAO_INVALIDA');
+      await this.reacoes.definir('MENSAGEM', alvo, quem.id, quem.nome, emoji, new Date().toISOString());
+    }
+    // Os outros participantes veem na hora (sem alerta: não é mensagem nova)
+    await this.avisarParticipantes(mensagem.conversaId);
+    return (await this.reacoes.resumos('MENSAGEM', [alvo], quem.id)).get(alvo) ?? [];
   }
 
   /**
@@ -533,6 +564,7 @@ export class ConversaService {
       throw new AppError('Você só apaga as suas mensagens.', 403, 'FORBIDDEN');
     }
     await this.conversas.apagarMensagem(mensagemId, new Date().toISOString());
+    await this.reacoes.apagarDoAlvo('MENSAGEM', String(mensagemId));
     await this.avisarParticipantes(mensagem.conversaId);
   }
 
@@ -652,7 +684,7 @@ export class ConversaService {
 
     await this.conversas.registrarAcessoTi(conversaId, quem.id, quem.nome, new Date().toISOString());
     this.log.warn(`Auditoria: ${quem.nome} (TI) abriu a conversa ${conversaId}`);
-    return this.comMidias(await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId));
+    return this.comMidias(await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId), null);
   }
 
   async acessosDoTi(quem: Pessoa): Promise<{ conversaId: string; usuarioNome: string; createdAt: string }[]> {

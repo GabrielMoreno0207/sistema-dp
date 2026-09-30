@@ -75,11 +75,22 @@ export interface MidiaPublica {
 }
 
 /** Recado que o DP deixa fixado na tela inicial */
+/** Reações de uma mensagem ou recado: uma linha por emoji usado */
+export interface ReacaoResumo {
+  emoji: string;
+  total: number;
+  /** Quem está usando o app reagiu com este emoji */
+  minha: boolean;
+  nomes: string[];
+}
+
 export interface MuralPost {
   id: string;
   titulo: string;
   texto: string;
   midia: MidiaPublica | null;
+  /** Servidores antigos não mandam */
+  reacoes?: ReacaoResumo[];
   ativo: boolean;
   criadoPor: string;
   createdAt: string;
@@ -197,6 +208,8 @@ export interface MensagemConversa {
   encaminhada: boolean;
   respondeA: number | null;
   respondida: CitacaoConversa | null;
+  /** Reações da mensagem (servidores antigos não mandam) */
+  reacoes?: ReacaoResumo[];
   createdAt: string;
   apagadaEm: string | null;
 }

@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import type { MuralPost } from '../../../shared/types';
+import { BarraDeReacoes } from './Reacoes';
 
 interface MuralProps {
   post: MuralPost | null;
+  /** Só quem está logado reage (sem isso as reações aparecem, mas sem o botão) */
+  podeReagir?: boolean;
 }
 
 function dataHora(iso: string): string {
@@ -15,7 +19,15 @@ function dataHora(iso: string): string {
  * Mural: o recado que a Central do DP deixa fixado, com imagem ou vídeo.
  * A mídia vem pelo protocolo dpmidia://, que busca no servidor com o token do PC.
  */
-export function Mural({ post }: MuralProps) {
+export function Mural({ post, podeReagir }: MuralProps) {
+  const [erro, setErro] = useState('');
+
+  async function reagir(emoji: string | null) {
+    if (!post) return;
+    const resultado = await window.dp.muralReagir(post.id, emoji);
+    setErro(resultado.ok ? '' : resultado.message);
+  }
+
   return (
     <section className="mural">
       <h2 className="mural__titulo-secao">Mural</h2>
@@ -44,6 +56,10 @@ export function Mural({ post }: MuralProps) {
               <span>·</span>
               <span>{post.criadoPor}</span>
             </footer>
+            <div className="mural__reacoes">
+              <BarraDeReacoes reacoes={post.reacoes} onReagir={podeReagir ? (emoji) => void reagir(emoji) : undefined} sempreVisivel />
+            </div>
+            {erro && <p className="feedback feedback--error">{erro}</p>}
           </div>
         </article>
       )}

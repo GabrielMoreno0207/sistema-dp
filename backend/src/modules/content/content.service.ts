@@ -4,6 +4,7 @@ import type { Readable } from 'node:stream';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import type { EmployeeService } from '../employees/employee.service';
 import type { MuralNotifier } from '../../realtime/socket-server';
+import { emojiValido, type ReacaoRepository, type ReacaoResumo } from '../reacoes/reacao';
 import type { UserRepository } from '../users/user.repository';
 import type { AtalhoRepository, MidiaRepository, MuralRepository } from './content.repository';
 import { ERRO_TAMANHO, type MidiaStorage } from './content.storage';
@@ -82,6 +83,7 @@ export class ContentService {
     private readonly storage: MidiaStorage,
     private readonly realtime: MuralNotifier,
     private readonly log: FastifyBaseLogger,
+    private readonly reacoes: ReacaoRepository,
   ) {}
 
   // ---------------------------------------------------------------- mídias
@@ -177,21 +179,45 @@ export class ContentService {
   // ---------------------------------------------------------------- mural
 
   /** O recado em exibição na tela inicial (com a mídia já resolvida). */
-  async muralAtivo(): Promise<MuralPostCompleto | null> {
+  async muralAtivo(meuId: string | null = null): Promise<MuralPostCompleto | null> {
     const post = await this.mural.findAtivo();
-    return post ? this.completar(post) : null;
+    return post ? this.completar(post, meuId) : null;
   }
 
-  async listarMural(limite = 30): Promise<MuralPostCompleto[]> {
+  async listarMural(limite = 30, meuId: string | null = null): Promise<MuralPostCompleto[]> {
     const posts = await this.mural.listAll(limite);
-    return Promise.all(posts.map((post) => this.completar(post)));
+    return Promise.all(posts.map((post) => this.completar(post, meuId)));
   }
 
-  private async completar(post: MuralPost): Promise<MuralPostCompleto> {
+  /** meuId: quem está olhando (marca a reação dele); null = só as contagens */
+  private async completar(post: MuralPost, meuId: string | null = null): Promise<MuralPostCompleto> {
     const { midiaId, ...resto } = post;
-    if (!midiaId) return { ...resto, midia: null };
+    const reacoes = (await this.reacoes.resumos('MURAL', [post.id], meuId)).get(post.id) ?? [];
+    if (!midiaId) return { ...resto, midia: null, reacoes };
     const midia = await this.midias.findById(midiaId);
-    return { ...resto, midia: midia ? midiaPublica(midia) : null };
+    return { ...resto, midia: midia ? midiaPublica(midia) : null, reacoes };
+  }
+
+  /**
+   * Quem está usando o aplicativo: o funcionário logado no aparelho ou a conta
+   * do DP/TI. null = aparelho sem ninguém logado (vê o mural, mas não reage).
+   */
+  async pessoaDe(principal: { type: 'COMPUTER'; computerId: string } | { type: 'ADMIN'; userId: string; name: string }): Promise<{ id: string; nome: string } | null> {
+    if (principal.type === 'ADMIN') return { id: principal.userId, nome: principal.name };
+    const employee = await this.employees.getSessionEmployee(principal.computerId);
+    return employee ? { id: employee.id, nome: employee.name } : null;
+  }
+
+  /** Reage a um recado do mural (emoji null = tira). Todo mundo vê na hora. */
+  async reagirMural(quem: { id: string; nome: string }, postId: string, emoji: string | null): Promise<ReacaoResumo[]> {
+    if (!(await this.mural.findById(postId))) throw new NotFoundError('Recado do mural não encontrado');
+    if (emoji === null) await this.reacoes.remover('MURAL', postId, quem.id);
+    else {
+      if (!emojiValido(emoji)) throw new AppError('Reação não disponível.', 400, 'REACAO_INVALIDA');
+      await this.reacoes.definir('MURAL', postId, quem.id, quem.nome, emoji, new Date().toISOString());
+    }
+    this.realtime.muralAtualizado();
+    return (await this.reacoes.resumos('MURAL', [postId], quem.id)).get(postId) ?? [];
   }
 
   /** Confere um recado sem publicar (agendamento): texto dentro do limite e mídia existente. */
@@ -239,6 +265,7 @@ export class ContentService {
   async removerMural(id: string): Promise<void> {
     const removido = await this.mural.delete(id);
     if (!removido) throw new NotFoundError('Recado do mural não encontrado');
+    await this.reacoes.apagarDoAlvo('MURAL', id);
     this.realtime.muralAtualizado();
   }
 

@@ -202,6 +202,27 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
     return reply.code(204).send();
   });
 
+  /** Reagir a uma mensagem: { emoji: "👍" } põe ou troca; { emoji: null } tira. */
+  app.put(
+    '/conversas/mensagens/:mensagemId/reacao',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['emoji'],
+          properties: { emoji: { type: ['string', 'null'], maxLength: 16 } },
+        },
+      },
+    },
+    async (request) => {
+      const numero = Number((request.params as { mensagemId: string }).mensagemId);
+      if (!Number.isInteger(numero) || numero < 1) throw new AppError('Mensagem inválida.', 400, 'MENSAGEM_INVALIDA');
+      const { emoji } = request.body as { emoji: string | null };
+      return { reacoes: await conversas.reagir(await quemEstaAgindo(request), numero, emoji) };
+    },
+  );
+
   app.delete('/conversas/mensagens/:mensagemId', async (request, reply) => {
     const { mensagemId } = request.params as { mensagemId: string };
     const numero = Number(mensagemId);

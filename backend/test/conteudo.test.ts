@@ -84,6 +84,7 @@ before(async () => {
     new MidiaStorage(join(BASE, 'midias')),
     { muralAtualizado: () => (avisosDeMural += 1) },
     app.log,
+    banco.repositories.reacoes,
   );
 
   const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'admin', password: SENHA } });
@@ -299,6 +300,38 @@ describe('mural', () => {
       payload: { titulo: 'Teste', texto: 'Teste', ativo: true },
     });
     assert.equal(tentativa.statusCode, 403);
+  });
+
+  test('dá para reagir ao recado: uma reação por pessoa, que troca e sai', async () => {
+    const recado = (await app.inject({ method: 'GET', url: '/api/mural', headers: comToken(tokenPc) })).json().post;
+    assert.deepEqual(recado.reacoes, []);
+    const reagir = (token: string, emoji: string | null) =>
+      app.inject({ method: 'PUT', url: `/api/mural/${recado.id}/reacao`, headers: comToken(token), payload: { emoji } });
+
+    // Funcionário e DP reagem; o funcionário troca de ideia (continua sendo uma reação só)
+    assert.equal((await reagir(tokenPc, '👍')).statusCode, 200);
+    assert.equal((await reagir(tokenDp, '❤️')).statusCode, 200);
+    const trocada = await reagir(tokenPc, '❤️');
+    assert.deepEqual(
+      trocada.json().reacoes.map((r: { emoji: string; total: number; minha: boolean }) => [r.emoji, r.total, r.minha]),
+      [['❤️', 2, true]],
+    );
+
+    // Cada um vê a própria marcada, com os nomes de quem reagiu
+    const vistoPeloPc = (await app.inject({ method: 'GET', url: '/api/mural', headers: comToken(tokenPc) })).json().post.reacoes[0];
+    assert.equal(vistoPeloPc.minha, true);
+    assert.ok(vistoPeloPc.nomes.includes('João da Silva'));
+
+    // Tirar a reação; emoji fora da lista e recado inexistente são recusados
+    assert.deepEqual((await reagir(tokenPc, null)).json().reacoes.map((r: { total: number; minha: boolean }) => [r.total, r.minha]), [[1, false]]);
+    assert.equal((await reagir(tokenPc, '🍕')).statusCode, 400);
+    const inexistente = await app.inject({
+      method: 'PUT',
+      url: '/api/mural/MUR-000000000000000000000000/reacao',
+      headers: comToken(tokenPc),
+      payload: { emoji: '👍' },
+    });
+    assert.equal(inexistente.statusCode, 404);
   });
 
   test('recado desativado sai da tela', async () => {

@@ -600,6 +600,50 @@ describe('marca de lida', () => {
   });
 });
 
+describe('reações', () => {
+  test('participantes reagem à mensagem: uma por pessoa, que troca, sai e some com a mensagem', async () => {
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'Fechou a escala de outubro!' },
+    });
+    const id = enviada.json().mensagem.id;
+    assert.deepEqual(enviada.json().mensagem.reacoes, []);
+    const reagir = (token: string, emoji: string | null) =>
+      app.inject({ method: 'PUT', url: `/api/conversas/mensagens/${id}/reacao`, headers: comToken(token), payload: { emoji } });
+    const doJoao = async () =>
+      (await app.inject({ method: 'GET', url: `/api/conversas/${conversaMariaJoao}/mensagens`, headers: comToken(pcJoao) }))
+        .json()
+        .mensagens.find((m: { id: number }) => m.id === id);
+
+    assert.equal((await reagir(pcJoao, '👍')).statusCode, 200);
+    assert.equal((await reagir(pcMaria, '👍')).statusCode, 200);
+    let vista = await doJoao();
+    assert.deepEqual(vista.reacoes.map((r: { emoji: string; total: number; minha: boolean }) => [r.emoji, r.total, r.minha]), [['👍', 2, true]]);
+    assert.deepEqual([...vista.reacoes[0].nomes].sort(), ['João Lima', 'Maria Souza'].sort());
+
+    // João troca para 😂: continua com uma reação só
+    await reagir(pcJoao, '😂');
+    vista = await doJoao();
+    assert.deepEqual(vista.reacoes.map((r: { emoji: string; total: number; minha: boolean }) => [r.emoji, r.total, r.minha]).sort(), [['👍', 1, false], ['😂', 1, true]].sort());
+
+    // Tira a reação; emoji fora da lista é recusado
+    await reagir(pcJoao, null);
+    assert.equal((await doJoao()).reacoes.length, 1);
+    assert.equal((await reagir(pcJoao, '🍕')).statusCode, 400);
+
+    // Quem não participa da conversa não reage
+    const pcDeFora = await registrarPc('PC-DDDD77778888', 'd'.repeat(40));
+    assert.ok([401, 404].includes((await reagir(pcDeFora, '👍')).statusCode));
+
+    // Mensagem apagada perde as reações
+    await app.inject({ method: 'DELETE', url: `/api/conversas/mensagens/${id}`, headers: comToken(pcMaria) });
+    assert.deepEqual((await doJoao()).reacoes, []);
+    assert.equal((await reagir(pcJoao, '👍')).statusCode, 404);
+  });
+});
+
 describe('apagar mensagem', () => {
   test('cada um apaga só as próprias mensagens', async () => {
     const enviada = await app.inject({

@@ -12,6 +12,7 @@ import { Avatar, Banner, Button, Card, Header, MidiaImage, Page, Select, Section
 import { outraPessoa, previaDaConversa } from '../conversa-comuns';
 import { CORES_ATALHO, emojiDoIcone, ICONES_DE_ATALHO, nomeDoIcone } from '../icones';
 import { useNav, type Nav } from '../nav';
+import { ReacoesDoMural } from '../reacoes';
 import { formatDate, formatListDate, useLayout, useTheme } from '../theme';
 import { useDeviceChecks } from './DeviceSetupScreen';
 
@@ -161,7 +162,17 @@ export function HomeScreen() {
 export function MuralCard({ post, completo }: { post: MuralPost | null; completo?: boolean }) {
   const t = useTheme();
   const nav = useNav();
+  const { employee } = useApp();
   const [erro, setErro] = useState('');
+
+  /** Reage ao recado (null = tira); o mural volta do servidor com as contagens */
+  async function reagir(emoji: string | null) {
+    if (!post) return;
+    const r = await chamar('PUT', `/api/mural/${post.id}/reacao`, { emoji });
+    setErro(r.ok ? '' : r.message);
+    if (r.ok) await syncMural();
+  }
+
   if (!post) {
     return (
       <Card>
@@ -196,6 +207,7 @@ export function MuralCard({ post, completo }: { post: MuralPost | null; completo
         <Text style={[styles.hora, { color: t.muted }]}>
           {formatDate(post.updatedAt || post.createdAt)} · {post.criadoPor}
         </Text>
+        <ReacoesDoMural reacoes={post.reacoes} onReagir={employee ? (emoji) => void reagir(emoji) : undefined} />
         {erro ? <Text style={{ color: t.dangerText }}>{erro}</Text> : null}
       </View>
     </Card>

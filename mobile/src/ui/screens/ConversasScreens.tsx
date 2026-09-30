@@ -28,7 +28,15 @@ import {
 import { comecarGravacao, descartarGravacao, pararAudio, tempoLegivel, terminarGravacao } from '../../core/audio';
 import { chamar, conversaEmFoco, syncConversas } from '../../core/connection';
 import { useApp } from '../../core/store';
-import { LIMITES, type ConversaResumo, type MensagemConversa, type MidiaPublica, type Participante } from '../../core/types';
+import {
+  LIMITES,
+  type ConversaResumo,
+  type MensagemConversa,
+  type MidiaPublica,
+  type Participante,
+  type ReacaoResumo,
+} from '../../core/types';
+import { SeletorDeReacao } from '../reacoes';
 import {
   Avatar,
   Banner,
@@ -589,6 +597,17 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
     [],
   );
 
+  /** Reage à mensagem (null = tira). A tela já mostra; os outros recebem o aviso do servidor. */
+  async function reagir(mensagemId: number, emoji: string | null) {
+    const r = await chamar<{ reacoes: ReacaoResumo[] }>('PUT', `/api/conversas/mensagens/${mensagemId}/reacao`, { emoji });
+    if (!r.ok) {
+      setErro(r.message);
+      return;
+    }
+    const reacoes = r.dados?.reacoes ?? [];
+    setMensagens((atuais) => atuais.map((m) => (m.id === mensagemId ? { ...m, reacoes } : m)));
+  }
+
   async function apagar(mensagem: MensagemConversa) {
     const r = await chamar('DELETE', `/api/conversas/mensagens/${mensagem.id}`);
     setApagando(null);
@@ -701,6 +720,7 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
                   destacada={destacada === item.mensagem.id}
                   onAcoes={() => setAcoesDe(item.mensagem)}
                   onIrAte={(id) => void irAte(id)}
+                  onReagir={(emoji) => void reagir(item.mensagem.id, emoji)}
                   onErro={setErro}
                 />
               )
@@ -827,6 +847,14 @@ export function ConversaScreen({ conversaId }: { conversaId: string }) {
       <Sheet visible={acoesDe !== null} onClose={() => setAcoesDe(null)}>
         {acoesDe ? (
           <>
+            <SeletorDeReacao
+              minha={acoesDe.reacoes?.find((r) => r.minha)?.emoji ?? null}
+              onEscolher={(emoji) => {
+                const id = acoesDe.id;
+                setAcoesDe(null);
+                void reagir(id, emoji);
+              }}
+            />
             <SheetItem
               icon="↩️"
               label="Responder"

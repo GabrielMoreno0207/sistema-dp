@@ -81,7 +81,7 @@ export function InicioPage({
         </p>
       )}
 
-      <Mural post={mural} />
+      <Mural post={mural} podeReagir={Boolean(employee)} />
 
       <Calendario
         meuId={admin?.id ?? employee?.id ?? null}

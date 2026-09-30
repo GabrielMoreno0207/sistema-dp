@@ -474,4 +474,22 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       ALTER TABLE computers DROP COLUMN IF EXISTS last_ip;
     `,
   },
+  {
+    version: 14,
+    name: 'reações',
+    sql: `
+      -- Reações (👍 ❤️ ...) em mensagens das conversas e recados do mural: uma por pessoa por alvo
+      CREATE TABLE reacoes (
+        alvo_tipo  TEXT NOT NULL CHECK (alvo_tipo IN ('MENSAGEM', 'MURAL')),
+        -- id da mensagem (número, como texto) ou do recado (MUR-...)
+        alvo_id    TEXT NOT NULL,
+        user_id    TEXT NOT NULL,
+        -- nome guardado junto: a lista de quem reagiu não depende de outra consulta
+        user_nome  TEXT NOT NULL,
+        emoji      TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (alvo_tipo, alvo_id, user_id)
+      );
+    `,
+  },
 ];

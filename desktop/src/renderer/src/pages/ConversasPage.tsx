@@ -16,6 +16,7 @@ import type {
   MensagemConversa,
   MidiaPublica,
   Participante,
+  ReacaoResumo,
 } from '../../../shared/types';
 import { NovoGrupo } from '../components/NovoGrupo';
 import { PainelGrupo } from '../components/PainelGrupo';
@@ -439,6 +440,21 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
     return [...evento.dataTransfer.types].includes('Files');
   }
 
+  /** Reage à mensagem (null = tira). A tela já mostra o resultado; os outros recebem o aviso do servidor. */
+  async function reagir(mensagemId: number, emoji: string | null) {
+    const resposta = await window.dp.conversasApi<{ reacoes: ReacaoResumo[] }>(
+      'PUT',
+      `/api/conversas/mensagens/${mensagemId}/reacao`,
+      { emoji },
+    );
+    if (!resposta.ok) {
+      setErro(resposta.message);
+      return;
+    }
+    const reacoes = resposta.dados?.reacoes ?? [];
+    setMensagens((atual) => atual.map((m) => (m.id === mensagemId ? { ...m, reacoes } : m)));
+  }
+
   async function apagar(mensagemId: number) {
     const resposta = await window.dp.conversasApi('DELETE', `/api/conversas/mensagens/${mensagemId}`);
     if (!resposta.ok) {
@@ -744,6 +760,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       onEncaminhar={() => setEncaminhando(mensagem)}
                       onResponder={() => responder(mensagem)}
                       onIrAte={(id) => void irAte(id)}
+                      onReagir={(emoji) => void reagir(mensagem.id, emoji)}
                       onErro={setErro}
                       onAviso={setAviso}
                     />

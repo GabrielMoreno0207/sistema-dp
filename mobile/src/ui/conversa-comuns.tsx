@@ -4,6 +4,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'r
 import { abrirMidia, tamanhoLegivel } from '../core/arquivos';
 import type { ConversaResumo, MensagemConversa, Participante } from '../core/types';
 import { PlayerDeAudio } from './audio';
+import { Reacoes } from './reacoes';
 import { MidiaImage } from './components';
 import { useNav } from './nav';
 import { formatDayLabel, formatTime, useTheme } from './theme';
@@ -108,6 +109,7 @@ export function Balao({
   destacada,
   onAcoes,
   onIrAte,
+  onReagir,
   onErro,
 }: {
   mensagem: MensagemConversa;
@@ -118,6 +120,8 @@ export function Balao({
   /** Toque longo: responder, encaminhar, apagar */
   onAcoes?: () => void;
   onIrAte?: (id: number) => void;
+  /** Toque na bolinha da reação: põe a mesma ou tira a minha (null) */
+  onReagir?: (emoji: string | null) => void;
   onErro: (mensagem: string) => void;
 }) {
   const t = useTheme();
@@ -205,6 +209,7 @@ export function Balao({
               </Pressable>
             ) : null}
             {mensagem.conteudo ? <TextoDaMensagem texto={mensagem.conteudo} cor={minha ? t.onBubbleMine : t.text} corLink={t.link} /> : null}
+            <Reacoes reacoes={mensagem.reacoes} onReagir={onReagir} onLongPress={onAcoes} />
           </>
         )}
 

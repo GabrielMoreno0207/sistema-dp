@@ -5,6 +5,7 @@
  * com os anexos dos comunicados; o banco guarda só os dados do arquivo.
  */
 import { randomBytes } from 'node:crypto';
+import type { ReacaoResumo } from '../reacoes/reacao';
 
 export type MidiaTipo = 'IMAGEM' | 'VIDEO' | 'ARQUIVO' | 'AUDIO';
 
@@ -48,6 +49,8 @@ export interface MuralPost {
 
 export interface MuralPostCompleto extends Omit<MuralPost, 'midiaId'> {
   midia: MidiaPublica | null;
+  /** Reações ao recado, uma linha por emoji (vazio = ninguém reagiu) */
+  reacoes: ReacaoResumo[];
 }
 
 /** Para onde um atalho leva. Só telas do próprio aplicativo. */
