@@ -111,7 +111,7 @@ export function PainelGrupo({ conversa, contatos, euId, onMudou, onSaiu, onErro,
                 {pessoa.nome}
                 {pessoa.id === euId && ' (você)'}
               </strong>
-              <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>
+              <small>{pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor')}</small>
             </span>
             {souAdmin && pessoa.id !== euId && (
               <button className="btn btn--sm" onClick={() => void remover(pessoa.id)} disabled={ocupado}>
@@ -130,7 +130,7 @@ export function PainelGrupo({ conversa, contatos, euId, onMudou, onSaiu, onErro,
               <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} classe="escolha-pessoa__avatar" />
               <span className="escolha-pessoa__texto">
                 <strong>{pessoa.nome}</strong>
-                <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>
+                <small>{pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor')}</small>
               </span>
               <button
                 className="btn btn--primary btn--sm"

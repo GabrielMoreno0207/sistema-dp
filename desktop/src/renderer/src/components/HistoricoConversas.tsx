@@ -30,7 +30,7 @@ export function HistoricoConversas({ conversas, meuId, disponivel, onAbrir, onEn
 
       {!disponivel ? (
         <div className="cartao historico__vazio">
-          <span>Entre com o seu usuário — ou com a conta do DP, no canto superior direito — para ver as suas conversas.</span>
+          <span>Entre com o seu usuário — ou com a conta do RH, no canto superior direito — para ver as suas conversas.</span>
           <button className="botao botao--primario" onClick={onEntrar}>
             Entrar
           </button>

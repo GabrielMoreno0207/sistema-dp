@@ -361,7 +361,7 @@ export function AdminCadastrosScreen() {
               <Field label="Novo setor" value={novoSetor} onChangeText={setNovoSetor} maxLength={60} />
               <Button title="Criar setor" small onPress={() => void criarSetor()} disabled={!novoSetor.trim()} />
               <Text style={[styles.detalhe, styles.espaco, { color: t.muted }]}>
-                Os setores “Departamento Pessoal” (ou “DP”) e “TI” dão acesso às telas de administração a quem for desses setores.
+                Os setores “RH” (ou “Recursos Humanos”) e “TI” dão acesso às telas de administração a quem for desses setores.
               </Text>
             </Card>
             {setores.map((s) => (
@@ -591,7 +591,7 @@ const CAMPOS_RESPOSTA = [
   { campo: '{primeiro_nome}', descricao: 'Primeiro nome do funcionário' },
   { campo: '{funcionario}', descricao: 'Nome completo do funcionário' },
   { campo: '{setor}', descricao: 'Setor do funcionário' },
-  { campo: '{nome_dp}', descricao: 'Seu nome, sem o (DP)' },
+  { campo: '{nome_dp}', descricao: 'Seu nome, sem o (RH)' },
 ];
 
 export function AdminAjustesScreen() {
@@ -669,7 +669,7 @@ export function AdminAjustesScreen() {
     setPreferencias(r.dados);
     setResultado({
       ok: true,
-      message: ativo ? 'Pronto: só o DP e o TI conseguem mandar mensagem para você.' : 'Pronto: todos voltam a conseguir mandar mensagem para você.',
+      message: ativo ? 'Pronto: só o RH e o TI conseguem mandar mensagem para você.' : 'Pronto: todos voltam a conseguir mandar mensagem para você.',
     });
   }
 
@@ -705,7 +705,7 @@ export function AdminAjustesScreen() {
               <Card>
                 <Text style={[styles.titulo, { color: t.text }]}>Minhas mensagens</Text>
                 <CheckRow
-                  label="Receber mensagens só do DP e do TI"
+                  label="Receber mensagens só do RH e do TI"
                   hint="Os demais funcionários deixam de ver você na lista de contatos, não conseguem escrever para você nem colocar você em grupos. Conversas antigas continuam no histórico."
                   value={preferencias.mensagensSoDpTi}
                   onChange={(v) => void alternarSoDpTi(v)}
@@ -789,7 +789,7 @@ export function AdminAjustesScreen() {
         ) : (
           <>
             <Card>
-              <Text style={[styles.titulo, styles.espacoBaixo, { color: t.text }]}>Nova conta própria do DP/TI</Text>
+              <Text style={[styles.titulo, styles.espacoBaixo, { color: t.text }]}>Nova conta própria do RH/TI</Text>
               <Field label="Usuário" value={novoUsuario} onChangeText={setNovoUsuario} autoCapitalize="none" autoCorrect={false} />
               <Field label="Nome" value={novoNome} onChangeText={setNovoNome} />
               <Field label="Senha inicial" value={novaSenha} onChangeText={setNovaSenha} autoCapitalize="none" hint="Mínimo de 8 caracteres." />
@@ -801,7 +801,7 @@ export function AdminAjustesScreen() {
               />
             </Card>
 
-            <SectionTitle>Contas próprias do DP/TI</SectionTitle>
+            <SectionTitle>Contas próprias do RH/TI</SectionTitle>
             {logins.map((login) => {
               const dados = resumo.find((r) => r.dpUserId === login.id);
               return (

@@ -323,7 +323,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
             <span>
               Pedir confirmação de ciência
               <small className="page__subtitle">
-                A pessoa precisa clicar em "Li e estou ciente"; o DP vê a data da confirmação.
+                A pessoa precisa clicar em "Li e estou ciente"; o RH vê a data da confirmação.
               </small>
             </span>
           </label>
@@ -348,7 +348,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
             <div className={`previa-toast previa-toast--${tipo.toLowerCase()}`}>
               <div className="previa-toast__cabecalho">
                 <span className="previa-toast__tipo">
-                  {TIPOS.find((t) => t.valor === tipo)?.label.toUpperCase()} · DP
+                  {TIPOS.find((t) => t.valor === tipo)?.label.toUpperCase()} · RH
                 </span>
                 <span className="previa-toast__hora">agora</span>
               </div>

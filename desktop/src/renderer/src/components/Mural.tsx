@@ -34,7 +34,7 @@ export function Mural({ post, podeReagir }: MuralProps) {
 
       {!post ? (
         <div className="cartao mural__vazio">
-          Nada no mural por enquanto. Quando o Departamento Pessoal fixar um recado, ele aparece aqui.
+          Nada no mural por enquanto. Quando o RH fixar um recado, ele aparece aqui.
         </div>
       ) : (
         <article className="cartao mural__cartao">

@@ -27,7 +27,9 @@ export function renderAutoReply(content: string, data: { employeeName: string; s
     primeiro_nome: data.employeeName.trim().split(/\s+/)[0] ?? '',
     funcionario: data.employeeName,
     setor: data.sector ?? '',
-    nome_dp: data.dpName.replace(/\s*\(DP\)\s*$/i, ''),
+    // Tira o sufixo do setor do nome ("Andressa RH" -> "Andressa"). Aceita RH e
+    // o DP antigo, com ou sem parênteses, enquanto houver cadastro dos dois jeitos.
+    nome_dp: data.dpName.replace(/\s*\(?\b(RH|DP)\b\)?\s*$/i, '').trim(),
   };
   return content.replace(/\{(primeiro_nome|funcionario|setor|nome_dp)\}/g, (_match, key: string) => values[key] ?? '');
 }

@@ -151,7 +151,7 @@ export function MessageDetailScreen({ id }: { id: string }) {
               ) : (
                 <>
                   <Text style={[styles.cienciaTexto, { color: t.text }]}>
-                    Este comunicado pede confirmação: o DP registra quem leu e está ciente.
+                    Este comunicado pede confirmação: o RH registra quem leu e está ciente.
                   </Text>
                   <Button title="Li e estou ciente" onPress={() => void confirmar()} loading={confirmando} />
                   <Feedback result={resultado} />

@@ -48,7 +48,7 @@ export function ForcePasswordScreen({ employee }: { employee: EmployeeProfile })
           <div>
             <h1>Defina sua nova senha</h1>
             <p>
-              Olá, {employee.name}! Por segurança, troque a senha fornecida pelo Departamento Pessoal antes de
+              Olá, {employee.name}! Por segurança, troque a senha fornecida pelo RH antes de
               continuar.
             </p>
           </div>

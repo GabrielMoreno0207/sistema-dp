@@ -320,7 +320,7 @@ export function AdminNovoComunicadoScreen() {
 
           <CheckRow
             label="Pedir confirmação de ciência"
-            hint='A pessoa precisa tocar em "Li e estou ciente"; o DP vê a data da confirmação.'
+            hint='A pessoa precisa tocar em "Li e estou ciente"; o RH vê a data da confirmação.'
             value={exigeCiencia}
             onChange={setExigeCiencia}
           />
@@ -337,7 +337,7 @@ export function AdminNovoComunicadoScreen() {
         <SectionTitle>Prévia do alerta</SectionTitle>
         <View style={[styles.previa, { backgroundColor: t.surface, borderTopColor: tone.color }]}>
           <Text style={[styles.previaTipo, { color: tone.color }]}>
-            {tone.icon} {TYPE_LABELS[tipo].toUpperCase()} · DP
+            {tone.icon} {TYPE_LABELS[tipo].toUpperCase()} · RH
           </Text>
           <Text style={[styles.titulo, { color: t.text }]}>{titulo.trim() || 'Título da mensagem'}</Text>
           <Text style={[styles.detalhe, { color: t.textSoft }]} numberOfLines={5}>

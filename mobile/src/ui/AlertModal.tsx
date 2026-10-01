@@ -21,7 +21,7 @@ export function AlertModal({ onView }: { onView: (id: string) => void }) {
             <Text style={styles.icon}>{tone.icon}</Text>
             <View style={styles.headTexts}>
               <Text style={[styles.kind, { color: tone.color }]}>
-                {TYPE_LABELS[alert.type].toUpperCase()} · DP
+                {TYPE_LABELS[alert.type].toUpperCase()} · RH
               </Text>
               <Text style={[styles.title, { color: t.text }]} numberOfLines={3}>
                 {alert.title}

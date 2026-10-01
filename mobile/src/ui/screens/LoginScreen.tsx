@@ -30,7 +30,7 @@ export function LoginScreen({ onServer }: { onServer: () => void }) {
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
-      <Header title="Comunica Trinys" subtitle="Departamento Pessoal" />
+      <Header title="Comunica Trinys" subtitle="RH" />
       <KeyboardAvoidingView behavior="padding" style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {!connected ? (
@@ -46,7 +46,7 @@ export function LoginScreen({ onServer }: { onServer: () => void }) {
           ) : null}
           <Card>
             <Text style={[styles.title, { color: t.text }]}>Entrar</Text>
-            <Text style={[styles.subtitle, { color: t.muted }]}>Use o seu usuário e a senha cadastrada pelo DP.</Text>
+            <Text style={[styles.subtitle, { color: t.muted }]}>Use o seu usuário e a senha cadastrada pelo RH.</Text>
             <Field
               label="Usuário"
               value={registration}

@@ -56,7 +56,7 @@ export function EncaminharMensagem({
       lista.push({
         chave: `pessoa:${pessoa.id}`,
         nome: pessoa.nome,
-        detalhe: pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor'),
+        detalhe: pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor'),
         pessoaId: pessoa.id,
         grupo: false,
       });

@@ -86,7 +86,7 @@ export function LoginScreen({ connection, onSkip, onOpenSettings }: LoginScreenP
         <div className="login-card__brand">
           <div>
             <h1>Entrar no Comunica Trinys</h1>
-            <p>Use o usuário e a senha fornecidos pelo Departamento Pessoal.</p>
+            <p>Use o usuário e a senha fornecidos pelo RH.</p>
           </div>
         </div>
 

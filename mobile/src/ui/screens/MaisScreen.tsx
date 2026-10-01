@@ -54,7 +54,7 @@ export function MaisScreen() {
 
         {ehDpOuTi ? (
           <>
-            <SectionTitle>{acesso === 'TI' ? 'Departamento Pessoal e TI' : 'Departamento Pessoal'}</SectionTitle>
+            <SectionTitle>{acesso === 'TI' ? 'RH e TI' : 'RH'}</SectionTitle>
             <MenuRow icon="📤" label="Comunicados" hint="Enviar e ver quem leu" onPress={() => nav.push({ name: 'adminComunicados' })} />
             <MenuRow icon="📌" label="Publicar no mural" onPress={() => nav.push({ name: 'adminMural' })} />
             <MenuRow icon="👥" label="Cadastros" hint="Funcionários, setores e aparelhos" onPress={() => nav.push({ name: 'adminCadastros' })} />

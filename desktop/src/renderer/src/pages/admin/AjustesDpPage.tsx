@@ -12,7 +12,7 @@ const CAMPOS_RESPOSTA = [
   { campo: '{primeiro_nome}', descricao: 'Primeiro nome do funcionário' },
   { campo: '{funcionario}', descricao: 'Nome completo do funcionário' },
   { campo: '{setor}', descricao: 'Setor do funcionário' },
-  { campo: '{nome_dp}', descricao: 'Seu nome, sem o (DP)' },
+  { campo: '{nome_dp}', descricao: 'Seu nome, sem o (RH)' },
 ];
 
 interface PreferenciasConversa {
@@ -124,7 +124,7 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
       return;
     }
     setPreferencias(resultado.dados);
-    setAviso(ativo ? 'Pronto: só o DP e o TI conseguem mandar mensagem para você.' : 'Pronto: todos voltam a conseguir mandar mensagem para você.');
+    setAviso(ativo ? 'Pronto: só o RH e o TI conseguem mandar mensagem para você.' : 'Pronto: todos voltam a conseguir mandar mensagem para você.');
   }
 
   async function alternarRegra(regra: Regra) {
@@ -337,7 +337,7 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
       {ehTi && aba === 'ti' && (
         <>
           <div className="cartao formulario">
-            <h2 className="formulario__titulo">Novo login do DP</h2>
+            <h2 className="formulario__titulo">Novo login do RH</h2>
             <div className="formulario__linha">
               <div>
                 <label htmlFor="dp-usuario-novo">Usuário</label>
@@ -382,7 +382,7 @@ export function AjustesDpPage({ ehTi }: { ehTi: boolean }) {
                     <tr key={usuario.id}>
                       <td>{usuario.username}</td>
                       <td>{usuario.name}</td>
-                      <td>{usuario.superAdmin ? 'TI' : 'DP'}</td>
+                      <td>{usuario.superAdmin ? 'TI' : 'RH'}</td>
                       <td>{usuario.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}</td>
                       <td>{dados ? `${dados.conversations} conversas · ${dados.messages} mensagens` : '—'}</td>
                       <td className="tabela__acoes">

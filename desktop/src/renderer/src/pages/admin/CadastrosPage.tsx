@@ -217,8 +217,8 @@ export function CadastrosPage() {
                           className="etiqueta etiqueta--solta"
                           title={
                             funcionario.acessoAdmin === 'TI'
-                              ? 'Este setor dá acesso às telas do DP e do TI'
-                              : 'Este setor dá acesso às telas do Departamento Pessoal'
+                              ? 'Este setor dá acesso às telas do RH e do TI'
+                              : 'Este setor dá acesso às telas do RH'
                           }
                         >
                           acesso {funcionario.acessoAdmin}
@@ -249,8 +249,8 @@ export function CadastrosPage() {
       {aba === 'setores' && (
         <>
           <p className="page__subtitle aviso-setores">
-            Quem estiver nos setores <strong>Departamento Pessoal</strong> (ou "DP") e <strong>TI</strong> usa as telas
-            de administração com o próprio login do aplicativo — o do DP abre Comunicados, Mural, Cadastros e Ajustes;
+            Quem estiver nos setores <strong>RH</strong> (ou "Recursos Humanos") e <strong>TI</strong> usa as telas
+            de administração com o próprio login do aplicativo — o do RH abre Comunicados, Mural, Cadastros e Ajustes;
             o do TI abre também a Fila e as Conversas. Qualquer outro nome de setor não dá acesso nenhum.
           </p>
 

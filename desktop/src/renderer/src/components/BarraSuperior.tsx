@@ -111,7 +111,7 @@ export function BarraSuperior({
             </span>
             <span className="menu-usuario__nome">
               {admin ? admin.name : (employee?.name ?? 'Entrar')}
-              {admin && <span className="menu-usuario__papel">{admin.superAdmin ? 'TI' : 'DP'}</span>}
+              {admin && <span className="menu-usuario__papel">{admin.superAdmin ? 'TI' : 'RH'}</span>}
             </span>
             <span className="menu-usuario__seta">
               <Icone nome="seta" tamanho={14} />
@@ -124,7 +124,7 @@ export function BarraSuperior({
                 Configurações
               </button>
               <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(onSairDoDp)}>
-                Sair da conta {admin.superAdmin ? 'do TI' : 'do DP'}
+                Sair da conta {admin.superAdmin ? 'do TI' : 'do RH'}
               </button>
             </div>
           )}
@@ -136,11 +136,11 @@ export function BarraSuperior({
               </button>
               {admin ? (
                 <button role="menuitem" onClick={() => escolher(onSairDoDp)}>
-                  Sair da conta do DP
+                  Sair da conta do RH
                 </button>
               ) : (
                 <button role="menuitem" onClick={() => escolher(onEntrarComoDp)}>
-                  Entrar como DP/TI
+                  Entrar como RH/TI
                 </button>
               )}
             </div>
@@ -159,11 +159,11 @@ export function BarraSuperior({
               </button>
               {admin ? (
                 <button role="menuitem" onClick={() => escolher(onSairDoDp)}>
-                  Sair da conta do DP
+                  Sair da conta do RH
                 </button>
               ) : (
                 <button role="menuitem" onClick={() => escolher(onEntrarComoDp)}>
-                  Entrar como DP/TI
+                  Entrar como RH/TI
                 </button>
               )}
               <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(() => void window.dp.employeeLogout())}>

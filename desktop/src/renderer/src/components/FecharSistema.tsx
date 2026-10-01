@@ -33,7 +33,7 @@ export function FecharSistema({ onCancelar }: { onCancelar(): void }) {
         <h2 className="modal__titulo">Fechar o sistema</h2>
 
         <p className="fechar-sistema__texto">
-          O Comunica Trinys precisa ficar aberto para receber os comunicados do Departamento Pessoal. Para tirá-lo da
+          O Comunica Trinys precisa ficar aberto para receber os comunicados do RH. Para tirá-lo da
           frente, use <strong>Minimizar</strong> — ele continua na bandeja, ao lado do relógio.
         </p>
         <p className="fechar-sistema__texto">Encerrar de vez só com a senha do TI.</p>

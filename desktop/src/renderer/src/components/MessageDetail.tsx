@@ -63,7 +63,7 @@ export function MessageDetail({ message, onClose }: { message: DpMessage; onClos
           ) : (
             <>
               <p className="ciencia__texto">
-                Este comunicado pede confirmação: o DP registra quem leu e está ciente.
+                Este comunicado pede confirmação: o RH registra quem leu e está ciente.
               </p>
               <button className="btn btn--primary" onClick={() => void confirmarCiencia()} disabled={confirmando}>
                 {confirmando ? 'Confirmando...' : 'Li e estou ciente'}

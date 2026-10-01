@@ -31,7 +31,7 @@ export function ProfileScreen() {
         ['Usuário', employee.registration],
         ['Setor', employee.sector ?? '—'],
         ['Turno', employee.shift ?? '—'],
-        ...(employee.acessoAdmin !== 'NENHUM' ? [['Acesso', employee.acessoAdmin === 'TI' ? 'TI' : 'Departamento Pessoal'] as [string, string]] : []),
+        ...(employee.acessoAdmin !== 'NENHUM' ? [['Acesso', employee.acessoAdmin === 'TI' ? 'TI' : 'RH'] as [string, string]] : []),
       ]
     : [];
 

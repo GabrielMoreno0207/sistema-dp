@@ -177,7 +177,7 @@ export function MuralCard({ post, completo }: { post: MuralPost | null; completo
     return (
       <Card>
         <Text style={[styles.textoSuave, { color: t.muted }]}>
-          Nada no mural por enquanto. Quando o Departamento Pessoal fixar um recado, ele aparece aqui.
+          Nada no mural por enquanto. Quando o RH fixar um recado, ele aparece aqui.
         </Text>
       </Card>
     );
@@ -220,7 +220,7 @@ export function MuralScreen() {
   const { mural } = useApp();
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
-      <Header title="Mural" subtitle="Recado do Departamento Pessoal" onBack={nav.pop} />
+      <Header title="Mural" subtitle="Recado do RH" onBack={nav.pop} />
       <Page>
         <MuralCard post={mural} completo />
       </Page>

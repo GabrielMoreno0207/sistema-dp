@@ -100,7 +100,7 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
 
       <div className="toast__body">
         <div className="toast__top">
-          <span className="toast__kicker">{urgente ? 'URGENTE · DP' : `${meta.label} · DP`}</span>
+          <span className="toast__kicker">{urgente ? 'URGENTE · RH' : `${meta.label} · RH`}</span>
           <span className="toast__time">{formatMessageDate(comunicado.createdAt)}</span>
           <button className="toast__close" aria-label="Fechar" title="Fechar" onClick={onFechar}>
             <Icone nome="fechar" tamanho={14} />

@@ -7,7 +7,7 @@ const CORES = ['#17b3a3', '#3f8fd0', '#6c63c7', '#2ea36f', '#d98324', '#c0554d',
 
 const DESTINOS: { valor: DestinoAtalho; label: string }[] = [
   { valor: 'COMUNICADOS', label: 'Comunicados' },
-  { valor: 'CHAT', label: 'Conversar com o DP' },
+  { valor: 'CHAT', label: 'Conversar com o RH' },
   { valor: 'MURAL', label: 'Mural' },
   { valor: 'PERFIL', label: 'Meu perfil' },
   { valor: 'CONFIGURACOES', label: 'Configurações' },

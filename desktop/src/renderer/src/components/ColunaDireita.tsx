@@ -34,7 +34,7 @@ export function ColunaDireita({ employee, admin, foto, messages, onAbrir, onVerT
           <>
             <span className="cartao-perfil__foto">{admin.name.trim().charAt(0).toUpperCase()}</span>
             <strong className="cartao-perfil__nome">{admin.name}</strong>
-            <span className="cartao-perfil__cargo">{admin.superAdmin ? 'TI' : 'Departamento Pessoal'}</span>
+            <span className="cartao-perfil__cargo">{admin.superAdmin ? 'TI' : 'RH'}</span>
           </>
         ) : employee ? (
           <button

@@ -96,7 +96,7 @@ export function NovoGrupo({ contatos, onFechar, onCriado }: NovoGrupoProps) {
                 <Avatar nome={pessoa.nome} fotoMidiaId={pessoa.fotoMidiaId} classe="escolha-pessoa__avatar" />
                 <span className="escolha-pessoa__texto">
                   <strong>{pessoa.nome}</strong>
-                  <small>{pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}</small>
+                  <small>{pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor')}</small>
                 </span>
                 {escolhidos.includes(pessoa.id) && <Icone nome="certo" />}
               </button>

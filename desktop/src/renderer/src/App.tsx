@@ -231,7 +231,7 @@ export function App() {
       content = (
         <MessagesPage
           title="Comunicados"
-          subtitle="Comunicados, avisos, informativos e urgentes do Departamento Pessoal."
+          subtitle="Comunicados, avisos, informativos e urgentes do RH."
           messages={messages.messages}
           selectedId={selectedId}
           onSelect={openMessage}

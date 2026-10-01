@@ -88,7 +88,7 @@ function useContatos(): { contatos: Participante[]; carregando: boolean; erro: s
 }
 
 function detalheDaPessoa(p: Participante): string {
-  if (p.ehDp) return 'Departamento Pessoal';
+  if (p.ehDp) return 'RH';
   return p.setor ?? 'Sem setor';
 }
 
@@ -115,7 +115,7 @@ export function ConversasScreen() {
     <View style={[styles.flex, { backgroundColor: t.bg }]}>
       <Header
         title="Mensagens"
-        subtitle={conversasNaoLidas > 0 ? `${conversasNaoLidas} não lida${conversasNaoLidas === 1 ? '' : 's'}` : 'Converse com colegas e com o DP'}
+        subtitle={conversasNaoLidas > 0 ? `${conversasNaoLidas} não lida${conversasNaoLidas === 1 ? '' : 's'}` : 'Converse com colegas e com o RH'}
         right={<HeaderButton label="+ Nova" onPress={() => nav.push({ name: 'novaConversa' })} accessibilityLabel="Nova conversa" />}
       />
       <FlatList
@@ -127,7 +127,7 @@ export function ConversasScreen() {
         ListEmptyComponent={
           <Empty
             icon="💬"
-            text={busca ? 'Nenhuma conversa com esse nome.' : 'Nenhuma conversa ainda. Comece uma com um colega ou com o DP.'}
+            text={busca ? 'Nenhuma conversa com esse nome.' : 'Nenhuma conversa ainda. Comece uma com um colega ou com o RH.'}
             action={busca ? undefined : { title: 'Nova conversa', onPress: () => nav.push({ name: 'novaConversa' }) }}
           />
         }
@@ -221,7 +221,7 @@ export function NovaConversaScreen() {
     nav.push({ name: 'conversa', conversaId: r.dados.id });
   }
 
-  const filtrados = contatos.filter((p) => combina(busca, p.nome, p.setor, p.matricula, p.ehDp ? 'DP Departamento Pessoal' : ''));
+  const filtrados = contatos.filter((p) => combina(busca, p.nome, p.setor, p.matricula, p.ehDp ? 'RH Recursos Humanos DP Departamento Pessoal' : ''));
 
   return (
     <View style={[styles.flex, { backgroundColor: t.bg }]}>

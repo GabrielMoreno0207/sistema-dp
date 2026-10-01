@@ -211,13 +211,13 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
         <header className="page__header">
           <div>
             <h1>Mensagens</h1>
-            <p className="page__subtitle">Converse com colegas, com o DP e em grupos.</p>
+            <p className="page__subtitle">Converse com colegas, com o RH e em grupos.</p>
           </div>
         </header>
         <section className="panel panel--muted">
           <h2>Entre para ver suas conversas</h2>
           <p>
-            As conversas são pessoais: entre com seu usuário para falar com colegas e com o Departamento Pessoal. Os
+            As conversas são pessoais: entre com seu usuário para falar com colegas e com o RH. Os
             comunicados gerais continuam na página Comunicados.
           </p>
           <div className="form__actions form__actions--start">
@@ -527,7 +527,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
           <h1>Mensagens</h1>
           <p className="page__subtitle">
             Conversando como <strong>{identidade.nome}</strong>
-            {identidade.ehDp && ' (DP)'}
+            {identidade.ehDp && ' (RH)'}
           </p>
           <div className="contacts__acoes">
             <input
@@ -604,7 +604,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                       <span className="contact__name">{pessoa.nome}</span>
                     </span>
                     <span className="contact__preview">
-                      {pessoa.ehDp ? 'Departamento Pessoal' : (pessoa.setor ?? 'Sem setor')}
+                      {pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor')}
                     </span>
                   </span>
                 </button>

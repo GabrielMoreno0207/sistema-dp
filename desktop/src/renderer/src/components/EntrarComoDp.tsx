@@ -32,7 +32,7 @@ export function EntrarComoDp({ onFechar }: EntrarComoDpProps) {
   return (
     <div className="modal" role="dialog" aria-modal="true" onClick={onFechar}>
       <div className="modal__caixa modal__caixa--estreita" onClick={(evento) => evento.stopPropagation()}>
-        <h2 className="modal__titulo">Entrar como Departamento Pessoal</h2>
+        <h2 className="modal__titulo">Entrar como RH</h2>
         <p className="page__subtitle">
           Use o mesmo usuário e senha da Central. As funções administrativas ficam disponíveis enquanto você estiver
           conectado neste computador.
