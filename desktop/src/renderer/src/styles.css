@@ -1168,6 +1168,49 @@ button.stat:hover {
   flex: none;
 }
 
+/* Imagem do comunicado: aparece aberta, como parte do recado */
+.anexo-imagem {
+  margin: 0 0 14px;
+}
+
+.anexo-imagem__img {
+  display: block;
+  /* Nunca estica: imagem pequena fica no tamanho dela, grande encolhe até caber.
+     O teto de altura é para a imagem em pé (print de celular, cartaz) não
+     empurrar a ciência e o rodapé do comunicado para fora da tela. */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+/* Reserva um espaço enquanto o arquivo baixa, para o comunicado não "pular" */
+.anexo-imagem__carregando {
+  height: 180px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-alta);
+}
+
+.anexo-imagem__aviso {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.anexo-imagem__rodape {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
 .attachments__feedback {
   margin: 10px 0 0;
   font-size: 13px;
@@ -4970,4 +5013,81 @@ svg {
 
 .mural__reacoes {
   margin-top: 10px;
+}
+
+/* --------------------------------------------------- aviso de atualização */
+/* Cobre a tela inteira enquanto o instalador roda: não há nada a decidir aqui */
+.atualizando {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(3px);
+  -webkit-app-region: drag;
+}
+
+.atualizando__caixa {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.atualizando__giro {
+  display: block;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: atualizando-giro 0.9s linear infinite;
+}
+
+@keyframes atualizando-giro {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Quem configurou o Windows para menos animação não vê a roda girando */
+@media (prefers-reduced-motion: reduce) {
+  .atualizando__giro {
+    animation: none;
+  }
+}
+
+.atualizando__titulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.atualizando__texto {
+  margin: 0 0 10px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+
+.atualizando__texto--aviso {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-alta);
+}
+
+.atualizando__nota {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
 }

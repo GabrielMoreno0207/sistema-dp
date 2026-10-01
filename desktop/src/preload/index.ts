@@ -27,6 +27,7 @@ const api: DesktopApi = {
   janelaFechar: (senha) => ipcRenderer.invoke(IpcChannels.JanelaFechar, senha),
   janelaEstaMaximizada: () => ipcRenderer.invoke(IpcChannels.JanelaEstado),
   onPedirSenhaParaFechar: (listener) => subscribe(IpcChannels.PedirSenhaParaFechar, listener),
+  onAtualizacaoInstalando: (listener) => subscribe(IpcChannels.AtualizacaoInstalando, listener),
 
   openAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentOpen, attachmentId),
   saveAttachment: (attachmentId) => ipcRenderer.invoke(IpcChannels.AttachmentSave, attachmentId),

@@ -32,13 +32,27 @@ function header(request: FastifyRequest, name: string): string {
 }
 
 /**
+ * Nome do arquivo sem a pasta de onde ele veio.
+ *
+ * Versões antigas do aplicativo desktop gravaram o caminho inteiro do
+ * computador de quem enviou ("C:\\Users\\Carol\\Downloads\\foto.jpeg") no lugar
+ * do nome. Esses anexos continuam no banco, então o nome é limpo aqui, na
+ * saída, e todo mundo que baixa recebe só "foto.jpeg".
+ */
+function nomeDeArquivo(caminho: string): string {
+  const semPasta = caminho.split(/[\\/]/).pop()?.trim();
+  return semPasta && semPasta.length > 0 ? semPasta : 'arquivo';
+}
+
+/**
  * Content-Disposition com o nome original (inclusive com acentos):
  * um nome simples para navegadores antigos e o nome completo em UTF-8.
  */
 function contentDisposition(attachment: StoredAttachment): string {
   const kind = attachment.kind === 'IMAGE' ? 'inline' : 'attachment';
-  const fallback = attachment.name.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
-  return `${kind}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(attachment.name)}`;
+  const nome = nomeDeArquivo(attachment.name);
+  const fallback = nome.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `${kind}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(nome)}`;
 }
 
 export interface AttachmentRoutesOptions {

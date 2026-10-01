@@ -115,3 +115,15 @@ export function tamanhoLegivel(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
 }
+
+/**
+ * Nome do arquivo sem a pasta de onde ele veio.
+ *
+ * Quem envia o comunicado escolhe o arquivo no próprio computador, e o caminho
+ * completo ("C:\\Users\\Carol\\Downloads\\foto.jpeg") não diz nada para quem
+ * recebe — além de expor a pasta de quem mandou. Aqui fica só "foto.jpeg".
+ */
+export function nomeDeArquivo(caminho: string): string {
+  const semPasta = caminho.split(/[\\/]/).pop()?.trim();
+  return semPasta && semPasta.length > 0 ? semPasta : 'arquivo';
+}

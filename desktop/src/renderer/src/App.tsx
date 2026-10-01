@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ConversaResumo, DpMessage } from '../../shared/types';
+import type { AtualizacaoEmAndamento, ConversaResumo, DpMessage } from '../../shared/types';
 import { ForcePasswordScreen } from './components/ForcePasswordScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { BarraSuperior } from './components/BarraSuperior';
@@ -20,6 +20,7 @@ import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { FecharSistema } from './components/FecharSistema';
+import { TelaAtualizando } from './components/TelaAtualizando';
 
 const SKIP_LOGIN_KEY = 'dp.skipLogin';
 /** Tempo máximo esperando a primeira resposta do servidor antes de mostrar a tela de login */
@@ -50,6 +51,8 @@ export function App() {
   const [waitExpired, setWaitExpired] = useState(false);
   const [entrandoComoDp, setEntrandoComoDp] = useState(false);
   const [fechandoSistema, setFechandoSistema] = useState(false);
+  // Instalando versão nova: o aplicativo vai fechar e abrir de novo
+  const [atualizando, setAtualizando] = useState<AtualizacaoEmAndamento | null>(null);
   // Conversa que o alerta pediu para abrir (botão "Responder")
   const [conversaPedida, setConversaPedida] = useState<string | null>(null);
   // Chamados com resposta nova (badge do menu)
@@ -88,6 +91,9 @@ export function App() {
 
   // X da janela, Alt+F4 ou "Sair" na bandeja: quem encerra é a caixa da senha
   useEffect(() => window.dp.onPedirSenhaParaFechar(() => setFechandoSistema(true)), []);
+
+  // O instalador vai rodar: avisa antes de a janela sumir
+  useEffect(() => window.dp.onAtualizacaoInstalando((info) => setAtualizando(info)), []);
 
   useEffect(() => {
     const timer = setTimeout(() => setWaitExpired(true), SESSION_WAIT_MS);
@@ -139,6 +145,9 @@ export function App() {
   const acessoDoSetor = state?.employee?.acessoAdmin ?? 'NENHUM';
   const mostrarTelasDoDp = Boolean(state?.admin) || acessoDoSetor !== 'NENHUM';
   const ehTi = state?.admin?.superAdmin === true || acessoDoSetor === 'TI';
+
+  // Por cima de tudo, inclusive da tela de login: o aplicativo está de saída
+  if (atualizando) return <TelaAtualizando info={atualizando} />;
 
   if (!state) return <div className="loading">Carregando...</div>;
 

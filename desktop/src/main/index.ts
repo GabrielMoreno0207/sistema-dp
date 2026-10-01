@@ -38,6 +38,7 @@ import {
   type OperationResult,
   type SettingsView,
 } from '../shared/types';
+import { nomeDeArquivo } from '../shared/arquivo';
 import { AdminClient } from './admin-client';
 import { ApiClient, ApiError } from './api-client';
 import { Atualizador } from './atualizador';
@@ -686,13 +687,15 @@ function start(): void {
 
     // Pasta temporária só deste app; o Windows limpa depois
     const folder = join(app.getPath('temp'), 'comunicacao-dp-anexos');
-    const file = join(folder, `${attachment.id}-${attachment.name}`);
+    // nomeDeArquivo porque comunicados antigos foram gravados com o caminho
+    // inteiro no nome; sem isso o join monta um caminho inválido e a gravação falha
+    const file = join(folder, `${attachment.id}-${nomeDeArquivo(attachment.name)}`);
     try {
       await mkdir(folder, { recursive: true });
       await writeFile(file, result.content);
       const failure = await shell.openPath(file);
       if (failure) return { ok: false, message: `O Windows não conseguiu abrir o arquivo: ${failure}` };
-      return { ok: true, message: `Abrindo ${attachment.name}...` };
+      return { ok: true, message: `Abrindo ${nomeDeArquivo(attachment.name)}...` };
     } catch (err) {
       console.error('[anexo] falha ao gravar o arquivo temporário:', err);
       return { ok: false, message: 'Não foi possível abrir o anexo neste computador.' };
@@ -706,7 +709,7 @@ function start(): void {
     const win = ensureMainWindow();
     const { canceled, filePath } = await dialog.showSaveDialog(win, {
       title: 'Salvar anexo',
-      defaultPath: join(app.getPath('downloads'), attachment.name),
+      defaultPath: join(app.getPath('downloads'), nomeDeArquivo(attachment.name)),
       buttonLabel: 'Salvar',
     });
     if (canceled || !filePath) return { ok: false, message: '' };
@@ -1117,7 +1120,7 @@ function start(): void {
 
     const anexos: { id: string; name: string; size: number }[] = [];
     for (const caminho of escolha.filePaths) {
-      const nome = caminho.split(/[\/]/).pop() ?? 'arquivo';
+      const nome = nomeDeArquivo(caminho);
       // Imagem vai sem limite; documento tem teto, e quem recusa é o servidor
       const envio = await comAdmin((client) => client.enviarAnexo(caminho, nome));
       if (!('dados' in envio)) return { ok: false, anexos, message: envio.message };
@@ -1665,6 +1668,17 @@ function start(): void {
       versaoAtual: app.getVersion(),
       horario: horarioAtualizacao() ?? undefined,
       log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
+      avisarTela: (info) => {
+        // Obrigatória fecha o aplicativo mesmo com alguém usando o PC: a janela
+        // vem para a frente (pode estar na bandeja) para o aviso ser visto
+        if (info?.obrigatoria) {
+          const janela = ensureMainWindow();
+          if (janela.isMinimized()) janela.restore();
+          janela.show();
+          janela.focus();
+        }
+        sendToMain(IpcChannels.AtualizacaoInstalando, info);
+      },
     });
     atualizador.iniciar();
 

@@ -8,6 +8,7 @@
 import type { IconType } from 'react-icons';
 import {
   LuBadgeCheck,
+  LuRefreshCw,
   LuBell,
   LuDiamond,
   LuBot,
@@ -128,6 +129,7 @@ export const ICONES = {
   carta: LuMail,
   sorriso: LuSmile,
   losango: LuDiamond,
+  atualizar: LuRefreshCw,
 } as const;
 
 export type NomeIcone = keyof typeof ICONES;

@@ -13,6 +13,16 @@ const ESPERA_INICIAL_MS = 3 * 60_000;
 const OCIOSO_MINIMO_S = 5 * 60;
 /** PC em uso na hora marcada: tenta de novo mais tarde, em vez de fechar o app na cara de alguém. */
 const REVERIFICAR_SE_EM_USO_MS = 30 * 60_000;
+/**
+ * Tempo que o aviso fica na tela antes de fechar o aplicativo.
+ *
+ * A atualização obrigatória instala mesmo com alguém usando o computador, então
+ * a pessoa precisa de um momento para ler que o programa vai fechar e voltar
+ * sozinho — sem isso, a janela some do nada e parece que travou.
+ */
+const AVISO_NA_TELA_MS = 10_000;
+/** Sem ninguém na frente (atualização comum, PC ocioso), só o tempo de o aviso aparecer. */
+const AVISO_CURTO_MS = 1_500;
 
 export interface AtualizadorOpcoes {
   /** Cliente da API, ou null quando o servidor ainda não está configurado */
@@ -22,6 +32,12 @@ export interface AtualizadorOpcoes {
   /** "HH:MM"; o padrão é 03:00 */
   horario?: string;
   log?: (mensagem: string) => void;
+  /**
+   * Avisa a janela de que o aplicativo vai fechar para instalar. Chamado antes
+   * de o instalador começar, para a tela mostrar o recado a quem está usando.
+   * Com null, tira o aviso: a instalação não aconteceu e o app segue aberto.
+   */
+  avisarTela?: (info: { versao: string; obrigatoria: boolean } | null) => void;
 }
 
 /**
@@ -45,6 +61,12 @@ export class Atualizador {
   private ultimaVerificacao = 0;
   /** Instalador já baixado e conferido, esperando a hora de instalar */
   private pendente: { versao: string; caminho: string; obrigatoria: boolean } | null = null;
+  /**
+   * Instalação em andamento (o aviso está na tela e o aplicativo vai fechar).
+   * Trava daqui em diante: sem isso, uma verificação disparada no meio do aviso
+   * baixaria e rodaria o instalador uma segunda vez.
+   */
+  private instalando = false;
 
   constructor(private readonly opcoes: AtualizadorOpcoes) {
     this.horario = horarioValido(opcoes.horario) ?? HORARIO_PADRAO;
@@ -76,7 +98,7 @@ export class Atualizador {
 
   /** Verificação manual ou agendada. Nunca deixa erro escapar: no máximo fica para o próximo dia. */
   async verificar(origem: string): Promise<void> {
-    if (this.verificando) return;
+    if (this.verificando || this.instalando) return;
     // Já baixado numa verificação anterior: só falta instalar
     if (this.pendente) {
       this.instalarSePuder();
@@ -143,20 +165,41 @@ export class Atualizador {
   }
 
   /**
-   * Roda o instalador em modo silencioso (/S) e sai. O instalador troca os
-   * arquivos e abre o aplicativo de novo (runAfterFinish do electron-builder).
+   * Avisa na tela e roda o instalador em modo silencioso (/S). O instalador
+   * troca os arquivos e abre o aplicativo de novo (runAfterFinish do
+   * electron-builder).
+   *
+   * Na obrigatória o aviso fica alguns segundos antes de fechar: quem está
+   * usando o computador vê o que está acontecendo, em vez de a janela sumir.
    */
   private instalar(): void {
-    if (!this.pendente) return;
-    const { caminho, versao } = this.pendente;
+    if (!this.pendente || this.instalando) return;
+    const { caminho, versao, obrigatoria } = this.pendente;
+    // Tranca agora: o aviso demora, e uma nova verificação nesse meio-tempo não pode reinstalar
+    this.pendente = null;
+    this.instalando = true;
+
     this.log(`instalando a versão ${versao} e reiniciando o aplicativo`);
     try {
-      const processo = spawn(caminho, ['/S'], { detached: true, stdio: 'ignore' });
-      processo.unref();
-      this.pendente = null;
-      setTimeout(() => app.quit(), 1_500);
+      this.opcoes.avisarTela?.({ versao, obrigatoria });
     } catch (err) {
-      this.log(`falha ao iniciar o instalador: ${(err as Error).message}`);
+      // Janela fechada ou destruída: o aviso é um extra, a instalação segue
+      this.log(`não foi possível mostrar o aviso na tela: ${(err as Error).message}`);
     }
+
+    const espera = obrigatoria ? AVISO_NA_TELA_MS : AVISO_CURTO_MS;
+    setTimeout(() => {
+      try {
+        const processo = spawn(caminho, ['/S'], { detached: true, stdio: 'ignore' });
+        processo.unref();
+        setTimeout(() => app.quit(), 1_500);
+      } catch (err) {
+        // Destrava e tira o aviso da frente: o aplicativo continua aberto e
+        // utilizável, e a próxima verificação tenta de novo
+        this.instalando = false;
+        this.opcoes.avisarTela?.(null);
+        this.log(`falha ao iniciar o instalador: ${(err as Error).message}`);
+      }
+    }, espera);
   }
 }

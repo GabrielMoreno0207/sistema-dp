@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CampoAgendar, dataPorExtenso, ListaAgendados, paraIso } from '../../components/Agendamento';
 import { quando } from '../../components/chamados-comuns';
 import { Icone } from '../../lib/icones';
+import { nomeDeArquivo } from '../../../../shared/arquivo';
 
 type TipoComunicado = 'COMUNICADO' | 'AVISO' | 'INFORMATIVO' | 'URGENTE';
 type Destino = 'ALL' | 'SECTOR' | 'SHIFT' | 'COMPUTER' | 'EMPLOYEE';
@@ -308,8 +309,8 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
               Anexar arquivos ({anexos.length}/5)
             </button>
             {anexos.map((anexo) => (
-              <span key={anexo.id} className="anexo-chip">
-                {anexo.name}
+              <span key={anexo.id} className="anexo-chip" title={nomeDeArquivo(anexo.name)}>
+                {nomeDeArquivo(anexo.name)}
                 <button onClick={() => setAnexos((atuais) => atuais.filter((a) => a.id !== anexo.id))} aria-label="Remover">
                   <Icone nome="fechar" tamanho={13} />
                 </button>

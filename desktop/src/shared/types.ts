@@ -377,6 +377,16 @@ export interface PopupState {
   total: number;
 }
 
+/**
+ * Instalação da versão nova em andamento: o aplicativo vai fechar e abrir
+ * sozinho. A tela mostra o aviso para ninguém achar que o programa travou.
+ */
+export interface AtualizacaoEmAndamento {
+  versao: string;
+  /** Obrigatória instala na hora, mesmo com alguém usando o computador */
+  obrigatoria: boolean;
+}
+
 /** API da janela principal, exposta pelo preload em window.dp */
 export interface DesktopApi {
   getState(): Promise<AppState>;
@@ -403,6 +413,8 @@ export interface DesktopApi {
   janelaEstaMaximizada(): Promise<boolean>;
   /** O processo principal pede a senha (botão de fechar, bandeja, Alt+F4) */
   onPedirSenhaParaFechar(listener: () => void): () => void;
+  /** O aplicativo vai fechar para instalar a versão nova (null tira o aviso) */
+  onAtualizacaoInstalando(listener: (info: AtualizacaoEmAndamento | null) => void): () => void;
 
   /** Calendário da tela inicial (mesma credencial de quem está usando o aplicativo) */
   agendaApi<T = unknown>(
@@ -621,5 +633,7 @@ export const IpcChannels = {
   JanelaEstado: 'janela:estado',
   /** Pedido para abrir a janelinha da senha (botão de fechar, bandeja, Alt+F4) */
   PedirSenhaParaFechar: 'janela:pedir-senha',
+  /** Avisa a tela de que o aplicativo vai fechar para instalar a versão nova */
+  AtualizacaoInstalando: 'atualizacao:instalando',
 } as const;
 // Canais do popup: ver popup-channels.ts
