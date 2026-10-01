@@ -199,6 +199,45 @@ export class TicketService {
     return mensagem;
   }
 
+  /**
+   * Alguém do TI assume o chamado.
+   *
+   * A fila é compartilhada: o chamado cai para o time todo e quem puder atender
+   * clica em aceitar. A partir daí o nome fica visível para o solicitante e para
+   * o resto do TI, que assim não começa o mesmo atendimento em paralelo.
+   *
+   * Chamado que já tem dono não é roubado: quem chegou depois recebe o aviso de
+   * quem está cuidando. Pegar de volta um atendimento parado é conversa entre as
+   * pessoas, não um botão.
+   */
+  async aceitar(id: string, quem: Solicitante): Promise<ChamadoCompleto> {
+    const chamado = await this.exigirAcesso(id, quem);
+    if (quem.tipo !== 'ADMIN' || !quem.ti) {
+      throw new AppError('Só o TI aceita chamados.', 403, 'FORBIDDEN');
+    }
+    if (chamado.status === 'FECHADO') {
+      throw new AppError('Este chamado já foi encerrado.', 409, 'CHAMADO_FECHADO');
+    }
+    if (chamado.responsavelId && chamado.responsavelId !== quem.id) {
+      throw new AppError(`${chamado.responsavelNome} já está cuidando deste chamado.`, 409, 'CHAMADO_COM_DONO');
+    }
+
+    const agora = new Date().toISOString();
+    const atualizado = await this.chamados.update(
+      id,
+      {
+        status: chamado.status === 'ABERTO' ? 'EM_ANDAMENTO' : chamado.status,
+        responsavelId: quem.id,
+        responsavelNome: quem.nome,
+        resolvidoEm: chamado.resolvidoEm,
+      },
+      agora,
+    );
+    this.realtime.chamadoAtualizado(chamado.solicitanteId, id);
+    this.log.info(`Chamado ${chamado.numero} aceito por ${quem.nome}`);
+    return this.completar(atualizado, quem);
+  }
+
   /** Muda o status. Só o TI; quem abriu pode apenas fechar o próprio chamado resolvido. */
   async mudarStatus(id: string, quem: Solicitante, status: StatusChamado): Promise<ChamadoCompleto> {
     const chamado = await this.exigirAcesso(id, quem);

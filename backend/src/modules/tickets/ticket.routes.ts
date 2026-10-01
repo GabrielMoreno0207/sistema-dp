@@ -106,6 +106,13 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (app,
     return reply.code(201).send({ mensagem: await tickets.responder(id, quem, conteudo) });
   });
 
+  /** Alguém do TI assume o atendimento (a fila é compartilhada). */
+  app.post('/chamados/:id/aceitar', { schema: { params: chamadoParams } }, async (request) => {
+    const quem = await quemEstaAgindo(request);
+    const { id } = request.params as { id: string };
+    return tickets.aceitar(id, quem);
+  });
+
   app.put('/chamados/:id/status', { schema: { params: chamadoParams, body: statusBody } }, async (request) => {
     const quem = await quemEstaAgindo(request);
     const { id } = request.params as { id: string };

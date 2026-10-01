@@ -4,10 +4,14 @@ import {
   ConversaChamado,
   EtiquetaPrioridade,
   EtiquetaStatus,
+  ICONE_CATEGORIA,
+  LinhaDoTempo,
+  Responsavel,
   ROTULO_CATEGORIA,
   ROTULO_STATUS,
   quando,
 } from '../components/chamados-comuns';
+import { Icone } from '../lib/icones';
 
 const PROXIMOS_STATUS: StatusChamado[] = ['ABERTO', 'EM_ANDAMENTO', 'RESOLVIDO', 'FECHADO'];
 
@@ -18,6 +22,7 @@ export function FilaChamadosPage() {
   const [encerrados, setEncerrados] = useState(false);
   const [resposta, setResposta] = useState('');
   const [aviso, setAviso] = useState('');
+  const [aceitando, setAceitando] = useState(false);
 
   const carregar = useCallback(async () => {
     const resultado = await window.dp.adminFila(encerrados);
@@ -64,6 +69,30 @@ export function FilaChamadosPage() {
     await abrirDetalhe(aberto.id);
   }
 
+  /** Pegar o chamado para si. Se outra pessoa chegou primeiro, o servidor avisa. */
+  async function aceitar() {
+    if (!aberto || aceitando) return;
+    setAceitando(true);
+    setAviso('');
+    const resultado = await window.dp.adminAceitarChamado(aberto.id);
+    setAceitando(false);
+    if (!resultado.ok) {
+      setAviso(resultado.message);
+      await abrirDetalhe(aberto.id);
+      return;
+    }
+    await abrirDetalhe(aberto.id);
+  }
+
+  // Chamado sem dono primeiro: é o que o time precisa ver para alguém pegar
+  const ordenados = [...chamados].sort((a, b) => {
+    const livreA = a.responsavelId === null ? 0 : 1;
+    const livreB = b.responsavelId === null ? 0 : 1;
+    if (livreA !== livreB) return livreA - livreB;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+  const livres = ordenados.filter((c) => c.responsavelId === null && c.status !== 'FECHADO').length;
+
   return (
     <div className="page page--fila">
       <header className="page__header">
@@ -72,6 +101,7 @@ export function FilaChamadosPage() {
           <p className="page__subtitle">
             {chamados.length} {chamados.length === 1 ? 'chamado' : 'chamados'}
             {encerrados ? ' (incluindo encerrados)' : ' em aberto'}
+            {livres > 0 && ` · ${livres} esperando alguém aceitar`}
           </p>
         </div>
         <label className="caixa">
@@ -84,29 +114,36 @@ export function FilaChamadosPage() {
 
       <div className="fila">
         <div className="fila__lista">
-          {chamados.length === 0 ? (
+          {ordenados.length === 0 ? (
             <p className="page__subtitle">Nenhum chamado por aqui.</p>
           ) : (
-            chamados.map((chamado) => (
-              <button
-                key={chamado.id}
-                className={`chamado-item ${aberto?.id === chamado.id ? 'chamado-item--ativo' : ''}`}
-                onClick={() => void abrirDetalhe(chamado.id)}
-              >
-                <span className="chamado-item__numero">#{chamado.numero}</span>
-                <span className="chamado-item__texto">
-                  <strong>{chamado.titulo}</strong>
-                  <span className="chamado-item__detalhe">
-                    {chamado.solicitanteNome} · {ROTULO_CATEGORIA[chamado.categoria]} · {quando(chamado.createdAt)}
+            ordenados.map((chamado) => {
+              const livre = chamado.responsavelId === null && chamado.status !== 'FECHADO';
+              return (
+                <button
+                  key={chamado.id}
+                  className={`chamado-item ${aberto?.id === chamado.id ? 'chamado-item--ativo' : ''} ${livre ? 'chamado-item--livre' : ''}`}
+                  onClick={() => void abrirDetalhe(chamado.id)}
+                >
+                  <span className="chamado-item__icone" aria-hidden>
+                    <Icone nome={ICONE_CATEGORIA[chamado.categoria]} tamanho={22} />
                   </span>
-                </span>
-                <span className="chamado-item__lado">
-                  <EtiquetaStatus status={chamado.status} />
-                  <EtiquetaPrioridade prioridade={chamado.prioridade} />
-                  {chamado.mensagensNaoLidas > 0 && <span className="chamado-item__badge">{chamado.mensagensNaoLidas}</span>}
-                </span>
-              </button>
-            ))
+                  <span className="chamado-item__numero">#{chamado.numero}</span>
+                  <span className="chamado-item__texto">
+                    <strong>{chamado.titulo}</strong>
+                    <span className="chamado-item__detalhe">
+                      {chamado.solicitanteNome} · {ROTULO_CATEGORIA[chamado.categoria]} · {quando(chamado.createdAt)}
+                    </span>
+                    <Responsavel nome={chamado.responsavelNome} />
+                  </span>
+                  <span className="chamado-item__lado">
+                    <EtiquetaStatus status={chamado.status} />
+                    <EtiquetaPrioridade prioridade={chamado.prioridade} />
+                    {chamado.mensagensNaoLidas > 0 && <span className="chamado-item__badge">{chamado.mensagensNaoLidas}</span>}
+                  </span>
+                </button>
+              );
+            })
           )}
         </div>
 
@@ -116,12 +153,33 @@ export function FilaChamadosPage() {
           ) : (
             <>
               <h2>
-                #{aberto.numero} · {aberto.titulo}
+                <Icone nome={ICONE_CATEGORIA[aberto.categoria]} tamanho={20} /> #{aberto.numero} · {aberto.titulo}
               </h2>
               <p className="page__subtitle">
                 {aberto.solicitanteNome}
                 {aberto.computadorId && ` · ${aberto.computadorId}`} · {ROTULO_CATEGORIA[aberto.categoria]}
               </p>
+
+              {/* Sem dono: a ação principal é pegar o chamado, antes de qualquer outra */}
+              {aberto.responsavelId === null && aberto.status !== 'FECHADO' ? (
+                <div className="cartao aceitar-chamado">
+                  <div>
+                    <strong>Este chamado ainda não tem responsável.</strong>
+                    <p>Ao aceitar, seu nome aparece para {aberto.solicitanteNome} e para o resto do TI.</p>
+                  </div>
+                  <button className="botao botao--primario" onClick={() => void aceitar()} disabled={aceitando}>
+                    <Icone nome="aceitar" tamanho={17} /> {aceitando ? 'Aceitando…' : 'Aceitar chamado'}
+                  </button>
+                </div>
+              ) : (
+                <div className="cartao chamado__andamento">
+                  <LinhaDoTempo status={aberto.status} responsavelNome={aberto.responsavelNome} />
+                  <div className="chamado__cabecalho">
+                    <Responsavel nome={aberto.responsavelNome} />
+                    <EtiquetaPrioridade prioridade={aberto.prioridade} />
+                  </div>
+                </div>
+              )}
 
               <div className="chamado__cabecalho">
                 {PROXIMOS_STATUS.map((status) => (

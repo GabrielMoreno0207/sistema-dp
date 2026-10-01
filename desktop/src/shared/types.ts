@@ -480,6 +480,8 @@ export interface DesktopApi {
   adminChamadoDetalhe(id: string): Promise<{ ok: boolean; chamado: ChamadoCompleto | null; message: string }>;
   adminResponderChamado(id: string, conteudo: string): Promise<OperationResult>;
   adminMudarStatus(id: string, status: StatusChamado): Promise<OperationResult>;
+  /** Assume o atendimento de um chamado que ainda está sem dono na fila */
+  adminAceitarChamado(id: string): Promise<OperationResult>;
   adminListarMural(): Promise<{ ok: boolean; posts: MuralPost[]; message: string }>;
   adminSalvarMural(dados: {
     id: string | null;
@@ -602,6 +604,7 @@ export const IpcChannels = {
   AdminChamadoDetalhe: 'admin:chamado-detalhe',
   AdminChamadoResponder: 'admin:chamado-responder',
   AdminChamadoStatus: 'admin:chamado-status',
+  AdminChamadoAceitar: 'admin:chamado-aceitar',
   AdminMuralList: 'admin:mural-list',
   AdminMuralSalvar: 'admin:mural-salvar',
   AdminMuralRemover: 'admin:mural-remover',

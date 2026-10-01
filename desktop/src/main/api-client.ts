@@ -351,6 +351,14 @@ export class ApiClient {
     return this.request<ChamadoCompleto>('PUT', `/api/chamados/${encodeURIComponent(id)}/status`, { status });
   }
 
+  /**
+   * Assume o atendimento. Existe aqui para o processo principal poder chamar
+   * com qualquer um dos dois clientes; quem não é do TI leva 403 do servidor.
+   */
+  async aceitarChamado(id: string): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`);
+  }
+
   async listarMural(): Promise<MuralPost[]> {
     const data = await this.request<{ posts?: MuralPost[] }>('GET', '/api/mural/todos');
     return data.posts ?? [];

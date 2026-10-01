@@ -314,3 +314,56 @@ describe('conversa e andamento', () => {
     assert.equal(apagado.statusCode, 204);
   });
 });
+
+describe('aceitar o chamado (fila compartilhada do TI)', () => {
+  let livreId = '';
+
+  test('chamado novo nasce sem responsável, esperando alguém do TI', async () => {
+    const novo = await app.inject({
+      method: 'POST',
+      url: '/api/chamados',
+      headers: comToken(tokenPc),
+      payload: { titulo: 'Sem internet na recepção', descricao: 'O cabo está conectado mas não navega.', categoria: 'REDE' },
+    });
+    assert.equal(novo.statusCode, 201);
+    livreId = novo.json().id;
+    assert.equal(novo.json().responsavelId, null);
+    assert.equal(novo.json().status, 'ABERTO');
+  });
+
+  test('quem não é do TI não aceita', async () => {
+    const funcionario = await app.inject({ method: 'POST', url: `/api/chamados/${livreId}/aceitar`, headers: comToken(tokenPc) });
+    assert.equal(funcionario.statusCode, 403);
+
+    const dp = await app.inject({ method: 'POST', url: `/api/chamados/${livreId}/aceitar`, headers: comToken(tokenDp) });
+    assert.ok(dp.statusCode === 403 || dp.statusCode === 404);
+  });
+
+  test('o TI aceita: vira responsável e o chamado entra em andamento', async () => {
+    const aceito = await app.inject({ method: 'POST', url: `/api/chamados/${livreId}/aceitar`, headers: comToken(tokenTi) });
+    assert.equal(aceito.statusCode, 200);
+    assert.equal(aceito.json().status, 'EM_ANDAMENTO');
+    assert.equal(aceito.json().responsavelNome, 'TI');
+
+    // Quem abriu passa a ver quem está cuidando
+    const visto = await app.inject({ method: 'GET', url: `/api/chamados/${livreId}`, headers: comToken(tokenPc) });
+    assert.equal(visto.json().responsavelNome, 'TI');
+  });
+
+  test('aceitar de novo o próprio chamado não quebra', async () => {
+    const outra = await app.inject({ method: 'POST', url: `/api/chamados/${livreId}/aceitar`, headers: comToken(tokenTi) });
+    assert.equal(outra.statusCode, 200);
+    assert.equal(outra.json().responsavelNome, 'TI');
+  });
+
+  test('chamado fechado não é mais aceito', async () => {
+    await app.inject({
+      method: 'PUT',
+      url: `/api/chamados/${livreId}/status`,
+      headers: comToken(tokenTi),
+      payload: { status: 'FECHADO' },
+    });
+    const tarde = await app.inject({ method: 'POST', url: `/api/chamados/${livreId}/aceitar`, headers: comToken(tokenTi) });
+    assert.equal(tarde.statusCode, 409);
+  });
+});

@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CategoriaChamado, ChamadoCompleto, ChamadoResumo, PrioridadeChamado } from '../../../shared/types';
 import {
-  CATEGORIAS,
   ConversaChamado,
   EtiquetaPrioridade,
   EtiquetaStatus,
+  ICONE_CATEGORIA,
+  LinhaDoTempo,
   PRIORIDADES,
+  Responsavel,
   ROTULO_CATEGORIA,
+  ROTULO_URGENCIA,
+  SeletorCategoria,
   quando,
 } from '../components/chamados-comuns';
 import { Icone } from '../lib/icones';
@@ -96,6 +100,9 @@ export function ChamadosPage() {
         <div className="chamados__lista">
           {chamados.map((chamado) => (
             <button key={chamado.id} className="chamado-item" onClick={() => void abrirDetalhe(chamado.id)}>
+              <span className="chamado-item__icone" aria-hidden>
+                <Icone nome={ICONE_CATEGORIA[chamado.categoria]} tamanho={22} />
+              </span>
               <span className="chamado-item__numero">#{chamado.numero}</span>
               <span className="chamado-item__texto">
                 <strong>{chamado.titulo}</strong>
@@ -166,6 +173,10 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
       </header>
 
       <div className="cartao formulario">
+        {/* A ocasião vem antes do texto: é a pergunta mais fácil de responder */}
+        <label>Com o que é o problema?</label>
+        <SeletorCategoria valor={categoria} onEscolher={setCategoria} />
+
         <label htmlFor="chamado-titulo">O que está acontecendo</label>
         <input
           id="chamado-titulo"
@@ -176,35 +187,21 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
           onChange={(evento) => setTitulo(evento.target.value)}
         />
 
-        <div className="formulario__linha">
-          <div>
-            <label htmlFor="chamado-categoria">Categoria</label>
-            <select
-              id="chamado-categoria"
-              value={categoria}
-              onChange={(evento) => setCategoria(evento.target.value as CategoriaChamado)}
+        {/* Urgência em botões: três opções não merecem uma lista suspensa */}
+        <label>Isso te impede de trabalhar?</label>
+        <div className="urgencias" role="radiogroup" aria-label="Urgência">
+          {PRIORIDADES.map((opcao) => (
+            <button
+              key={opcao.valor}
+              type="button"
+              role="radio"
+              aria-checked={prioridade === opcao.valor}
+              className={`urgencia urgencia--${opcao.valor.toLowerCase()} ${prioridade === opcao.valor ? 'urgencia--escolhida' : ''}`}
+              onClick={() => setPrioridade(opcao.valor)}
             >
-              {CATEGORIAS.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="chamado-prioridade">Prioridade</label>
-            <select
-              id="chamado-prioridade"
-              value={prioridade}
-              onChange={(evento) => setPrioridade(evento.target.value as PrioridadeChamado)}
-            >
-              {PRIORIDADES.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              {ROTULO_URGENCIA[opcao.valor]}
+            </button>
+          ))}
         </div>
 
         <label htmlFor="chamado-descricao">Detalhes</label>
@@ -291,11 +288,10 @@ function DetalheChamado({
       <header className="page__header">
         <div>
           <h1>
-            #{chamado.numero} · {chamado.titulo}
+            <Icone nome={ICONE_CATEGORIA[chamado.categoria]} tamanho={20} /> #{chamado.numero} · {chamado.titulo}
           </h1>
           <p className="page__subtitle">
             {ROTULO_CATEGORIA[chamado.categoria]} · aberto em {quando(chamado.createdAt)}
-            {chamado.responsavelNome && ` · atendido por ${chamado.responsavelNome}`}
           </p>
         </div>
         <button className="botao" onClick={onVoltar}>
@@ -303,14 +299,18 @@ function DetalheChamado({
         </button>
       </header>
 
-      <div className="chamado__cabecalho">
-        <EtiquetaStatus status={chamado.status} />
-        <EtiquetaPrioridade prioridade={chamado.prioridade} />
-        {chamado.status === 'RESOLVIDO' && (
-          <button className="botao" onClick={() => void fechar()}>
-            Está resolvido, pode fechar
-          </button>
-        )}
+      {/* Onde o chamado está: é a primeira coisa que quem abriu quer saber */}
+      <div className="cartao chamado__andamento">
+        <LinhaDoTempo status={chamado.status} responsavelNome={chamado.responsavelNome} />
+        <div className="chamado__cabecalho">
+          <Responsavel nome={chamado.responsavelNome} />
+          <EtiquetaPrioridade prioridade={chamado.prioridade} />
+          {chamado.status === 'RESOLVIDO' && (
+            <button className="botao botao--primario" onClick={() => void fechar()}>
+              Está resolvido, pode fechar
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="cartao chamado__descricao">

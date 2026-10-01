@@ -988,6 +988,12 @@ function start(): void {
     return 'dados' in saida ? { ok: true, message: '' } : saida;
   });
 
+  handle(IpcChannels.AdminChamadoAceitar, async (bruto): Promise<OperationResult> => {
+    if (typeof bruto !== 'string' || !CHAMADO_ID.test(bruto)) return { ok: false, message: 'Chamado inválido.' };
+    const saida = await comAdmin((client) => client.aceitarChamado(bruto));
+    return 'dados' in saida ? { ok: true, message: '' } : saida;
+  });
+
   handle(IpcChannels.AdminMuralList, async () => {
     const saida = await comAdmin((client) => client.listarMural());
     return 'dados' in saida ? { ok: true, posts: saida.dados, message: '' } : { ok: false, posts: [], message: saida.message };

@@ -2869,7 +2869,8 @@ input[type='radio'] {
 
 .chamado-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  /* ícone · número · texto (as etiquetas vão para a linha de baixo, na 3ª coluna) */
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: start;
   gap: 4px 12px;
   padding: 11px 14px;
@@ -2917,9 +2918,25 @@ input[type='radio'] {
   align-items: center;
   gap: 8px;
   /* Etiquetas embaixo, em linha própria: antes espremiam o título em três linhas */
-  grid-column: 2;
+  grid-column: 3;
   flex-wrap: wrap;
   margin-top: 2px;
+}
+
+.chamado-item__icone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-alta);
+  color: var(--acento);
+}
+
+/* Chamado sem dono: a borda chama o TI para pegar */
+.chamado-item--livre {
+  border-left-color: var(--danger);
 }
 
 .chamado-item__badge {
@@ -5090,4 +5107,198 @@ svg {
   margin: 14px 0 0;
   font-size: 12.5px;
   color: var(--muted);
+}
+
+/* ------------------------------------------------- chamados: abrir e acompanhar */
+
+/* Escolha da ocasiao por icone, no lugar da lista suspensa */
+.ocasioes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.ocasiao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-soft);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.ocasiao:hover {
+  border-color: var(--acento);
+  transform: translateY(-1px);
+}
+
+.ocasiao--escolhida {
+  border-color: var(--acento);
+  background: var(--primary-soft);
+  color: var(--acento);
+}
+
+.ocasiao__nome {
+  font-size: 14px;
+}
+
+.ocasiao__exemplo {
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.ocasiao--escolhida .ocasiao__exemplo {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Urgencia perguntada pelo impacto, em tres botoes */
+.urgencias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.urgencia {
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.urgencia:hover {
+  border-color: var(--acento);
+}
+
+.urgencia--escolhida {
+  border-color: var(--acento);
+  background: var(--primary-soft);
+  color: var(--acento);
+  font-weight: 600;
+}
+
+.urgencia--alta.urgencia--escolhida {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger);
+}
+
+/* Linha do tempo: as quatro etapas do chamado */
+.chamado__andamento {
+  padding: 16px 18px;
+}
+
+.andamento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.andamento__etapa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  /* A etapa que ainda nao chegou fica apagada, sem sumir */
+  opacity: 0.5;
+}
+
+.andamento__etapa--passou,
+.andamento__etapa--agora {
+  opacity: 1;
+}
+
+.andamento__marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  flex: none;
+}
+
+.andamento__etapa--passou .andamento__marca {
+  border-color: var(--acento);
+  color: var(--acento);
+}
+
+.andamento__etapa--agora .andamento__marca {
+  border-color: var(--acento);
+  background: var(--acento);
+  color: #fff;
+}
+
+.andamento__texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.andamento__texto strong {
+  font-size: 13px;
+}
+
+.andamento__texto small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.andamento__etapa--agora .andamento__texto strong {
+  color: var(--acento);
+}
+
+/* Quem pegou o chamado */
+.responsavel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.responsavel--livre {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Chamada principal da fila do TI: pegar o atendimento */
+.aceitar-chamado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border-left: 3px solid var(--danger);
+}
+
+.aceitar-chamado p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.aceitar-chamado .botao {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
 }

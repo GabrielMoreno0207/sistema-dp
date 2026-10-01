@@ -117,6 +117,11 @@ export class AdminClient {
     return this.request<ChamadoCompleto>('PUT', `/api/chamados/${encodeURIComponent(id)}/status`, { status });
   }
 
+  /** Assume o atendimento: o chamado sai da fila sem dono e passa a ser meu. */
+  async aceitarChamado(id: string): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`);
+  }
+
   async marcarChamadoLido(id: string): Promise<void> {
     await this.request('POST', `/api/chamados/${encodeURIComponent(id)}/lidas`);
   }

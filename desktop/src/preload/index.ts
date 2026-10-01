@@ -73,6 +73,7 @@ const api: DesktopApi = {
   adminChamadoDetalhe: (id) => ipcRenderer.invoke(IpcChannels.AdminChamadoDetalhe, id),
   adminResponderChamado: (id, conteudo) => ipcRenderer.invoke(IpcChannels.AdminChamadoResponder, { id, conteudo }),
   adminMudarStatus: (id, status) => ipcRenderer.invoke(IpcChannels.AdminChamadoStatus, { id, status }),
+  adminAceitarChamado: (id) => ipcRenderer.invoke(IpcChannels.AdminChamadoAceitar, id),
   adminListarMural: () => ipcRenderer.invoke(IpcChannels.AdminMuralList),
   adminSalvarMural: (dados) => ipcRenderer.invoke(IpcChannels.AdminMuralSalvar, dados),
   adminRemoverMural: (id) => ipcRenderer.invoke(IpcChannels.AdminMuralRemover, id),
