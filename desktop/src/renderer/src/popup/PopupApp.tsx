@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AvisoMensagem, DpMessage, PopupState } from '../../../shared/types';
+import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, PopupState } from '../../../shared/types';
 import { formatMessageDate, MESSAGE_TYPE_META } from '../lib/message-meta';
 import { playAlertSound } from '../lib/sound';
 import { Icone } from '../lib/icones';
@@ -7,12 +7,20 @@ import { Icone } from '../lib/icones';
 /** URGENTE: o som se repete enquanto o alerta estiver na tela */
 const URGENT_REPEAT_MS = 10_000;
 
+/** Chave do alerta à vista (a mesma que o processo principal usa na fila) */
+function chaveDo(item: PopupState['current']): string | null {
+  if (!item) return null;
+  if (item.tipo === 'COMUNICADO') return item.comunicado.id;
+  if (item.tipo === 'MENSAGEM') return item.mensagem.id;
+  return 'atualizacao';
+}
+
 /**
  * Alerta no canto da tela, no tamanho de uma notificação, com som.
  *
- * Serve para os comunicados do DP e para as mensagens novas do chat: o formato
- * é o mesmo, muda o conteúdo e o que o botão principal faz (abrir o comunicado
- * ou abrir a conversa).
+ * Serve para os comunicados do DP, para as mensagens novas do chat e para o
+ * aviso da atualização: o formato é o mesmo, muda o conteúdo e o que o botão
+ * principal faz (abrir o comunicado, abrir a conversa ou nada).
  */
 export function PopupApp() {
   const [state, setState] = useState<PopupState>({ current: null, position: 0, total: 0 });
@@ -24,16 +32,18 @@ export function PopupApp() {
   }, []);
 
   const atual = state.current;
-  const chave = atual ? (atual.tipo === 'COMUNICADO' ? atual.comunicado.id : atual.mensagem.id) : null;
+  const chave = chaveDo(atual);
   const urgente = atual?.tipo === 'COMUNICADO' && atual.comunicado.type === 'URGENTE';
+  // A atualização não toca som: ninguém precisa ser interrompido por ela
+  const comSom = atual !== null && atual.tipo !== 'ATUALIZACAO';
 
   // Toca o som sempre que um alerta novo aparece
   useEffect(() => {
     if (chave && chave !== ultimoTocado.current) {
       ultimoTocado.current = chave;
-      playAlertSound(urgente);
+      if (comSom) playAlertSound(urgente);
     }
-  }, [chave, urgente]);
+  }, [chave, urgente, comSom]);
 
   const idUrgente = urgente ? chave : null;
   useEffect(() => {
@@ -62,6 +72,9 @@ export function PopupApp() {
 
   const fechar = () => void acionar(window.dpPopup.popupDismiss, chave);
   const abrir = () => void acionar(window.dpPopup.popupView, chave);
+
+  // Atualização: não há o que abrir nem fila para andar, só tirar da frente
+  if (atual.tipo === 'ATUALIZACAO') return <AlertaAtualizacao info={atual.info} onFechar={fechar} />;
 
   const rodape = (
     <div className="toast__actions">
@@ -147,6 +160,46 @@ function AlertaMensagem({ aviso, onFechar, rodape }: AlertaProps & { aviso: Avis
         <p className="toast__content">{aviso.grupo ? `${aviso.autorNome}: ${aviso.resumo}` : aviso.resumo}</p>
 
         {rodape}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Aviso de que a versão nova está sendo instalada.
+ *
+ * Ficava numa tela preta por cima de tudo, no meio da janela: quem estava
+ * trabalhando levava um susto e perdia o que tinha à frente. Virou alerta de
+ * canto, igual aos outros, porque não há nada a decidir aqui — só saber que o
+ * aplicativo vai sumir por um minuto e voltar.
+ */
+function AlertaAtualizacao({ info, onFechar }: { info: AtualizacaoEmAndamento; onFechar(): void }) {
+  return (
+    <div className="toast toast--atualizacao" role="alert">
+      <span className="toast__icon">
+        <Icone nome="atualizar" />
+      </span>
+
+      <div className="toast__body">
+        <div className="toast__top">
+          <span className="toast__kicker">Atualização do sistema</span>
+          <span className="toast__time">versão {info.versao}</span>
+          <button className="toast__close" aria-label="Fechar" title="Fechar" onClick={onFechar}>
+            <Icone nome="fechar" tamanho={14} />
+          </button>
+        </div>
+
+        <strong className="toast__title">O Comunica Trinys vai reabrir</strong>
+        <p className="toast__content">
+          Ele fecha e abre sozinho para instalar a versão nova. Leva menos de um minuto.
+        </p>
+        <p className="toast__dica">Se não voltar sozinho, abra pelo ícone da área de trabalho.</p>
+
+        <div className="toast__actions">
+          <button className="btn btn--ghost" onClick={onFechar}>
+            Fechar
+          </button>
+        </div>
       </div>
     </div>
   );

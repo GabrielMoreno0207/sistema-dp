@@ -378,12 +378,14 @@ export interface AvisoMensagem {
 }
 
 /**
- * O que está no alerta: um comunicado do DP ou uma mensagem do chat.
- * Os dois usam a mesma janelinha do canto da tela.
+ * O que está no alerta: um comunicado do DP, uma mensagem do chat ou o aviso de
+ * que a versão nova está sendo instalada. Todos usam a mesma janelinha do canto
+ * da tela — ninguém tem a tela tomada no meio do trabalho.
  */
 export type ItemAlerta =
   | { tipo: 'COMUNICADO'; comunicado: DpMessage }
-  | { tipo: 'MENSAGEM'; mensagem: AvisoMensagem };
+  | { tipo: 'MENSAGEM'; mensagem: AvisoMensagem }
+  | { tipo: 'ATUALIZACAO'; info: AtualizacaoEmAndamento };
 
 export interface PopupState {
   current: ItemAlerta | null;
@@ -394,7 +396,7 @@ export interface PopupState {
 
 /**
  * Instalação da versão nova em andamento: o aplicativo vai fechar e abrir
- * sozinho. A tela mostra o aviso para ninguém achar que o programa travou.
+ * sozinho. O alerta do canto avisa, para ninguém achar que o programa travou.
  */
 export interface AtualizacaoEmAndamento {
   versao: string;
@@ -428,8 +430,6 @@ export interface DesktopApi {
   janelaEstaMaximizada(): Promise<boolean>;
   /** O processo principal pede a senha (botão de fechar, bandeja, Alt+F4) */
   onPedirSenhaParaFechar(listener: () => void): () => void;
-  /** O aplicativo vai fechar para instalar a versão nova (null tira o aviso) */
-  onAtualizacaoInstalando(listener: (info: AtualizacaoEmAndamento | null) => void): () => void;
 
   /** Calendário da tela inicial (mesma credencial de quem está usando o aplicativo) */
   agendaApi<T = unknown>(
@@ -656,7 +656,5 @@ export const IpcChannels = {
   JanelaEstado: 'janela:estado',
   /** Pedido para abrir a janelinha da senha (botão de fechar, bandeja, Alt+F4) */
   PedirSenhaParaFechar: 'janela:pedir-senha',
-  /** Avisa a tela de que o aplicativo vai fechar para instalar a versão nova */
-  AtualizacaoInstalando: 'atualizacao:instalando',
 } as const;
 // Canais do popup: ver popup-channels.ts

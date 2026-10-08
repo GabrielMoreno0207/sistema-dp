@@ -1722,15 +1722,11 @@ function start(): void {
       horario: horarioAtualizacao() ?? undefined,
       log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
       avisarTela: (info) => {
-        // Obrigatória fecha o aplicativo mesmo com alguém usando o PC: a janela
-        // vem para a frente (pode estar na bandeja) para o aviso ser visto
-        if (info?.obrigatoria) {
-          const janela = ensureMainWindow();
-          if (janela.isMinimized()) janela.restore();
-          janela.show();
-          janela.focus();
-        }
-        sendToMain(IpcChannels.AtualizacaoInstalando, info);
+        // Alerta do canto da tela, como um comunicado: aparece por cima de tudo
+        // sem roubar o foco nem tapar o que a pessoa está fazendo. Vale também
+        // com o aplicativo na bandeja, que é quando a janela principal não
+        // mostraria nada.
+        popup.avisarAtualizacao(info);
       },
     });
     atualizador.iniciar();

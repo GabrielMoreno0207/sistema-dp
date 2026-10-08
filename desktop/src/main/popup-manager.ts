@@ -1,19 +1,26 @@
 import { app, screen, type BrowserWindow } from 'electron';
 import { EventEmitter } from 'node:events';
 import { PopupChannels } from '../shared/popup-channels';
-import type { AvisoMensagem, DpMessage, ItemAlerta, PopupState } from '../shared/types';
+import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, ItemAlerta, PopupState } from '../shared/types';
 
 /** Tamanho de notificação (o card tem 380x150; o resto é margem para a sombra) */
 const POPUP_SIZE = { width: 400, height: 170 };
+/** O aviso da atualização tem uma linha a mais (o que fazer se não abrir sozinho) */
+const POPUP_SIZE_ATUALIZACAO = { width: 400, height: 196 };
 const MARGIN = 6;
+/** Só existe um aviso de atualização por vez */
+const CHAVE_ATUALIZACAO = 'atualizacao';
 
 /** Chave única do alerta na fila. */
 function chaveDo(item: ItemAlerta): string {
-  return item.tipo === 'COMUNICADO' ? item.comunicado.id : item.mensagem.id;
+  if (item.tipo === 'COMUNICADO') return item.comunicado.id;
+  if (item.tipo === 'MENSAGEM') return item.mensagem.id;
+  return CHAVE_ATUALIZACAO;
 }
 
 /**
- * Fila de alertas: comunicados do DP e mensagens novas do chat.
+ * Fila de alertas: comunicados do DP, mensagens novas do chat e o aviso da
+ * atualização.
  * Mostra um por vez, no tamanho de uma notificação, no canto inferior direito,
  * sempre por cima das outras janelas e com som (tocado pela interface do popup).
  * Comunicado URGENTE fura a fila.
@@ -66,10 +73,22 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
     this.render();
   }
 
+  /**
+   * Aviso de que a versão nova está sendo instalada (ou null para tirá-lo, quando
+   * o instalador não sobe). Entra na frente de tudo: o aplicativo fecha em
+   * seguida, e este é o alerta que explica o que está acontecendo.
+   */
+  avisarAtualizacao(info: AtualizacaoEmAndamento | null): void {
+    const semAviso = this.queue.filter((item) => item.tipo !== 'ATUALIZACAO');
+    this.queue = info ? [{ tipo: 'ATUALIZACAO', info }, ...semAviso] : semAviso;
+    this.render();
+  }
+
   /** Esvazia a fila (ex.: funcionário saiu; os alertas eram da pessoa anterior). */
   clear(): void {
     if (this.queue.length === 0) return;
-    this.queue = [];
+    // O aviso da atualização fica: não é mensagem de ninguém, é o aplicativo de saída
+    this.queue = this.queue.filter((item) => item.tipo === 'ATUALIZACAO');
     this.render();
   }
 
@@ -99,6 +118,8 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
       return;
     }
     this.remove(chaveDo(alvo));
+    // O aviso da atualização não tem o que abrir: fechar é tudo o que ele faz
+    if (alvo.tipo === 'ATUALIZACAO') return;
     if (alvo.tipo === 'MENSAGEM') this.emit('conversa', alvo.mensagem.conversaId);
     else this.emit('view', chaveDo(alvo));
   }
@@ -192,10 +213,11 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
   /** Canto inferior direito da área de trabalho (acima da barra de tarefas) */
   private placeWindow(win: BrowserWindow): void {
     const { workArea } = screen.getPrimaryDisplay();
+    const tamanho = this.queue[0]?.tipo === 'ATUALIZACAO' ? POPUP_SIZE_ATUALIZACAO : POPUP_SIZE;
     win.setBounds({
-      x: workArea.x + workArea.width - POPUP_SIZE.width - MARGIN,
-      y: workArea.y + workArea.height - POPUP_SIZE.height - MARGIN,
-      ...POPUP_SIZE,
+      x: workArea.x + workArea.width - tamanho.width - MARGIN,
+      y: workArea.y + workArea.height - tamanho.height - MARGIN,
+      ...tamanho,
     });
   }
 
