@@ -18,6 +18,8 @@ interface BarraSuperiorProps {
   onEntrar(): void;
   onEntrarComoDp(): void;
   onSairDoDp(): void;
+  /** "Sair" do funcionário: abre a caixa que pede a senha do TI */
+  onSairDaConta(): void;
   /** X da barra: abre a caixa que pede a senha para encerrar */
   onFecharSistema(): void;
 }
@@ -38,6 +40,7 @@ export function BarraSuperior({
   onEntrar,
   onEntrarComoDp,
   onSairDoDp,
+  onSairDaConta,
   onFecharSistema,
 }: BarraSuperiorProps) {
   const [menuAberto, setMenuAberto] = useState(false);
@@ -166,7 +169,7 @@ export function BarraSuperior({
                   Entrar como RH/TI
                 </button>
               )}
-              <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(() => void window.dp.employeeLogout())}>
+              <button role="menuitem" className="menu-usuario__sair" onClick={() => escolher(onSairDaConta)}>
                 Sair
               </button>
             </div>

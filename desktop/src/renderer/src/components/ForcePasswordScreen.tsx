@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { EmployeeProfile } from '../../../shared/types';
 import icone from '../imagens/icone.png';
+import { SairDaConta } from './SairDaConta';
 
 /**
  * Troca de senha obrigatória: aparece quando a senha é a inicial ou foi redefinida pelo DP.
@@ -12,6 +13,8 @@ export function ForcePasswordScreen({ employee }: { employee: EmployeeProfile })
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Sair pede a senha do TI (a mesma de fechar o sistema)
+  const [saindo, setSaindo] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -22,16 +25,6 @@ export function ForcePasswordScreen({ employee }: { employee: EmployeeProfile })
     setBusy(true);
     try {
       const result = await window.dp.changePassword(current, next);
-      if (!result.ok) setError(result.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleLogout() {
-    setBusy(true);
-    try {
-      const result = await window.dp.employeeLogout();
       if (!result.ok) setError(result.message);
     } finally {
       setBusy(false);
@@ -75,11 +68,13 @@ export function ForcePasswordScreen({ employee }: { employee: EmployeeProfile })
         </button>
 
         <div className="login-card__skip">
-          <button type="button" className="link-btn" onClick={() => void handleLogout()} disabled={busy}>
+          <button type="button" className="link-btn" onClick={() => setSaindo(true)} disabled={busy}>
             Sair (não sou {employee.name.split(' ')[0]})
           </button>
         </div>
       </form>
+
+      {saindo && <SairDaConta onCancelar={() => setSaindo(false)} />}
     </div>
   );
 }

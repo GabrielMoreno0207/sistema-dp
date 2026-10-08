@@ -438,7 +438,8 @@ export interface DesktopApi {
 
   // Login do funcionário
   employeeLogin(registration: string, password: string): Promise<OperationResult>;
-  employeeLogout(): Promise<OperationResult>;
+  /** Sair da conta exige a senha de fechar o sistema (a mesma do TI) */
+  employeeLogout(senha: string): Promise<OperationResult>;
   changePassword(currentPassword: string, newPassword: string): Promise<OperationResult>;
   onEmployeeChange(listener: (state: EmployeeState) => void): () => void;
 

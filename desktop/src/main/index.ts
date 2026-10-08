@@ -562,7 +562,17 @@ function start(): void {
     }
   });
 
-  handle(IpcChannels.EmployeeLogout, async (): Promise<OperationResult> => {
+  /**
+   * Sair da conta pede a mesma senha de fechar o sistema: nos computadores da
+   * fábrica ninguém se desloga para escapar dos comunicados (quem precisa
+   * trocar de funcionário chama o TI).
+   */
+  handle(IpcChannels.EmployeeLogout, async (bruto): Promise<OperationResult> => {
+    const senha = typeof bruto === 'string' ? bruto : '';
+    if (!senha || !senhaDeFecharConfere(senha)) {
+      console.warn('[funcionário] tentativa de sair com senha errada');
+      return { ok: false, message: 'Senha incorreta.' };
+    }
     const client = api;
     if (!client || connection.getState().status !== 'connected') return OFFLINE_RESULT;
     try {

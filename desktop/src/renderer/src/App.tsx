@@ -20,6 +20,7 @@ import { MessagesPage } from './pages/MessagesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { FecharSistema } from './components/FecharSistema';
+import { SairDaConta } from './components/SairDaConta';
 import { TelaAtualizando } from './components/TelaAtualizando';
 
 const SKIP_LOGIN_KEY = 'dp.skipLogin';
@@ -51,6 +52,8 @@ export function App() {
   const [waitExpired, setWaitExpired] = useState(false);
   const [entrandoComoDp, setEntrandoComoDp] = useState(false);
   const [fechandoSistema, setFechandoSistema] = useState(false);
+  // Sair da conta pede a senha do TI (a mesma de fechar o sistema)
+  const [saindoDaConta, setSaindoDaConta] = useState(false);
   // Instalando versão nova: o aplicativo vai fechar e abrir de novo
   const [atualizando, setAtualizando] = useState<AtualizacaoEmAndamento | null>(null);
   // Conversa que o alerta pediu para abrir (botão "Responder")
@@ -283,10 +286,13 @@ export function App() {
           void window.dp.adminLogout();
           navigate('home');
         }}
+        onSairDaConta={() => setSaindoDaConta(true)}
         onFecharSistema={() => setFechandoSistema(true)}
       />
 
       {fechandoSistema && <FecharSistema onCancelar={() => setFechandoSistema(false)} />}
+
+      {saindoDaConta && <SairDaConta onCancelar={() => setSaindoDaConta(false)} />}
 
       {entrandoComoDp && <EntrarComoDp onFechar={() => setEntrandoComoDp(false)} />}
 

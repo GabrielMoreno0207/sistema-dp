@@ -38,7 +38,7 @@ const api: DesktopApi = {
   testServer: (serverUrl) => ipcRenderer.invoke(IpcChannels.TestServer, serverUrl),
 
   employeeLogin: (registration, password) => ipcRenderer.invoke(IpcChannels.EmployeeLogin, registration, password),
-  employeeLogout: () => ipcRenderer.invoke(IpcChannels.EmployeeLogout),
+  employeeLogout: (senha) => ipcRenderer.invoke(IpcChannels.EmployeeLogout, senha),
   changePassword: (currentPassword, newPassword) =>
     ipcRenderer.invoke(IpcChannels.EmployeeChangePassword, currentPassword, newPassword),
   onEmployeeChange: (listener) => subscribe(IpcChannels.EmployeeChanged, listener),

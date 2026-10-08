@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { AppState, OperationResult } from '../../../shared/types';
+import { SairDaConta } from '../components/SairDaConta';
 
 interface ProfilePageProps {
   state: AppState;
@@ -62,18 +63,8 @@ function ChangePasswordForm() {
 
 export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
   const { computer, employee } = state;
-  const [logoutResult, setLogoutResult] = useState<OperationResult | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function handleLogout() {
-    setBusy(true);
-    try {
-      const result = await window.dp.employeeLogout();
-      if (!result.ok) setLogoutResult(result);
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Sair pede a senha do TI (a mesma de fechar o sistema)
+  const [saindo, setSaindo] = useState(false);
 
   const computerRows: [string, string][] = [
     ['Identificador do computador', computer.computerId],
@@ -97,7 +88,7 @@ export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
           <section className="panel">
             <div className="panel__header">
               <h2>Funcionário</h2>
-              <button className="btn btn--ghost" onClick={() => void handleLogout()} disabled={busy}>
+              <button className="btn btn--ghost" onClick={() => setSaindo(true)}>
                 Sair (trocar de funcionário)
               </button>
             </div>
@@ -116,9 +107,9 @@ export function ProfilePage({ state, onRequestLogin }: ProfilePageProps) {
                 </div>
               ))}
             </dl>
-            {logoutResult && <p className="feedback feedback--error">{logoutResult.message}</p>}
           </section>
           <ChangePasswordForm />
+          {saindo && <SairDaConta onCancelar={() => setSaindo(false)} />}
         </>
       ) : (
         <section className="panel panel--muted">
