@@ -92,6 +92,12 @@ function detalheDaPessoa(p: Participante): string {
   return p.setor ?? 'Sem setor';
 }
 
+/** Setor para a descrição da conversa direta (o grupo junta vários: devolve null). */
+function setorDaConversa(c: ConversaResumo, meuId: string): string | null {
+  const outro = outraPessoa(c, meuId);
+  return outro ? detalheDaPessoa(outro) : null;
+}
+
 // ---------------------------------------------------------------- lista
 
 export function ConversasScreen() {
@@ -103,7 +109,10 @@ export function ConversasScreen() {
   const [atualizando, setAtualizando] = useState(false);
   const meuId = employee?.id ?? '';
 
-  const filtradas = conversas.filter((c) => combina(busca, c.titulo, ...c.participantes.map((p) => p.nome)));
+  // Procura também pelo setor: a pessoa pode ser lembrada pelo setor, não pelo nome
+  const filtradas = conversas.filter((c) =>
+    combina(busca, c.titulo, ...c.participantes.map((p) => p.nome), ...c.participantes.map((p) => detalheDaPessoa(p))),
+  );
 
   async function atualizar() {
     setAtualizando(true);
@@ -133,6 +142,7 @@ export function ConversasScreen() {
         }
         renderItem={({ item: c }) => {
           const outro = outraPessoa(c, meuId);
+          const setor = setorDaConversa(c, meuId);
           const naoLidas = c.naoLidas > 0;
           return (
             <Pressable
@@ -141,9 +151,19 @@ export function ConversasScreen() {
               <Avatar nome={c.titulo} fotoMidiaId={outro?.fotoMidiaId} grupo={c.tipo === 'GRUPO'} size={46} />
               <View style={styles.flex}>
                 <View style={styles.linhaEntre}>
-                  <Text style={[styles.nome, { color: t.text }]} numberOfLines={1}>
-                    {c.titulo}
-                  </Text>
+                  <View style={styles.linhaQuem}>
+                    <Text style={[styles.nome, { color: t.text }]} numberOfLines={1}>
+                      {c.titulo}
+                    </Text>
+                    {/* O nome nem sempre diz o setor: a etiqueta mostra de onde a pessoa é */}
+                    {setor ? (
+                      <View style={[styles.etiquetaSetor, { borderColor: t.border }]}>
+                        <Text style={[styles.etiquetaSetorTexto, { color: t.muted }]} numberOfLines={1}>
+                          {setor}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   {c.ultimaMensagem ? (
                     <Text style={[styles.hora, { color: naoLidas ? t.link : t.muted }]}>{formatListDate(c.ultimaMensagem.createdAt)}</Text>
                   ) : null}
@@ -1091,7 +1111,8 @@ export function EncaminharScreen({ mensagem }: { mensagem: MensagemConversa }) {
       saida.push({
         chave: `conversa:${c.id}`,
         nome: c.titulo,
-        detalhe: c.tipo === 'GRUPO' ? `${c.participantes.length} participantes` : 'Conversa',
+        // Na conversa direta vale mais o setor da pessoa que a palavra "Conversa"
+        detalhe: c.tipo === 'GRUPO' ? `${c.participantes.length} participantes` : (setorDaConversa(c, meuId) ?? 'Conversa'),
         conversaId: c.id,
         grupo: c.tipo === 'GRUPO',
         fotoMidiaId: outro?.fotoMidiaId,
@@ -1228,7 +1249,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   linhaEntre: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   itemConversa: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 12 },
+  linhaQuem: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   nome: { fontSize: 15.5, fontWeight: '700', flexShrink: 1 },
+  // Só contorno: o fundo do item muda quando ele é pressionado
+  etiquetaSetor: { flexShrink: 1, borderWidth: 1, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 1 },
+  etiquetaSetorTexto: { fontSize: 11, fontWeight: '700' },
   previa: { fontSize: 13.5, flexShrink: 1 },
   hora: { fontSize: 12 },
   contador: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center' },

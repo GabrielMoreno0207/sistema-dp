@@ -597,7 +597,33 @@ button.stat:hover {
   gap: 6px;
 }
 
+.contact__quem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
 .contact__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Etiqueta do setor da pessoa: o nome dela nem sempre diz de onde ela é.
+ * Só contorno, porque o item muda de fundo no hover e quando está escolhido.
+ */
+.contact__setor {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 11px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2569,6 +2595,19 @@ input[type='radio'] {
   flex: 1;
 }
 
+.conversa__quem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conversa__quem strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .conversa__previa {
   overflow: hidden;
   color: var(--muted);
@@ -4132,6 +4171,32 @@ input[type='radio'] {
 }
 
 /* Leitura do TI: a lista e a conversa dividem a área da página */
+/* Tranca da área do TI: a caixa que pede a senha antes de abrir as conversas */
+.tranca-ti {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 16px;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.tranca-ti__icone {
+  color: var(--muted);
+}
+
+.tranca-ti__texto {
+  margin: 10px 0 0;
+  color: var(--text-soft);
+}
+
+.tranca-ti .btn {
+  margin-top: 16px;
+}
+
 .chat-layout--ti {
   height: calc(100vh - 220px);
   margin-top: 12px;

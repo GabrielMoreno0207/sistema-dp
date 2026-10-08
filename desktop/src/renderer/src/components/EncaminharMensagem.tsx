@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
-import { Avatar, outraPessoa, tamanhoLegivel } from './conversa-comuns';
+import { Avatar, outraPessoa, setorDaConversa, setorDaPessoa, tamanhoLegivel } from './conversa-comuns';
 
 interface EncaminharProps {
   mensagem: MensagemConversa;
@@ -45,7 +45,11 @@ export function EncaminharMensagem({
       lista.push({
         chave: `conversa:${conversa.id}`,
         nome: conversa.titulo,
-        detalhe: conversa.tipo === 'GRUPO' ? `${conversa.participantes.length} participantes` : 'Conversa',
+        // Na conversa direta vale mais o setor da pessoa que a palavra "Conversa"
+        detalhe:
+          conversa.tipo === 'GRUPO'
+            ? `${conversa.participantes.length} participantes`
+            : (setorDaConversa(conversa, meuId) ?? 'Conversa'),
         conversaId: conversa.id,
         grupo: conversa.tipo === 'GRUPO',
       });
@@ -56,7 +60,7 @@ export function EncaminharMensagem({
       lista.push({
         chave: `pessoa:${pessoa.id}`,
         nome: pessoa.nome,
-        detalhe: pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor'),
+        detalhe: setorDaPessoa(pessoa),
         pessoaId: pessoa.id,
         grupo: false,
       });

@@ -1,5 +1,5 @@
 import type { ConversaResumo } from '../../../shared/types';
-import { Avatar } from './conversa-comuns';
+import { Avatar, setorDaConversa } from './conversa-comuns';
 
 interface HistoricoConversasProps {
   conversas: ConversaResumo[];
@@ -41,28 +41,35 @@ export function HistoricoConversas({ conversas, meuId, disponivel, onAbrir, onEn
         </div>
       ) : (
         <div className="historico__lista">
-          {comConversa.map((conversa) => (
-            <button key={conversa.id} className="conversa" onClick={onAbrir}>
-              <Avatar
-                nome={conversa.titulo}
-                fotoMidiaId={conversa.participantes.find((pessoa) => pessoa.id !== meuId)?.fotoMidiaId}
-                grupo={conversa.tipo === 'GRUPO'}
-                classe="conversa__avatar"
-              />
-              <span className="conversa__texto">
-                <strong>{conversa.titulo}</strong>
-                <span className="conversa__previa">
-                  {conversa.ultimaMensagem?.tipo === 'MIDIA'
-                    ? (conversa.ultimaMensagem.conteudo || 'arquivo')
-                    : conversa.ultimaMensagem?.conteudo}
+          {comConversa.map((conversa) => {
+            // O setor ao lado do nome: nem todo nome diz de onde a pessoa é
+            const setor = setorDaConversa(conversa, meuId);
+            return (
+              <button key={conversa.id} className="conversa" onClick={onAbrir}>
+                <Avatar
+                  nome={conversa.titulo}
+                  fotoMidiaId={conversa.participantes.find((pessoa) => pessoa.id !== meuId)?.fotoMidiaId}
+                  grupo={conversa.tipo === 'GRUPO'}
+                  classe="conversa__avatar"
+                />
+                <span className="conversa__texto">
+                  <span className="conversa__quem">
+                    <strong>{conversa.titulo}</strong>
+                    {setor && <span className="contact__setor">{setor}</span>}
+                  </span>
+                  <span className="conversa__previa">
+                    {conversa.ultimaMensagem?.tipo === 'MIDIA'
+                      ? (conversa.ultimaMensagem.conteudo || 'arquivo')
+                      : conversa.ultimaMensagem?.conteudo}
+                  </span>
                 </span>
-              </span>
-              <span className="conversa__lado">
-                <span className="conversa__quando">{quando(conversa.ultimaMensagem?.createdAt ?? '')}</span>
-                {conversa.naoLidas > 0 && <span className="conversa__badge">{conversa.naoLidas}</span>}
-              </span>
-            </button>
-          ))}
+                <span className="conversa__lado">
+                  <span className="conversa__quando">{quando(conversa.ultimaMensagem?.createdAt ?? '')}</span>
+                  {conversa.naoLidas > 0 && <span className="conversa__badge">{conversa.naoLidas}</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </section>

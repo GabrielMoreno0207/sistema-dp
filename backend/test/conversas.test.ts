@@ -11,11 +11,14 @@ import { after, before, describe, test } from 'node:test';
 import type { FastifyInstance } from 'fastify';
 
 const SENHA_TI = 'senha-de-teste-123';
+/** Senha que destranca a área Conversas (TI), além da conta */
+const SENHA_DA_AREA = 'senha-da-area-9988';
 process.env.NODE_ENV = 'production';
 process.env.LOG_LEVEL = 'fatal';
 process.env.ADMIN_USERNAME = 'ti';
 process.env.ADMIN_PASSWORD = SENHA_TI;
 process.env.ADMIN_NAME = 'TI';
+process.env.SENHA_TI = SENHA_DA_AREA;
 const BASE = join(tmpdir(), `sistema-dp-test-conversas-${process.pid}`);
 process.env.MIDIAS_PATH = join(BASE, 'midias');
 process.env.UPLOADS_PATH = join(BASE, 'uploads');
@@ -56,6 +59,20 @@ async function registrarPc(computerId: string, segredo: string): Promise<string>
   return resposta.json().token;
 }
 
+/**
+ * Destranca a área do TI para uma sessão: a conta abre a tela, mas as conversas
+ * só abrem depois da senha do TI.
+ */
+async function liberarAreaTi(token: string): Promise<void> {
+  const resposta = await app.inject({
+    method: 'POST',
+    url: '/api/admin/conversas/liberar',
+    headers: comToken(token),
+    payload: { senha: SENHA_DA_AREA },
+  });
+  assert.equal(resposta.statusCode, 200, 'a senha do TI devia liberar a área');
+}
+
 async function criarFuncionario(nome: string, matricula: string, senha: string): Promise<string> {
   const resposta = await app.inject({
     method: 'POST',
@@ -85,6 +102,10 @@ before(async () => {
   tokenTi = (await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'ti', password: SENHA_TI } }))
     .json()
     .token;
+
+  // A área do TI pede a senha antes de abrir conversa: os testes dela destrancam
+  // uma vez aqui; a tranca em si tem os testes do fim do arquivo
+  await liberarAreaTi(tokenTi);
 
   await app.inject({ method: 'POST', url: '/api/sectors', headers: comToken(tokenTi), payload: { name: 'Produção' } });
   mariaId = await criarFuncionario('Maria Souza', '3001', 'Senha-Maria-3001');
@@ -667,6 +688,191 @@ describe('apagar mensagem', () => {
     assert.ok(apagada?.apagadaEm);
     assert.equal(apagada?.conteudo, '');
   });
+
+  test('apagada com anexo: o outro lado não recebe mais o id do arquivo', async () => {
+    const midia = await app.inject({
+      method: 'POST',
+      url: '/api/midias',
+      headers: { ...comToken(pcMaria), 'content-type': 'image/png', 'x-nome': encodeURIComponent('recibo.png') },
+      payload: IMAGEM,
+    });
+    const midiaId = midia.json().id as string;
+    const enviada = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaMariaJoao}/mensagens`,
+      headers: comToken(pcMaria),
+      payload: { conteudo: 'o recibo', midiaId },
+    });
+    const id = enviada.json().mensagem.id;
+
+    await app.inject({ method: 'DELETE', url: `/api/conversas/mensagens/${id}`, headers: comToken(pcMaria) });
+
+    // Com o midiaId em mãos qualquer pessoa autenticada baixa o arquivo:
+    // apagada tem de sair sem ele, dos dois lados da conversa
+    for (const token of [pcJoao, pcMaria]) {
+      const lista = (
+        await app.inject({ method: 'GET', url: `/api/conversas/${conversaMariaJoao}/mensagens`, headers: comToken(token) })
+      ).json().mensagens as { id: number; midiaId: string | null; midia: unknown }[];
+      const apagada = lista.find((m) => m.id === id);
+      assert.equal(apagada?.midiaId, null, 'mensagem apagada não pode levar o id do anexo');
+      assert.equal(apagada?.midia, null, 'mensagem apagada não pode levar os dados do anexo');
+    }
+
+    // Para o TI o anexo continua: é o que permite baixar a conversa completa
+    const doTi = (
+      await app.inject({
+        method: 'GET',
+        url: `/api/admin/conversas/${conversaMariaJoao}/mensagens`,
+        headers: comToken(tokenTi),
+      })
+    ).json().mensagens as { id: number; midiaId: string | null }[];
+    assert.equal(doTi.find((m) => m.id === id)?.midiaId, midiaId);
+  });
+});
+
+describe('o TI baixa a conversa', () => {
+  /** Conversa própria destes testes: a de Maria e João é apagada mais adiante */
+  let conversaId = '';
+  const SEGREDO = 'combinado que eu nao devia ter escrito';
+
+  before(async () => {
+    const criada = await app.inject({
+      method: 'POST',
+      url: '/api/conversas/direta',
+      headers: comToken(pcJoao),
+      payload: { comUsuarioId: carlaId },
+    });
+    conversaId = criada.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaId}/mensagens`,
+      headers: comToken(pcJoao),
+      payload: { conteudo: 'Carla, bom dia' },
+    });
+    const some = await app.inject({
+      method: 'POST',
+      url: `/api/conversas/${conversaId}/mensagens`,
+      headers: comToken(pcJoao),
+      payload: { conteudo: SEGREDO },
+    });
+    const apagar = await app.inject({
+      method: 'DELETE',
+      url: `/api/conversas/mensagens/${some.json().mensagem.id}`,
+      headers: comToken(pcJoao),
+    });
+    assert.equal(apagar.statusCode, 204);
+  });
+
+  test('o arquivo traz o texto apagado, que a conversa não mostra mais', async () => {
+    // Quem participa não lê mais: o texto saiu da coluna que as telas usam
+    const paraCarla = await app.inject({
+      method: 'GET',
+      url: `/api/conversas/${conversaId}/mensagens`,
+      headers: comToken(pcJoao),
+    });
+    assert.ok(!paraCarla.payload.includes(SEGREDO), 'quem participa não pode receber o texto apagado');
+
+    const arquivo = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversas/${conversaId}/exportar`,
+      headers: comToken(tokenTi),
+    });
+    assert.equal(arquivo.statusCode, 200);
+    const { nome, html } = arquivo.json() as { nome: string; html: string };
+    assert.match(nome, /^conversa-.*\.html$/);
+    assert.ok(html.includes(SEGREDO), 'o arquivo do TI precisa trazer o texto apagado');
+    assert.ok(html.includes('Carla, bom dia'), 'o arquivo precisa trazer as mensagens que ficaram');
+    assert.ok(html.includes('apagada em'), 'a mensagem apagada precisa aparecer marcada');
+    // Os dois lados e o setor de cada um ficam no cabeçalho do arquivo
+    assert.ok(html.includes('João Lima'));
+    assert.ok(html.includes('Carla'));
+  });
+
+  test('baixar conta como leitura e fica registrado', async () => {
+    const acessos = await app.inject({ method: 'GET', url: '/api/admin/conversas/acessos', headers: comToken(tokenTi) });
+    const registro = (acessos.json().acessos as { conversaId: string; usuarioNome: string }[]).find(
+      (a) => a.conversaId === conversaId,
+    );
+    assert.ok(registro, 'baixar a conversa precisa ficar registrado');
+    assert.equal(registro.usuarioNome, 'TI');
+  });
+
+  test('o log de apagadas diz quem apagou e com quem', async () => {
+    const resposta = await app.inject({ method: 'GET', url: '/api/admin/conversas/apagadas', headers: comToken(tokenTi) });
+    assert.equal(resposta.statusCode, 200);
+    const apagadas = resposta.json().apagadas as {
+      conversaId: string;
+      autorNome: string;
+      apagadaPorNome: string | null;
+      apagadaPorOutro: boolean;
+      apagadaEm: string;
+      comQuem: string;
+      temTexto: boolean;
+    }[];
+    const linha = apagadas.find((a) => a.conversaId === conversaId);
+    assert.ok(linha, 'a exclusão precisa entrar no log');
+    assert.equal(linha.autorNome, 'João Lima');
+    assert.equal(linha.apagadaPorNome, 'João Lima');
+    assert.equal(linha.apagadaPorOutro, false);
+    assert.ok(linha.apagadaEm);
+    assert.ok(linha.comQuem.includes('João Lima'), 'o log precisa dizer com quem era a conversa');
+    assert.equal(linha.temTexto, true);
+    // O log não é caminho para o texto: para ler, o TI baixa a conversa
+    assert.ok(!resposta.payload.includes(SEGREDO));
+  });
+
+  test('quem é do setor TI usa a área do TI sem login à parte', async () => {
+    await app.inject({ method: 'POST', url: '/api/sectors', headers: comToken(tokenTi), payload: { name: 'TI' } });
+    const suporte = await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Rafael Costa', registration: '3100', sector: 'TI', password: 'Senha-Rafael-3100' },
+    });
+    assert.equal(suporte.statusCode, 201);
+    const pcSuporte = await registrarPc('PC-CCCC55556666', 'c'.repeat(40));
+    await app.inject({
+      method: 'POST',
+      url: '/api/session/login',
+      headers: comToken(pcSuporte),
+      payload: { registration: '3100', password: 'Senha-Rafael-3100' },
+    });
+
+    // O setor do TI abre a tela, mas não dispensa a senha da área
+    const trancada = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(pcSuporte) });
+    assert.equal(trancada.statusCode, 423);
+    await liberarAreaTi(pcSuporte);
+
+    // O acesso vem do setor, pelo token do computador: sem isso a tela abria vazia
+    const lista = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(pcSuporte) });
+    assert.equal(lista.statusCode, 200);
+    assert.ok(lista.json().conversas.some((c: { id: string }) => c.id === conversaId));
+
+    const log = await app.inject({ method: 'GET', url: '/api/admin/conversas/apagadas', headers: comToken(pcSuporte) });
+    assert.equal(log.statusCode, 200);
+    assert.ok((log.json().apagadas as unknown[]).length > 0);
+
+    const arquivo = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversas/${conversaId}/exportar`,
+      headers: comToken(pcSuporte),
+    });
+    assert.equal(arquivo.statusCode, 200);
+    assert.ok((arquivo.json() as { html: string }).html.includes(SEGREDO));
+  });
+
+  test('funcionário não baixa conversa nem lê o log', async () => {
+    const baixar = await app.inject({
+      method: 'GET',
+      url: `/api/admin/conversas/${conversaId}/exportar`,
+      headers: comToken(pcJoao),
+    });
+    assert.equal(baixar.statusCode, 403);
+
+    const log = await app.inject({ method: 'GET', url: '/api/admin/conversas/apagadas', headers: comToken(pcJoao) });
+    assert.equal(log.statusCode, 403);
+  });
 });
 
 describe('conta apagada', () => {
@@ -848,6 +1054,131 @@ describe('DP/TI que só recebe mensagem do DP e do TI', () => {
     await pedir('POST', `/api/conversas/${direta.id}/mensagens`, tokenTi, { conteudo: 'Oi Lívia' });
     const doTi = (await pedir('GET', `/api/conversas/${direta.id}/mensagens`, tokenTi)).json().mensagens as { automatica: boolean }[];
     assert.ok(!doTi.some((m) => m.automatica));
+  });
+});
+
+describe('senha do TI para abrir a área de conversas', () => {
+  /** Sessão só desta suíte: trancar aqui não atrapalha os outros testes */
+  let sessao = '';
+  let pcBruna = '';
+  let conversaQualquer = '';
+
+  /** Todas as rotas da área do TI, para conferir que nenhuma escapa da tranca */
+  const rotasDoTi = (conversaId: string): { metodo: 'GET' | 'DELETE'; url: string }[] => [
+    { metodo: 'GET', url: '/api/admin/conversas' },
+    { metodo: 'GET', url: '/api/admin/conversas/acessos' },
+    { metodo: 'GET', url: '/api/admin/conversas/apagadas' },
+    { metodo: 'GET', url: `/api/admin/conversas/${conversaId}/mensagens` },
+    { metodo: 'GET', url: `/api/admin/conversas/${conversaId}/exportar` },
+    { metodo: 'DELETE', url: `/api/admin/conversas/${conversaId}` },
+  ];
+
+  before(async () => {
+    sessao = (
+      await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'ti', password: SENHA_TI } })
+    ).json().token;
+
+    // Alguém do DP (não do TI): tem conta administrativa, mas não é desta área.
+    // O setor pode já existir de outra suíte: o status não importa aqui
+    await app.inject({
+      method: 'POST',
+      url: '/api/sectors',
+      headers: comToken(tokenTi),
+      payload: { name: 'Departamento Pessoal' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Bruna Dias', registration: 'brunadp', sector: 'Departamento Pessoal', password: 'Senha-Bruna-3011' },
+    });
+    pcBruna = await registrarPc('PC-DDDD77778888', 'd'.repeat(40));
+    await app.inject({
+      method: 'POST',
+      url: '/api/session/login',
+      headers: comToken(pcBruna),
+      payload: { registration: 'brunadp', password: 'Senha-Bruna-3011' },
+    });
+
+    conversaQualquer = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/conversas/direta',
+        headers: comToken(pcMaria),
+        payload: { comUsuarioId: carlaId },
+      })
+    ).json().id;
+  });
+
+  test('sem a senha, nenhuma rota da área do TI responde', async () => {
+    for (const rota of rotasDoTi(conversaQualquer)) {
+      const resposta = await app.inject({ method: rota.metodo, url: rota.url, headers: comToken(sessao) });
+      assert.equal(resposta.statusCode, 423, `${rota.metodo} ${rota.url} abriu sem a senha`);
+      assert.equal(resposta.json().error, 'AREA_TI_TRANCADA');
+    }
+  });
+
+  test('senha errada não libera', async () => {
+    const errada = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversas/liberar',
+      headers: comToken(sessao),
+      payload: { senha: 'nao-e-essa' },
+    });
+    assert.equal(errada.statusCode, 401);
+    assert.equal(errada.json().error, 'SENHA_TI_INVALIDA');
+
+    const continua = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(sessao) });
+    assert.equal(continua.statusCode, 423);
+  });
+
+  test('com a senha abre, e o botão Trancar fecha de novo', async () => {
+    const liberada = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversas/liberar',
+      headers: comToken(sessao),
+      payload: { senha: SENHA_DA_AREA },
+    });
+    assert.equal(liberada.statusCode, 200);
+    assert.ok(new Date(liberada.json().validoAte).getTime() > Date.now(), 'a liberação precisa dizer até quando vale');
+
+    const aberta = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(sessao) });
+    assert.equal(aberta.statusCode, 200);
+
+    const trancou = await app.inject({ method: 'DELETE', url: '/api/admin/conversas/liberar', headers: comToken(sessao) });
+    assert.equal(trancou.statusCode, 204);
+    const depois = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(sessao) });
+    assert.equal(depois.statusCode, 423);
+  });
+
+  test('a liberação é de uma sessão só: outra conta do TI digita a sua', async () => {
+    await liberarAreaTi(sessao);
+    const outra = (
+      await app.inject({ method: 'POST', url: '/api/auth/login', payload: { username: 'ti', password: SENHA_TI } })
+    ).json().token;
+
+    const tentativa = await app.inject({ method: 'GET', url: '/api/admin/conversas', headers: comToken(outra) });
+    assert.equal(tentativa.statusCode, 423, 'a senha de uma sessão não vale para outra');
+  });
+
+  test('quem é do DP mas não do TI não entra nem tentando a senha', async () => {
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversas/liberar',
+      headers: comToken(pcBruna),
+      payload: { senha: SENHA_DA_AREA },
+    });
+    assert.equal(tentativa.statusCode, 403);
+  });
+
+  test('funcionário comum nem chega na tranca', async () => {
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: '/api/admin/conversas/liberar',
+      headers: comToken(pcMaria),
+      payload: { senha: SENHA_DA_AREA },
+    });
+    assert.equal(tentativa.statusCode, 403);
   });
 });
 

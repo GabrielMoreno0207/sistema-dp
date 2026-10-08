@@ -928,7 +928,9 @@ function start(): void {
    */
   async function comAdmin<T>(
     acao: (client: AdminClient | ApiClient) => Promise<T>,
-  ): Promise<{ ok: true; dados: T } | OperationResult> {
+    // `status` sai junto no erro: a tela Conversas (TI) usa o 423 (área trancada)
+    // para voltar a pedir a senha em vez de só mostrar o aviso
+  ): Promise<{ ok: true; dados: T } | (OperationResult & { status?: number })> {
     const comConta = adminClient?.autenticado === true;
     const cliente = comConta ? adminClient : acessoPeloSetor() !== 'NENHUM' ? api : null;
     if (!cliente) {
@@ -939,7 +941,7 @@ function start(): void {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401 && comConta) sendToMain(IpcChannels.AdminChanged, null);
       const mensagem = err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.';
-      return { ok: false, message: mensagem };
+      return { ok: false, message: mensagem, status: err instanceof ApiError ? err.status : undefined };
     }
   }
 
@@ -1183,9 +1185,14 @@ function start(): void {
     { metodo: 'PUT', padrao: new RegExp('^/api/eventos/EVT-[0-9a-f]{24}$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/eventos/EVT-[0-9a-f]{24}$') },
     // Área do TI (cada leitura fica registrada no servidor)
+    // A senha do TI destranca a área; o DELETE tranca de novo
+    { metodo: 'POST', padrao: new RegExp('^/api/admin/conversas/liberar$') },
+    { metodo: 'DELETE', padrao: new RegExp('^/api/admin/conversas/liberar$') },
     { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas$') },
     { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/acessos$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/apagadas$') },
     { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/' + CNV + '/mensagens([?]antes=\\d{1,12})?$') },
+    { metodo: 'GET', padrao: new RegExp('^/api/admin/conversas/' + CNV + '/exportar$') },
     { metodo: 'DELETE', padrao: new RegExp('^/api/admin/conversas/' + CNV + '$') },
   ];
 
@@ -1232,7 +1239,7 @@ function start(): void {
 
     return 'dados' in saida
       ? { ok: true, dados: saida.dados ?? null, message: '' }
-      : { ok: false, dados: null, message: saida.message };
+      : { ok: false, dados: null, message: saida.message, status: saida.status };
   });
 
   /** Arquivo anexado a uma mensagem: imagem, vídeo ou documento. */
@@ -1378,6 +1385,34 @@ function start(): void {
     }
   });
 
+  /**
+   * Arquivo da conversa baixado pelo TI: o servidor monta o HTML e aqui a
+   * pessoa escolhe onde gravar. O conteúdo não passa pelo navegador: vem da
+   * resposta da API direto para o disco.
+   */
+  handle(IpcChannels.ConversasSalvarArquivo, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { nome?: unknown; html?: unknown } | null;
+    const html = typeof entrada?.html === 'string' ? entrada.html : '';
+    if (!html) return { ok: false, message: 'Arquivo vazio: nada para salvar.' };
+    const nome = typeof entrada?.nome === 'string' ? nomeDeArquivo(entrada.nome) : 'conversa.html';
+
+    const win = ensureMainWindow();
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      title: 'Salvar a conversa',
+      defaultPath: join(app.getPath('downloads'), nome),
+      filters: [{ name: 'Página da web', extensions: ['html'] }],
+      buttonLabel: 'Salvar',
+    });
+    if (canceled || !filePath) return { ok: false, message: '' };
+    try {
+      await writeFile(filePath, html, 'utf8');
+      return { ok: true, message: `Salvo em ${filePath}` };
+    } catch (err) {
+      console.error('[conversas] falha ao salvar a conversa:', err);
+      return { ok: false, message: 'Não foi possível salvar o arquivo nessa pasta.' };
+    }
+  });
+
   /** WEBP/GIF/BMP: o nativeImage só lê PNG e JPG; o Chromium desenha e devolve PNG */
   async function decodificarNoChromium(dados: Buffer): Promise<Electron.NativeImage> {
     const janela = new BrowserWindow({ show: false, width: 1, height: 1, webPreferences: { offscreen: true, sandbox: true } });
@@ -1445,7 +1480,9 @@ function start(): void {
     return { rotulo: rotulo.trim(), icone: icone.trim(), cor, destino: destino as DestinoAtalho };
   }
 
-  async function comApi<T>(acao: (client: ApiClient) => Promise<T>): Promise<{ ok: true; dados: T } | OperationResult> {
+  async function comApi<T>(
+    acao: (client: ApiClient) => Promise<T>,
+  ): Promise<{ ok: true; dados: T } | (OperationResult & { status?: number })> {
     if (!api || connection.getState().status !== 'connected') {
       return { ok: false, message: 'Sem conexão com o servidor.' };
     }
@@ -1453,7 +1490,7 @@ function start(): void {
       return { ok: true, dados: await acao(api) };
     } catch (err) {
       const mensagem = err instanceof ApiError ? err.message : 'Não foi possível concluir. Tente de novo.';
-      return { ok: false, message: mensagem };
+      return { ok: false, message: mensagem, status: err instanceof ApiError ? err.status : undefined };
     }
   }
 

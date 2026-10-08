@@ -1,3 +1,4 @@
+import type { Readable } from 'node:stream';
 import type { FastifyBaseLogger } from 'fastify';
 import { AppError, NotFoundError } from '../../errors/app-error';
 import type { AutoReplyService } from '../auto-replies/auto-reply.service';
@@ -7,9 +8,17 @@ import { emojiValido, type ReacaoRepository, type ReacaoResumo } from '../reacoe
 import { acessoDoSetor } from '../auth/acesso-por-setor';
 import type { UserRepository } from '../users/user.repository';
 import type { User } from '../users/user.types';
-import { midiaPublica, type MidiaPublica } from '../content/content.types';
+import { midiaPublica, type Midia, type MidiaPublica } from '../content/content.types';
 import type { AvisoDeMensagem } from '../../realtime/socket-server';
 import type { ConversaRepository } from './conversa.repository';
+import {
+  LIMITE_IMAGEM_EMBUTIDA,
+  LIMITE_TOTAL_EMBUTIDO,
+  montarHtmlDaConversa,
+  nomeDoArquivo,
+  type DadosDaExportacao,
+  type MensagemParaExportar,
+} from './conversa.exportacao';
 import {
   LIMITES_CONVERSA,
   gerarIdConversa,
@@ -17,6 +26,8 @@ import {
   tituloPara,
   type Conversa,
   type ConversaResumo,
+  type ExclusaoRegistrada,
+  type MensagemAuditoria,
   type MensagemConversa,
   type Participante,
 } from './conversa.types';
@@ -51,6 +62,15 @@ export interface ConversaNotifier {
   conversaAtualizada(userIds: string[], conversaId: string, mensagem?: AvisoDeMensagem): void;
 }
 
+/**
+ * De onde o arquivo da conversa pega a imagem para embutir (o MidiaStorage).
+ * Só a exportação do TI usa; sem ele, o arquivo sai com o nome dos anexos.
+ */
+export interface LeitorDeMidia {
+  existe(storedName: string): boolean;
+  ler(storedName: string, inicio?: number, fim?: number): Readable;
+}
+
 /** A pessoa do DP só responde automaticamente se não escreveu nos últimos minutos */
 const ESPERA_RESPOSTA_AUTOMATICA_MIN = 30;
 
@@ -63,6 +83,8 @@ export class ConversaService {
     private readonly realtime: ConversaNotifier,
     private readonly log: FastifyBaseLogger,
     private readonly reacoes: ReacaoRepository,
+    /** Só a exportação do TI usa; null = o arquivo sai sem as imagens embutidas */
+    private readonly midiaStorage: LeitorDeMidia | null = null,
   ) {}
 
   // ---------------------------------------------------------------- DP/TI só entre si
@@ -362,8 +384,16 @@ export class ConversaService {
    * Junta os dados do arquivo a cada mensagem: a tela precisa do nome e do
    * tipo para decidir entre mostrar a imagem, tocar o vídeo ou oferecer o
    * download.
+   *
+   * comoTi = leitura da auditoria: só ela enxerga o anexo de mensagem apagada.
+   * Para quem participa, mensagem apagada sai sem midiaId e sem midia — com o
+   * id em mãos, qualquer pessoa autenticada baixa o arquivo em /api/midias/:id.
    */
-  private async comMidias(mensagens: MensagemConversa[], meuId: string | null): Promise<MensagemComMidia[]> {
+  private async comMidias(
+    mensagens: MensagemConversa[],
+    meuId: string | null,
+    comoTi = false,
+  ): Promise<MensagemComMidia[]> {
     const idsDeMidia = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
     const idsCitados = [...new Set(mensagens.map((m) => m.respondeA).filter((id): id is number => id !== null))];
 
@@ -383,10 +413,14 @@ export class ConversaService {
 
     return mensagens.map((m) => {
       const citada = m.respondeA === null ? null : citadas.get(m.respondeA);
+      // Apagada: o anexo fica só para a auditoria do TI
+      const escondeAnexo = m.apagadaEm !== null && !comoTi;
+      const midiaId = escondeAnexo ? null : m.midiaId;
       return {
         ...m,
+        midiaId,
         reacoes: m.apagadaEm ? [] : (reacoes.get(String(m.id)) ?? []),
-        midia: m.midiaId ? (porId.get(m.midiaId) ?? null) : null,
+        midia: midiaId ? (porId.get(midiaId) ?? null) : null,
         respondida: citada
           ? {
               id: citada.id,
@@ -563,7 +597,8 @@ export class ConversaService {
     if (mensagem.autorId !== quem.id && !quem.ehTi) {
       throw new AppError('Você só apaga as suas mensagens.', 403, 'FORBIDDEN');
     }
-    await this.conversas.apagarMensagem(mensagemId, new Date().toISOString());
+    // Guarda o texto para o TI no mesmo instante em que ele sai da conversa
+    await this.conversas.apagarMensagem(mensagemId, new Date().toISOString(), quem.id, quem.nome);
     await this.reacoes.apagarDoAlvo('MENSAGEM', String(mensagemId));
     await this.avisarParticipantes(mensagem.conversaId);
   }
@@ -684,12 +719,140 @@ export class ConversaService {
 
     await this.conversas.registrarAcessoTi(conversaId, quem.id, quem.nome, new Date().toISOString());
     this.log.warn(`Auditoria: ${quem.nome} (TI) abriu a conversa ${conversaId}`);
-    return this.comMidias(await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId), null);
+    return this.comMidias(
+      await this.conversas.listMensagens(conversaId, LIMITES_CONVERSA.paginaMensagens, antesDoId),
+      null,
+      true,
+    );
   }
 
   async acessosDoTi(quem: Pessoa): Promise<{ conversaId: string; usuarioNome: string; createdAt: string }[]> {
     this.exigirTi(quem);
     return this.conversas.listarAcessosTi(200);
+  }
+
+  /**
+   * Arquivo da conversa para o TI baixar, com as mensagens apagadas.
+   *
+   * Pesa como uma leitura: fica registrado em conversa_acessos_ti igual a abrir
+   * a conversa na tela.
+   */
+  async exportarComoTi(quem: Pessoa, conversaId: string): Promise<{ nome: string; html: string }> {
+    this.exigirTi(quem);
+    const conversa = await this.conversas.findById(conversaId);
+    if (!conversa) throw new NotFoundError('Conversa não encontrada');
+
+    const agora = new Date().toISOString();
+    await this.conversas.registrarAcessoTi(conversaId, quem.id, quem.nome, agora);
+    this.log.warn(`Auditoria: ${quem.nome} (TI) baixou a conversa ${conversaId}`);
+
+    const membros = await this.conversas.membros(conversaId, true);
+    const participantes = await Promise.all(membros.map((m) => this.participante(m.userId)));
+    const mensagens = await this.conversas.listMensagensAuditoria(conversaId, LIMITES_CONVERSA.exportacaoMensagens);
+
+    const dados: DadosDaExportacao = {
+      conversaId,
+      tipo: conversa.tipo,
+      titulo: conversa.tipo === 'GRUPO' ? (conversa.nome ?? 'Grupo') : participantes.map((p) => p.nome).join(' e '),
+      participantes,
+      mensagens: await this.midiasParaExportar(mensagens),
+      baixadaPor: quem.nome,
+      baixadaEm: agora,
+    };
+    return { nome: nomeDoArquivo(dados), html: montarHtmlDaConversa(dados) };
+  }
+
+  /**
+   * Junta a cada mensagem o anexo e, quando é imagem e cabe no limite, os bytes
+   * em data URI — assim o arquivo baixado abre sozinho, sem depender do servidor.
+   */
+  private async midiasParaExportar(mensagens: MensagemAuditoria[]): Promise<MensagemParaExportar[]> {
+    const ids = [...new Set(mensagens.map((m) => m.midiaId).filter((id): id is string => id !== null))];
+    const encontradas = new Map<string, Midia>();
+    for (const midia of await Promise.all(ids.map((id) => this.midias.findById(id)))) {
+      if (midia) encontradas.set(midia.id, midia);
+    }
+
+    let totalEmbutido = 0;
+    const saida: MensagemParaExportar[] = [];
+    for (const mensagem of mensagens) {
+      const midia = mensagem.midiaId ? (encontradas.get(mensagem.midiaId) ?? null) : null;
+      let imagemEmbutida: string | null = null;
+      const cabe =
+        midia !== null &&
+        midia.tipo === 'IMAGEM' &&
+        midia.tamanho <= LIMITE_IMAGEM_EMBUTIDA &&
+        totalEmbutido + midia.tamanho <= LIMITE_TOTAL_EMBUTIDO;
+      if (midia && cabe) {
+        const bytes = await this.lerMidia(midia);
+        if (bytes) {
+          imagemEmbutida = `data:${midia.mimeType};base64,${bytes.toString('base64')}`;
+          totalEmbutido += bytes.length;
+        }
+      }
+      saida.push({ mensagem, midia: midia ? midiaPublica(midia) : null, imagemEmbutida });
+    }
+    return saida;
+  }
+
+  /** Bytes do arquivo da mídia; null quando não há storage ou o arquivo sumiu. */
+  private async lerMidia(midia: Midia): Promise<Buffer | null> {
+    if (!this.midiaStorage || !this.midiaStorage.existe(midia.storedName)) return null;
+    try {
+      const partes: Buffer[] = [];
+      for await (const parte of this.midiaStorage.ler(midia.storedName)) {
+        partes.push(Buffer.isBuffer(parte) ? parte : Buffer.from(parte as string));
+      }
+      return Buffer.concat(partes);
+    } catch (erro) {
+      this.log.warn(`Exportação: não foi possível ler a mídia ${midia.id}: ${String(erro)}`);
+      return null;
+    }
+  }
+
+  /**
+   * Log de exclusões: quem apagou, quando, e com quem estava conversando.
+   * O texto não entra aqui — para ler, o TI baixa a conversa.
+   */
+  async apagadasComoTi(quem: Pessoa, limite = 200): Promise<ExclusaoRegistrada[]> {
+    this.exigirTi(quem);
+    const apagadas = await this.conversas.listApagadas(limite);
+    const ids = [...new Set(apagadas.map((m) => m.conversaId))];
+    const [conversas, membrosPorConversa] = await Promise.all([
+      Promise.all(ids.map((id) => this.conversas.findById(id))),
+      this.conversas.membrosDeVarias(ids),
+    ]);
+    const porId = new Map(conversas.filter((c): c is Conversa => c !== null).map((c) => [c.id, c]));
+
+    // Nome de quem participa, resolvido uma vez por pessoa (a lista repete muito)
+    const nomes = new Map<string, string>();
+    for (const membros of membrosPorConversa.values()) {
+      for (const membro of membros) {
+        if (nomes.has(membro.userId)) continue;
+        nomes.set(membro.userId, (await this.participante(membro.userId)).nome);
+      }
+    }
+
+    return apagadas.map((mensagem) => {
+      const conversa = porId.get(mensagem.conversaId);
+      const membros = membrosPorConversa.get(mensagem.conversaId) ?? [];
+      const comQuem =
+        conversa?.tipo === 'GRUPO'
+          ? `grupo ${conversa.nome ?? ''}`.trim()
+          : membros.map((m) => nomes.get(m.userId) ?? 'Usuário removido').join(' e ');
+      return {
+        mensagemId: mensagem.id,
+        conversaId: mensagem.conversaId,
+        autorNome: mensagem.autorNome,
+        apagadaPorNome: mensagem.apagadaPorNome,
+        apagadaPorOutro: mensagem.apagadaPorId !== null && mensagem.apagadaPorId !== mensagem.autorId,
+        createdAt: mensagem.createdAt,
+        apagadaEm: mensagem.apagadaEm ?? '',
+        comQuem,
+        temTexto: (mensagem.conteudoApagado ?? '').length > 0,
+        temAnexo: mensagem.midiaId !== null,
+      };
+    });
   }
 
   /** Apagar a conversa inteira é só do TI (limpeza). */

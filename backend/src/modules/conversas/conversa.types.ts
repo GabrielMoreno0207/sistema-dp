@@ -49,6 +49,37 @@ export interface MensagemConversa {
 
 export type NovaMensagemConversa = Omit<MensagemConversa, 'id' | 'createdAt' | 'apagadaEm'>;
 
+/**
+ * Mensagem na visão da auditoria do TI, com o que o apagar escondeu.
+ *
+ * Tipo separado de propósito: `conteudoApagado` só existe aqui, então nenhuma
+ * rota comum tem como devolver por descuido o texto que a pessoa apagou.
+ */
+export interface MensagemAuditoria extends MensagemConversa {
+  /** Texto guardado no instante em que a mensagem foi apagada (null = nunca foi) */
+  conteudoApagado: string | null;
+  apagadaPorId: string | null;
+  apagadaPorNome: string | null;
+}
+
+/** Uma linha do log de exclusões do TI */
+export interface ExclusaoRegistrada {
+  mensagemId: number;
+  conversaId: string;
+  /** Quem escreveu a mensagem */
+  autorNome: string;
+  /** Quem apagou: o próprio autor, ou alguém do TI */
+  apagadaPorNome: string | null;
+  /** true = quem apagou não foi quem escreveu (TI apagando mensagem de outro) */
+  apagadaPorOutro: boolean;
+  createdAt: string;
+  apagadaEm: string;
+  /** Com quem a pessoa estava conversando (os dois lados, ou o nome do grupo) */
+  comQuem: string;
+  temTexto: boolean;
+  temAnexo: boolean;
+}
+
 /** Pessoa que participa: funcionário ou alguém do DP */
 export interface Participante {
   id: string;
@@ -90,6 +121,8 @@ export const LIMITES_CONVERSA = {
   paginaMensagens: 50,
   /** Quantos resultados a busca dentro da conversa devolve */
   buscaMaxima: 40,
+  /** Teto de mensagens no arquivo que o TI baixa (conversa inteira, sem páginas) */
+  exportacaoMensagens: 20_000,
 } as const;
 
 export const CONVERSA_ID_PATTERN = '^CNV-[0-9a-f]{24}$';

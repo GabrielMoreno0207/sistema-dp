@@ -284,6 +284,21 @@ export interface AcessoTi {
   createdAt: string;
 }
 
+/** Uma linha do log de exclusões do TI (o texto não vem aqui: está no arquivo da conversa) */
+export interface ExclusaoTi {
+  mensagemId: number;
+  conversaId: string;
+  autorNome: string;
+  apagadaPorNome: string | null;
+  /** true = quem apagou não foi quem escreveu (TI apagando mensagem de outro) */
+  apagadaPorOutro: boolean;
+  createdAt: string;
+  apagadaEm: string;
+  comQuem: string;
+  temTexto: boolean;
+  temAnexo: boolean;
+}
+
 export interface ConversaResumo {
   id: string;
   tipo: TipoConversa;
@@ -516,7 +531,7 @@ export interface DesktopApi {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     body?: unknown,
-  ): Promise<{ ok: boolean; dados: T | null; message: string }>;
+  ): Promise<{ ok: boolean; dados: T | null; message: string; /** HTTP do erro: 423 = área do TI trancada */ status?: number }>;
   /** Quem está conversando neste computador (para saber de quem é cada mensagem) */
   conversasIdentidade(): Promise<IdentidadeChat | null>;
   /** Escolhe um arquivo no disco e envia; devolve a mídia para anexar à mensagem */
@@ -527,6 +542,8 @@ export interface DesktopApi {
   conversasColarImagem(dados: ArrayBuffer, mimeType: string): Promise<{ ok: boolean; midia: MidiaPublica | null; message: string }>;
   /** Copia a imagem de uma mensagem para a área de transferência do Windows (Ctrl+C) */
   conversasCopiarImagem(midiaId: string): Promise<OperationResult>;
+  /** Abre a janela de salvar e grava o arquivo da conversa que o TI baixou */
+  conversasSalvarArquivo(nome: string, html: string): Promise<OperationResult>;
   /** Mensagem de voz gravada na tela: sobe para o servidor como mídia de áudio */
   conversasEnviarAudio(
     dados: ArrayBuffer,
@@ -624,6 +641,8 @@ export const IpcChannels = {
   ConversasColarImagem: 'conversas:colar-imagem',
   ConversasCopiarImagem: 'conversas:copiar-imagem',
   ConversasAbrirArquivo: 'conversas:abrir-arquivo',
+  /** Grava em disco o arquivo da conversa que o TI baixou */
+  ConversasSalvarArquivo: 'conversas:salvar-arquivo',
   ConversasChanged: 'conversas:changed',
   ConversasContador: 'conversas:contador',
   AbrirLink: 'ui:abrir-link',

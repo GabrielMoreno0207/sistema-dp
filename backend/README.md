@@ -50,6 +50,7 @@ notepad .env
 | `ADMIN_USERNAME`          | `ti`                    | Login principal (do TI) criado na primeira execução. Os logins das pessoas do DP são criados depois com `npm run create-admin` |
 | `ADMIN_PASSWORD`          | *(obrigatória na 1ª vez)* | Senha desse usuário. Mínimo de 8 caracteres |
 | `ADMIN_NAME`              | `Departamento Pessoal`  | Nome que aparece como remetente das mensagens |
+| `SENHA_TI`                | *(a senha de fechar o app)* | Senha que destranca a área **Conversas (TI)**, pedida antes de abrir qualquer conversa. Mínimo de 8 caracteres; guardamos só o resumo SHA-256 |
 | `SESSION_TTL_HOURS`       | `12`                    | Validade do login da conta do DP/TI (`ti`), em horas |
 | `SESSAO_DIAS_SEM_USO`     | `30`                    | O login do funcionário persiste (reiniciar o PC não desloga); sai sozinho após tantos dias sem o aparelho conectar |
 | `TLS_CERT_FILE` / `TLS_KEY_FILE` | *(vazio)*        | Certificado e chave para HTTPS direto no backend (veja "HTTPS") |
@@ -271,6 +272,14 @@ A resposta do envio inclui `deliveredTo`, com quantos computadores online recebe
 | POST   | `/api/conversas/:id/mensagens` | participante | Envia `{ conteudo, midiaId?, respondeA?, encaminhada? }` |
 | POST   | `/api/conversas/:id/lidas` | participante | Marca a conversa como lida |
 | GET/PUT | `/api/conversas/preferencias` | DP/TI | "Receber mensagens só do DP e do TI" |
+| POST   | `/api/admin/conversas/liberar` | TI | Confere a senha do TI e destranca a área por 30 minutos nesta sessão; devolve `{ validoAte }` |
+| DELETE | `/api/admin/conversas/liberar` | TI | Tranca de novo (o botão "Trancar" e a saída da tela) |
+| GET    | `/api/admin/conversas` | TI | Todas as conversas do sistema (sem o conteúdo) |
+| GET    | `/api/admin/conversas/:id/mensagens?antes=` | TI | Lê uma conversa qualquer; cada leitura fica registrada |
+| GET    | `/api/admin/conversas/:id/exportar` | TI | Arquivo HTML da conversa inteira, **com as mensagens apagadas**; devolve `{ nome, html }` e conta como leitura |
+| GET    | `/api/admin/conversas/apagadas` | TI | Log de exclusões: quem apagou, quando e com quem (sem o texto) |
+| GET    | `/api/admin/conversas/acessos` | TI | Quais conversas o TI abriu ou baixou, e quando |
+| DELETE | `/api/admin/conversas/:id` | TI | Apaga a conversa inteira |
 | DELETE | `/api/admin/messages/:id` | TI | Apaga um comunicado e as leituras dele |
 | POST   | `/api/admin/messages/purge` | TI | Apaga comunicados: `{ olderThanDays }` (null = todos) |
 | GET    | `/api/admin/chats` | TI | Conversas por pessoa do DP, **só em números** (sem conteúdo) |
@@ -370,11 +379,15 @@ Se não responder, confira se as duas máquinas estão na mesma rede, se o firew
 Quem é do setor **TI** (e a conta `ti`, o primeiro login criado pelo `.env`) faz tudo o que o DP faz e, além disso, ganha a aba **TI** em Ajustes:
 
 - **Apagar comunicados:** um específico ou todos com mais de 90/180/365 dias (as leituras saem junto).
-- **Apagar conversas do chat:** de uma pessoa do DP ou de todas. A tela mostra **só números** — quantas conversas, quantas mensagens e a data da última. **O conteúdo das conversas não é exibido em lugar nenhum**, nem pela API.
+- **Apagar conversas do chat:** de uma pessoa do DP ou de todas. Essa tela de limpeza mostra **só números** — quantas conversas, quantas mensagens e a data da última.
+- **Ler e baixar conversas** (tela *Conversas (TI)*): **a conta abre a tela, a senha do TI abre as conversas** — a tela pede a senha (`SENHA_TI`, a mesma que encerra o aplicativo) antes de qualquer leitura, e a liberação vale 30 minutos naquela sessão. Quem deixa o aplicativo aberto com a conta do TI não entrega as conversas a quem passar na máquina. Liberada, dá acesso a qualquer conversa do sistema, inclusive entre dois funcionários. **Baixar conversa** gera um arquivo HTML com a conversa inteira — e com as mensagens que os participantes apagaram. Cada leitura e cada download ficam registrados em `conversa_acessos_ti`, com quem foi e quando.
+- **Log de exclusões** (botão *Apagadas*): quem apagou uma mensagem, quando e com quem estava conversando. O texto não aparece no log; para ler, baixe a conversa.
 - **Gerenciar as contas próprias:** criar, ativar/desativar, redefinir senha e excluir, sem precisar de comando no servidor.
 
 Detalhes:
 
+- **A tranca da área do TI** é do servidor, não da tela: sem a senha, todas as rotas `/api/admin/conversas*` respondem **423** e a tela volta a pedi-la. A liberação é guardada pelo resumo do token, então vale só para aquela sessão — outro computador, ou o mesmo depois de o servidor reiniciar, digita de novo. Cinco erros em 15 minutos bloqueiam as tentativas por 5 minutos, igual ao login.
+- **Apagar uma mensagem** esvazia a coluna `conteudo` (quem participa não lê mais) e, no mesmo instante, copia o texto para `conversa_mensagens.conteudo_apagado`, junto de quem apagou. O anexo também desaparece para quem participa: mensagem apagada vai sem `midiaId` e sem `midia`, porque com o id em mãos qualquer pessoa autenticada baixaria o arquivo em `/api/midias/:id`. Só a leitura do TI continua com o anexo. Só as consultas de auditoria do TI leem essa coluna — o tipo `MensagemAuditoria` existe separado justamente para nenhuma rota comum devolvê-la por descuido. O que foi apagado **antes da versão 1.20.0** não tem texto guardado: a versão anterior destruía o conteúdo.
 - As contas criadas pelo `create-admin` **não** têm esses poderes; só a conta marcada como TI (coluna `users.super_admin`) e quem é do setor TI.
 - A conta do TI não pode desativar a si mesma nem alterar outra conta de TI por essas telas (evita ficar sem acesso).
 - Desativar um login ou redefinir a senha dele encerra a sessão aberta daquela pessoa na hora.

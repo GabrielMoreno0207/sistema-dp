@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { AppError } from '../../errors/app-error';
+import { bearerToken } from '../auth/auth.hooks';
 import { requireAdmin } from '../auth/principal';
 import { MIDIA_ID_PATTERN } from '../content/content.types';
 import type { EmployeeService } from '../employees/employee.service';
 import type { UserRepository } from '../users/user.repository';
+import type { TrancaDaAreaTi } from './conversa-ti-tranca';
 import type { ConversaService, Pessoa } from './conversa.service';
 import { CONVERSA_ID_PATTERN, LIMITES_CONVERSA } from './conversa.types';
 
@@ -68,13 +70,25 @@ const nomeBody = {
   properties: { nome: { type: 'string', minLength: 1, maxLength: LIMITES_CONVERSA.maxNomeGrupo } },
 } as const;
 
+const senhaTiBody = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['senha'],
+  properties: { senha: { type: 'string', minLength: 1, maxLength: 128 } },
+} as const;
+
 export interface ConversaRoutesOptions {
   conversas: ConversaService;
   employees: EmployeeService;
   users: UserRepository;
+  /** Senha do TI pedida antes de abrir qualquer conversa na área do TI */
+  trancaTi: TrancaDaAreaTi;
 }
 
-export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (app, { conversas, employees, users }) => {
+export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
+  app,
+  { conversas, employees, users, trancaTi },
+) => {
   /**
    * Quem está falando: o funcionário logado no PC, ou a pessoa do DP/TI.
    * É o mesmo par de credenciais que o resto do sistema já usa.
@@ -87,7 +101,19 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
       const employee = await employees.getSessionEmployee(principal.computerId);
       if (!employee) throw new AppError('Entre com seu usuário para usar as mensagens', 401, 'NO_EMPLOYEE');
       const completo = await users.findById(employee.id);
-      return { id: employee.id, nome: employee.name, setor: completo?.sector ?? null, ehDp: false, ehTi: false };
+      return {
+        id: employee.id,
+        nome: employee.name,
+        setor: completo?.sector ?? null,
+        ehDp: false,
+        /*
+         * O setor do TI dá os poderes do TI sem login à parte: é o mesmo
+         * acesso que o requireAdmin já reconhece (principal.admin vem do
+         * gancho de autenticação, com superAdmin = setor é TI). Fixo em false,
+         * a tela Conversas (TI) levava 403 em tudo para quem entra pelo PC.
+         */
+        ehTi: principal.admin?.superAdmin === true,
+      };
     }
     return { id: principal.userId, nome: principal.name, setor: null, ehDp: true, ehTi: principal.superAdmin };
   }
@@ -261,8 +287,42 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
 
   // ---------------------------------------------------------------- TI (com registro de acesso)
 
-  app.get('/admin/conversas', async (request) => {
+  /**
+   * A conta do TI abre a tela; a senha do TI é que abre as conversas. Sem ela
+   * todas as rotas abaixo respondem 423, e a tela volta a pedir a senha.
+   */
+  function exigirAreaLiberada(request: FastifyRequest): void {
     requireAdmin(request);
+    trancaTi.exigir(bearerToken(request));
+  }
+
+  /** Destranca a área do TI nesta sessão (vale meia hora). */
+  app.post('/admin/conversas/liberar', { schema: { body: senhaTiBody } }, async (request) => {
+    requireAdmin(request);
+    const quem = await quemEstaAgindo(request);
+    // Quem não é do TI não chega nem a tentar a senha
+    if (!quem.ehTi) throw new AppError('Acesso permitido apenas ao TI', 403, 'FORBIDDEN');
+
+    const { senha } = request.body as { senha: string };
+    try {
+      const liberacao = trancaTi.liberar(bearerToken(request), quem.id, senha, request.ip);
+      app.log.warn(`Auditoria: ${quem.nome} (TI) destrancou a área de conversas`);
+      return liberacao;
+    } catch (err) {
+      app.log.warn(`Auditoria: senha do TI recusada para ${quem.nome} (${request.ip})`);
+      throw err;
+    }
+  });
+
+  /** Tranca de novo (o botão "Trancar" da tela, ou ao sair dela). */
+  app.delete('/admin/conversas/liberar', async (request, reply) => {
+    requireAdmin(request);
+    trancaTi.trancar(bearerToken(request));
+    return reply.code(204).send();
+  });
+
+  app.get('/admin/conversas', async (request) => {
+    exigirAreaLiberada(request);
     return { conversas: await conversas.listarComoTi(await quemEstaAgindo(request)) };
   });
 
@@ -271,7 +331,7 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
     '/admin/conversas/:id/mensagens',
     { schema: { params: conversaParams, querystring: mensagensQuery } },
     async (request) => {
-      requireAdmin(request);
+      exigirAreaLiberada(request);
       const { id } = request.params as { id: string };
       const { antes } = request.query as { antes?: number };
       return { mensagens: await conversas.lerComoTi(await quemEstaAgindo(request), id, antes) };
@@ -279,12 +339,28 @@ export const conversaRoutes: FastifyPluginAsync<ConversaRoutesOptions> = async (
   );
 
   app.get('/admin/conversas/acessos', async (request) => {
-    requireAdmin(request);
+    exigirAreaLiberada(request);
     return { acessos: await conversas.acessosDoTi(await quemEstaAgindo(request)) };
   });
 
+  /** Log de exclusões: quem apagou, quando e com quem (sem o texto). */
+  app.get('/admin/conversas/apagadas', async (request) => {
+    exigirAreaLiberada(request);
+    return { apagadas: await conversas.apagadasComoTi(await quemEstaAgindo(request)) };
+  });
+
+  /**
+   * Arquivo da conversa para baixar, com as mensagens apagadas. Vai como JSON
+   * ({ nome, html }) porque o aplicativo é que abre a janela de salvar.
+   */
+  app.get('/admin/conversas/:id/exportar', { schema: { params: conversaParams } }, async (request) => {
+    exigirAreaLiberada(request);
+    const { id } = request.params as { id: string };
+    return conversas.exportarComoTi(await quemEstaAgindo(request), id);
+  });
+
   app.delete('/admin/conversas/:id', { schema: { params: conversaParams } }, async (request, reply) => {
-    requireAdmin(request);
+    exigirAreaLiberada(request);
     const { id } = request.params as { id: string };
     await conversas.apagarConversa(await quemEstaAgindo(request), id);
     return reply.code(204).send();

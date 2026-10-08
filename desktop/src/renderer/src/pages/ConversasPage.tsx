@@ -27,6 +27,8 @@ import {
   juntarMensagens,
   outraPessoa,
   resumoDaCitacao,
+  setorDaConversa,
+  setorDaPessoa,
 } from '../components/conversa-comuns';
 import { Icone } from '../lib/icones';
 import { BarraDeGravacao, useGravador } from '../components/audio';
@@ -43,6 +45,14 @@ interface ConversasPageProps {
 
 /** Quando a identidade é do DP/TI não há sala de tempo real para este PC: confere de tempos em tempos. */
 const INTERVALO_CONFERENCIA_MS = 20_000;
+
+/** Descrição da conversa direta, dizendo de que setor é a outra pessoa. */
+function descricaoDaDireta(conversa: ConversaResumo, meuId: string): string {
+  const outra = outraPessoa(conversa, meuId);
+  if (outra?.ehDp) return `Conversa individual entre você e ${conversa.titulo}, do RH.`;
+  if (outra?.setor) return `Conversa individual entre você e ${conversa.titulo}, do setor ${outra.setor}.`;
+  return `Conversa individual entre você e ${conversa.titulo} (sem setor cadastrado).`;
+}
 
 export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onRequestLogin }: ConversasPageProps) {
   const [identidade, setIdentidade] = useState<IdentidadeChat | null | undefined>(undefined);
@@ -510,8 +520,13 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
       .filter((conversa) => conversa.tipo === 'DIRETA')
       .flatMap((conversa) => conversa.participantes.map((pessoa) => pessoa.id)),
   );
+  // Procura também pelo setor: a pessoa pode ser lembrada pelo setor, não pelo nome
   const conversasVisiveis = conversas.filter((conversa) =>
-    combina(conversa.titulo, ...conversa.participantes.map((pessoa) => pessoa.nome)),
+    combina(
+      conversa.titulo,
+      ...conversa.participantes.map((pessoa) => pessoa.nome),
+      ...conversa.participantes.map((pessoa) => setorDaPessoa(pessoa)),
+    ),
   );
   const pessoasSemConversa = contatos
     .filter((pessoa) => !jaTemConversa.has(pessoa.id))
@@ -557,42 +572,49 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
         ) : (
           <ul className="contacts__list">
             {conversasVisiveis.length > 0 && <li className="contacts__secao">Conversas</li>}
-            {conversasVisiveis.map((conversa) => (
-              <li key={conversa.id}>
-                <button
-                  className={`contact ${conversa.id === abertaId ? 'contact--active' : ''} ${
-                    conversa.naoLidas > 0 ? 'contact--unread' : ''
-                  }`}
-                  onClick={() => void abrir(conversa.id)}
-                >
-                  <Avatar
-                    nome={conversa.titulo}
-                    fotoMidiaId={outraPessoa(conversa, identidade.id)?.fotoMidiaId}
-                    grupo={conversa.tipo === 'GRUPO'}
-                  />
-                  <span className="contact__main">
-                    <span className="contact__top">
-                      <span className="contact__name">{conversa.titulo}</span>
-                      {conversa.ultimaMensagem && (
-                        <span className="contact__time">{dataDoDia(conversa.ultimaMensagem.createdAt)}</span>
-                      )}
+            {conversasVisiveis.map((conversa) => {
+              // O setor fica ao lado do nome: nem todo nome diz de onde a pessoa é
+              const setor = setorDaConversa(conversa, identidade.id);
+              return (
+                <li key={conversa.id}>
+                  <button
+                    className={`contact ${conversa.id === abertaId ? 'contact--active' : ''} ${
+                      conversa.naoLidas > 0 ? 'contact--unread' : ''
+                    }`}
+                    onClick={() => void abrir(conversa.id)}
+                  >
+                    <Avatar
+                      nome={conversa.titulo}
+                      fotoMidiaId={outraPessoa(conversa, identidade.id)?.fotoMidiaId}
+                      grupo={conversa.tipo === 'GRUPO'}
+                    />
+                    <span className="contact__main">
+                      <span className="contact__top">
+                        <span className="contact__quem">
+                          <span className="contact__name">{conversa.titulo}</span>
+                          {setor && <span className="contact__setor">{setor}</span>}
+                        </span>
+                        {conversa.ultimaMensagem && (
+                          <span className="contact__time">{dataDoDia(conversa.ultimaMensagem.createdAt)}</span>
+                        )}
+                      </span>
+                      <span className="contact__preview">
+                        {conversa.ultimaMensagem
+                          ? `${conversa.ultimaMensagem.autorNome === identidade.nome ? 'Você: ' : conversa.tipo === 'GRUPO' ? `${conversa.ultimaMensagem.autorNome}: ` : ''}${
+                              conversa.ultimaMensagem.tipo === 'MIDIA'
+                                ? conversa.ultimaMensagem.conteudo || 'arquivo'
+                                : conversa.ultimaMensagem.conteudo
+                            }`
+                          : conversa.tipo === 'GRUPO'
+                            ? `${conversa.participantes.length} participantes`
+                            : 'Clique para conversar'}
+                      </span>
                     </span>
-                    <span className="contact__preview">
-                      {conversa.ultimaMensagem
-                        ? `${conversa.ultimaMensagem.autorNome === identidade.nome ? 'Você: ' : conversa.tipo === 'GRUPO' ? `${conversa.ultimaMensagem.autorNome}: ` : ''}${
-                            conversa.ultimaMensagem.tipo === 'MIDIA'
-                              ? conversa.ultimaMensagem.conteudo || 'arquivo'
-                              : conversa.ultimaMensagem.conteudo
-                          }`
-                        : conversa.tipo === 'GRUPO'
-                          ? `${conversa.participantes.length} participantes`
-                          : 'Clique para conversar'}
-                    </span>
-                  </span>
-                  {conversa.naoLidas > 0 && <span className="contact__badge">{conversa.naoLidas}</span>}
-                </button>
-              </li>
-            ))}
+                    {conversa.naoLidas > 0 && <span className="contact__badge">{conversa.naoLidas}</span>}
+                  </button>
+                </li>
+              );
+            })}
 
             {pessoasSemConversa.length > 0 && <li className="contacts__secao">Pessoas</li>}
             {pessoasSemConversa.map((pessoa) => (
@@ -603,9 +625,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                     <span className="contact__top">
                       <span className="contact__name">{pessoa.nome}</span>
                     </span>
-                    <span className="contact__preview">
-                      {pessoa.ehDp ? 'RH' : (pessoa.setor ?? 'Sem setor')}
-                    </span>
+                    <span className="contact__preview">{setorDaPessoa(pessoa)}</span>
                   </span>
                 </button>
               </li>
@@ -655,7 +675,7 @@ export function ConversasPage({ connection, conversaPedida, onAbriuPedida, onReq
                 <p className="page__subtitle">
                   {aberta.tipo === 'GRUPO'
                     ? `${aberta.participantes.length} participantes`
-                    : `Conversa individual entre você e ${aberta.titulo}.`}
+                    : descricaoDaDireta(aberta, identidade.id)}
                 </p>
               </div>
               <button

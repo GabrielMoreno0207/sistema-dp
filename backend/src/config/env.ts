@@ -1,4 +1,5 @@
 import { config as loadDotenv } from 'dotenv';
+import { createHash } from 'node:crypto';
 import { isAbsolute, join, resolve } from 'node:path';
 
 /** Pasta backend/ (vale para src/ com tsx e para dist/ compilado) */
@@ -33,6 +34,8 @@ export interface Env {
   midiasPath: string;
   /** Primeiro usuário do DP, criado na inicialização se ainda não existir nenhum */
   admin: { username: string; password: string | null; name: string };
+  /** Resumo SHA-256 da senha do TI, que destranca a área Conversas (TI) */
+  senhaTiResumo: string;
   sessionTtlHours: number;
   /** Validade da sessão do funcionário no computador (PCs compartilhados) */
   /**
@@ -131,6 +134,23 @@ function readAdmin(): Env['admin'] {
   };
 }
 
+/**
+ * Senha do TI: a tranca da área Conversas (TI), além da conta. É a mesma senha
+ * que encerra o aplicativo no computador (SENHA_FECHAR, no desktop).
+ *
+ * Guardamos só o resumo SHA-256 — a senha não fica escrita no código. Para
+ * trocar, ponha SENHA_TI no .env do servidor: não precisa publicar nada.
+ */
+const RESUMO_SENHA_TI_PADRAO = '74eaa0a540c22261919aa2c906f4108e5d3b1451f455a364f4579400eae5b2ad';
+
+function readSenhaTiResumo(): string {
+  const senha = process.env.SENHA_TI?.trim();
+  if (!senha) return RESUMO_SENHA_TI_PADRAO;
+  if (senha.length < 8) throw new Error('SENHA_TI precisa ter pelo menos 8 caracteres.');
+  if (PLACEHOLDER.test(senha)) throw new Error('SENHA_TI ainda é o valor de exemplo. Defina uma senha própria.');
+  return createHash('sha256').update(senha).digest('hex');
+}
+
 function readTls(): Env['tls'] {
   const certFile = process.env.TLS_CERT_FILE?.trim();
   const keyFile = process.env.TLS_KEY_FILE?.trim();
@@ -157,6 +177,7 @@ export const env: Env = Object.freeze({
   appPath: process.env.APP_PATH?.trim() || null,
   midiasPath: readMidiasPath(),
   admin: readAdmin(),
+  senhaTiResumo: readSenhaTiResumo(),
   sessionTtlHours: readInteger('SESSION_TTL_HOURS', 12, 1, 720),
   // EMPLOYEE_SESSION_HOURS (12 h desde o login) deixou de valer: o login agora persiste
   sessaoDiasSemUso: readInteger('SESSAO_DIAS_SEM_USO', 30, 1, 365),

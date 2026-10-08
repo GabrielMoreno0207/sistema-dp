@@ -65,6 +65,18 @@ export function outraPessoa(conversa: ConversaResumo, meuId: string): Participan
   return conversa.participantes.find((pessoa) => pessoa.id !== meuId) ?? conversa.participantes[0] ?? null;
 }
 
+/** De onde a pessoa é: o nome dela nem sempre diz o setor. */
+export function setorDaPessoa(pessoa: Participante): string {
+  if (pessoa.ehDp) return 'RH';
+  return pessoa.setor ?? 'Sem setor';
+}
+
+/** Setor para a descrição da conversa direta (o grupo junta vários: devolve null). */
+export function setorDaConversa(conversa: ConversaResumo, meuId: string | null): string | null {
+  const outra = outraPessoa(conversa, meuId ?? '');
+  return outra ? setorDaPessoa(outra) : null;
+}
+
 export function horaDoDia(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }

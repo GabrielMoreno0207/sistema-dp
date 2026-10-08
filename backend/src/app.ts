@@ -21,6 +21,7 @@ import { AgendamentoService } from './modules/agendamentos/agendamento.service';
 import { EventoService } from './modules/agenda/evento.service';
 import { conversaRoutes } from './modules/conversas/conversa.routes';
 import { ConversaService } from './modules/conversas/conversa.service';
+import { TrancaDaAreaTi } from './modules/conversas/conversa-ti-tranca';
 import { ticketRoutes } from './modules/tickets/ticket.routes';
 import { TicketService } from './modules/tickets/ticket.service';
 import { siteRoutes } from './modules/site/site.routes';
@@ -140,6 +141,8 @@ export function buildApp({
   );
   const messages = new MessageService(repositories.messages, repositories.attachments, computers, employees, realtime, app.log);
   const autoReplies = new AutoReplyService(repositories.autoReplies, repositories.sectors, app.log);
+  // Uma instância só: o conteúdo das mídias serve as telas e o arquivo que o TI baixa
+  const midiaStorage = new MidiaStorage(midiasPath);
   // Chat novo: conversas diretas, grupos e arquivos
   const conversas = new ConversaService(
     repositories.conversas,
@@ -149,6 +152,7 @@ export function buildApp({
     realtime,
     app.log,
     repositories.reacoes,
+    midiaStorage,
   );
   // Poderes extras da conta do TI (apagar comunicados e conversas, gerenciar os logins do DP)
   const admin = new AdminService(
@@ -171,11 +175,14 @@ export function buildApp({
     repositories.atalhos,
     repositories.users,
     employees,
-    new MidiaStorage(midiasPath),
+    midiaStorage,
     realtime,
     app.log,
     repositories.reacoes,
   );
+
+  // Área Conversas (TI): a conta abre a tela, a senha do TI abre as conversas
+  const trancaTi = new TrancaDaAreaTi(env.senhaTiResumo);
 
   const tickets = new TicketService(repositories.chamados, repositories.midias, employees, realtime, app.log);
   const eventos = new EventoService(repositories.eventos, app.log);
@@ -203,7 +210,7 @@ export function buildApp({
       await api.register(updateRoutes, { updates, atualizacaoDoServidor, armazem: armazemDeAtualizacoes });
       await api.register(contentRoutes, { content });
       await api.register(ticketRoutes, { tickets });
-      await api.register(conversaRoutes, { conversas, employees, users: repositories.users });
+      await api.register(conversaRoutes, { conversas, employees, users: repositories.users, trancaTi });
       await api.register(eventoRoutes, { eventos, employees });
       await api.register(agendamentoRoutes, { agendamentos });
     },
@@ -225,6 +232,7 @@ export function buildApp({
     purgeTimer = setInterval(() => {
       void auth.purgeExpired();
       employees.prune();
+      trancaTi.prune();
     }, TOKEN_PURGE_INTERVAL_MS);
     purgeTimer.unref();
 

@@ -46,7 +46,7 @@ const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
   { page: 'admin-cadastros', label: 'Cadastros', icone: 'cadastros' },
   { page: 'admin-ajustes', label: 'Ajustes', icone: 'ajustes' },
   { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true, emConstrucao: true },
-  { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true, emConstrucao: true },
+  { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true },
 ];
 
 interface MenuLateralProps {

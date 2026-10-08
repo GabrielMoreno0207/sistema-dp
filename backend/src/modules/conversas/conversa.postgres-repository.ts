@@ -3,6 +3,7 @@ import type { ConversaRepository } from './conversa.repository';
 import type {
   Conversa,
   Membro,
+  MensagemAuditoria,
   MensagemConversa,
   NovaMensagemConversa,
   PapelMembro,
@@ -46,6 +47,19 @@ function toMensagem(row: Row): MensagemConversa {
     respondeA: row.responde_a === null || row.responde_a === undefined ? null : Number(row.responde_a),
     createdAt: text(row, 'created_at'),
     apagadaEm: nullableText(row, 'apagada_em'),
+  };
+}
+
+/**
+ * Mapeador só da auditoria do TI: é o único que lê conteudo_apagado. As rotas
+ * comuns passam pelo toMensagem acima, que nem enxerga essa coluna.
+ */
+function toMensagemAuditoria(row: Row): MensagemAuditoria {
+  return {
+    ...toMensagem(row),
+    conteudoApagado: nullableText(row, 'conteudo_apagado'),
+    apagadaPorId: nullableText(row, 'apagada_por_id'),
+    apagadaPorNome: nullableText(row, 'apagada_por_nome'),
   };
 }
 
@@ -273,12 +287,19 @@ export class PostgresConversaRepository implements ConversaRepository {
     return resultado;
   }
 
-  async apagarMensagem(id: number, agora: string): Promise<boolean> {
+  async apagarMensagem(id: number, agora: string, porId: string, porNome: string): Promise<boolean> {
     return (
-      (await this.db.run("UPDATE conversa_mensagens SET apagada_em = $1, conteudo = '' WHERE id = $2 AND apagada_em IS NULL", [
-        agora,
-        id,
-      ])) > 0
+      (await this.db.run(
+        `UPDATE conversa_mensagens
+            SET apagada_em = $1,
+                -- o texto sai da conversa e fica guardado para o TI
+                conteudo_apagado = conteudo,
+                conteudo = '',
+                apagada_por_id = $2,
+                apagada_por_nome = $3
+          WHERE id = $4 AND apagada_em IS NULL`,
+        [agora, porId, porNome, id],
+      )) > 0
     );
   }
 
@@ -341,5 +362,21 @@ export class PostgresConversaRepository implements ConversaRepository {
       usuarioNome: text(row, 'usuario_nome'),
       createdAt: text(row, 'created_at'),
     }));
+  }
+
+  async listMensagensAuditoria(conversaId: string, limite: number): Promise<MensagemAuditoria[]> {
+    const rows = await this.db.all(
+      'SELECT * FROM conversa_mensagens WHERE conversa_id = $1 ORDER BY id ASC LIMIT $2',
+      [conversaId, limite],
+    );
+    return rows.map(toMensagemAuditoria);
+  }
+
+  async listApagadas(limite: number): Promise<MensagemAuditoria[]> {
+    const rows = await this.db.all(
+      'SELECT * FROM conversa_mensagens WHERE apagada_em IS NOT NULL ORDER BY apagada_em DESC LIMIT $1',
+      [limite],
+    );
+    return rows.map(toMensagemAuditoria);
   }
 }

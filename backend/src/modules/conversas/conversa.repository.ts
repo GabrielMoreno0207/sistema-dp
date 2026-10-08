@@ -1,4 +1,11 @@
-import type { Conversa, Membro, MensagemConversa, NovaMensagemConversa, PapelMembro } from './conversa.types';
+import type {
+  Conversa,
+  Membro,
+  MensagemAuditoria,
+  MensagemConversa,
+  NovaMensagemConversa,
+  PapelMembro,
+} from './conversa.types';
 
 export interface ConversaRepository {
   create(conversa: Conversa, membros: { userId: string; papel: PapelMembro }[]): Promise<Conversa>;
@@ -27,7 +34,11 @@ export interface ConversaRepository {
   buscarMensagens(conversaId: string, termo: string, limite: number): Promise<MensagemConversa[]>;
   ultimaMensagemDeVarias(conversaIds: string[]): Promise<Map<string, MensagemConversa>>;
   naoLidasDeVarias(conversaIds: string[], userId: string): Promise<Map<string, number>>;
-  apagarMensagem(id: number, agora: string): Promise<boolean>;
+  /**
+   * Apagar esconde a mensagem de quem participa e, no mesmo instante, guarda o
+   * texto em conteudo_apagado para a auditoria do TI.
+   */
+  apagarMensagem(id: number, agora: string, porId: string, porNome: string): Promise<boolean>;
   findMensagem(id: number): Promise<MensagemConversa | null>;
   /** Busca várias de uma vez (usado para montar a citação da resposta) */
   findMensagens(ids: number[]): Promise<Map<number, MensagemConversa>>;
@@ -44,4 +55,12 @@ export interface ConversaRepository {
   /** Auditoria: registra que o TI abriu uma conversa */
   registrarAcessoTi(conversaId: string, usuarioId: string, usuarioNome: string, agora: string): Promise<void>;
   listarAcessosTi(limite: number): Promise<{ conversaId: string; usuarioNome: string; createdAt: string }[]>;
+
+  /**
+   * Auditoria do TI: a conversa inteira, da mais antiga para a mais nova, com o
+   * texto das apagadas. Sem paginação — serve para gerar o arquivo da conversa.
+   */
+  listMensagensAuditoria(conversaId: string, limite: number): Promise<MensagemAuditoria[]>;
+  /** Auditoria do TI: as mensagens apagadas, as mais recentes primeiro */
+  listApagadas(limite: number): Promise<MensagemAuditoria[]>;
 }

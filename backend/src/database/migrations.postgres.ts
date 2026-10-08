@@ -492,4 +492,21 @@ export const POSTGRES_MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: 15,
+    name: 'mensagem apagada guardada para o TI',
+    sql: `
+      -- Apagar zera o 'conteudo' (quem participa não lê mais) e guarda o texto
+      -- aqui, no mesmo instante, para o TI poder baixar a conversa completa.
+      -- Só as consultas de auditoria leem esta coluna.
+      ALTER TABLE conversa_mensagens ADD COLUMN IF NOT EXISTS conteudo_apagado TEXT;
+      -- Quem apagou: o próprio autor ou alguém do TI
+      ALTER TABLE conversa_mensagens ADD COLUMN IF NOT EXISTS apagada_por_id TEXT;
+      ALTER TABLE conversa_mensagens ADD COLUMN IF NOT EXISTS apagada_por_nome TEXT;
+      -- O log de exclusões lista as mais recentes primeiro
+      CREATE INDEX IF NOT EXISTS idx_conversa_mensagens_apagadas
+        ON conversa_mensagens (apagada_em)
+        WHERE apagada_em IS NOT NULL;
+    `,
+  },
 ];
