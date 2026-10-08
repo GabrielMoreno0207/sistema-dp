@@ -1,6 +1,6 @@
 {
   "name": "comunicacao-dp-mobile",
-  "version": "2.2.7",
+  "version": "2.2.8",
   "otaRuntime": 2,
   "private": true,
   "scripts": {
