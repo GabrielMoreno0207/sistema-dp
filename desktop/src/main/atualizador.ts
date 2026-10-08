@@ -165,9 +165,16 @@ export class Atualizador {
   }
 
   /**
-   * Avisa na tela e roda o instalador em modo silencioso (/S). O instalador
-   * troca os arquivos e abre o aplicativo de novo (runAfterFinish do
-   * electron-builder).
+   * Avisa na tela e roda o instalador em modo silencioso (/S --force-run). O
+   * instalador fecha o aplicativo, troca os arquivos e o abre de novo.
+   *
+   * O --force-run não é opcional: o nosso instalador é o "assistido"
+   * (oneClick: false), e nele o electron-builder só reabre o aplicativo depois
+   * de uma instalação silenciosa se essa opção vier na linha de comando — o
+   * runAfterFinish do electron-builder.yml vale para a caixinha "executar
+   * agora" da instalação feita à mão, que o /S nunca mostra. Sem ela o
+   * aplicativo era encerrado e não voltava: ficava só o ícone morto na bandeja,
+   * que não abre nada, até alguém clicar no atalho da área de trabalho.
    *
    * Na obrigatória o aviso fica alguns segundos antes de fechar: quem está
    * usando o computador vê o que está acontecendo, em vez de a janela sumir.
@@ -190,7 +197,7 @@ export class Atualizador {
     const espera = obrigatoria ? AVISO_NA_TELA_MS : AVISO_CURTO_MS;
     setTimeout(() => {
       try {
-        const processo = spawn(caminho, ['/S'], { detached: true, stdio: 'ignore' });
+        const processo = spawn(caminho, ['/S', '--force-run'], { detached: true, stdio: 'ignore' });
         processo.unref();
         setTimeout(() => app.quit(), 1_500);
       } catch (err) {
