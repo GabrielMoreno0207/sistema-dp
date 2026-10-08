@@ -56,8 +56,10 @@ function recipientParams(recipient: Recipient): unknown[] {
 }
 
 /** Destinatários de cada mensagem (para o "X de N" da Central) */
+// "Todos" conta os funcionários ativos (e não os computadores): hoje cada pessoa
+// tem login no aplicativo e no celular, e é essa lista que a tela de leituras mostra.
 const RECIPIENT_COUNT = `CASE m.target
-  WHEN 'ALL' THEN (SELECT COUNT(*) FROM computers c WHERE c.registered_at <= m.created_at)
+  WHEN 'ALL' THEN (SELECT COUNT(*) FROM users u WHERE u.role = 'EMPLOYEE' AND u.status = 'ACTIVE')
   WHEN 'SECTOR' THEN (SELECT COUNT(*) FROM users u WHERE u.role = 'EMPLOYEE' AND u.status = 'ACTIVE' AND u.sector = m.target_id)
   WHEN 'SHIFT' THEN (SELECT COUNT(*) FROM users u WHERE u.role = 'EMPLOYEE' AND u.status = 'ACTIVE' AND u.shift = m.target_id)
   ELSE 1

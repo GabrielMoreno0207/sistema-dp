@@ -219,7 +219,8 @@ describe('mensagens', () => {
 
     const stats = (await app.inject({ method: 'GET', url: `/api/messages/${id}`, headers: as(adminToken) })).json();
     assert.equal(stats.message.readCount, 1);
-    assert.ok(stats.message.recipientCount >= 1);
+    // Comunicado para "Todos": o total são os funcionários ativos (nenhum cadastrado neste ponto do teste)
+    assert.equal(stats.message.recipientCount, 0);
   });
 
   test('validação de entrada', async () => {
@@ -402,7 +403,9 @@ describe('funcionários e login no app', () => {
     const general = all.find((m: { title: string }) => m.title === 'Reunião Geral');
     const generalReads = (await employeeRequest('GET', `/api/messages/${general.id}/reads`, adminToken)).json();
     assert.ok(generalReads.reads.some((r: { type: string; name: string }) => r.type === 'COMPUTER' && r.name === 'HOST-PC-BBBB00000001'));
-    assert.equal(generalReads.pending, null);
+    // Em "Todos" os pendentes são os funcionários ativos que ainda não leram
+    assert.ok(Array.isArray(generalReads.pending));
+    assert.ok(generalReads.pending.some((p: { name: string }) => p.name === 'Maria Souza'));
 
     // Só o DP pode ver
     assert.equal((await employeeRequest('GET', `/api/messages/${forMaria.id}/reads`, pcToken)).statusCode, 403);

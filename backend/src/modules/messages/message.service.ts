@@ -228,8 +228,10 @@ export class MessageService {
   }
 
   /**
-   * Quem leu a mensagem e, quando o destino tem lista conhecida (funcionário, setor, turno,
-   * computador), quem ainda não leu. Para "Todos" a lista de pendentes não é calculada (null).
+   * Quem leu a mensagem e quem ainda não leu. Para funcionário, setor, turno e
+   * "Todos" os pendentes são os funcionários ativos do destino que não aparecem
+   * nas leituras; para computador, o próprio PC. Só fica null em destino que não
+   * conhecemos (nenhum hoje).
    */
   async getReads(id: string): Promise<{ message: Message; reads: ReaderView[]; pending: PendingView[] | null }> {
     const message = await this.repository.findById(id);
@@ -239,11 +241,12 @@ export class MessageService {
     const readerIds = new Set(reads.map((r) => r.readerId));
 
     let pending: PendingView[] | null = null;
-    if (message.target === 'EMPLOYEE' || message.target === 'SECTOR' || message.target === 'SHIFT') {
+    if (message.target === 'ALL' || message.target === 'EMPLOYEE' || message.target === 'SECTOR' || message.target === 'SHIFT') {
       const all = await this.employees.list();
       const targets = all.filter((e) => {
         if (message.target === 'EMPLOYEE') return e.id === message.targetId;
         if (e.status !== 'ACTIVE') return false;
+        if (message.target === 'ALL') return true;
         return message.target === 'SECTOR' ? e.sector === message.targetId : e.shift === message.targetId;
       });
       pending = targets
