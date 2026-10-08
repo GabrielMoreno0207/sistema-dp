@@ -1,13 +1,54 @@
-/* Visual de terminal: fundo escuro, fonte monoespaçada, molduras em ASCII. */
+/*
+ * Visual do versionador.
+ *
+ * É a ferramenta que coloca versão em produção, então a tela precisa transmitir
+ * cuidado: tipografia do sistema, cartões com hierarquia clara e a cor do
+ * próprio produto (o mesmo verde-água do Comunicação DP).
+ *
+ * Monoespaçada fica só onde ajuda a ler: número de versão, endereço do servidor
+ * e nome de arquivo — onde cada caractere importa.
+ *
+ * O CSP da página é `style-src 'self'`: nada de estilo inline nem fonte externa.
+ * Por isso a pilha de fontes é a do sistema (Segoe UI no Windows).
+ */
+
 :root {
-  --fundo: #0b0e11;
-  --painel: #11161b;
-  --borda: #22303a;
-  --texto: #d7e2e8;
-  --apagado: #7d8c96;
-  --destaque: #6fd3a8;
-  --atencao: #e8c06a;
-  --erro: #e8796a;
+  color-scheme: light dark;
+
+  --primaria: #17b3a3;
+  --primaria-escura: #0d7a6f;
+  --primaria-suave: #e3f5f2;
+
+  --fundo: #f4f6f8;
+  --painel: #ffffff;
+  --borda: #dde3e8;
+  --texto: #1b2430;
+  --texto-suave: #4a5465;
+  --apagado: #78838f;
+
+  --atencao: #b5731a;
+  --erro: #c0392b;
+  --sucesso: #1e8a62;
+  --sombra: rgba(20, 30, 40, 0.08);
+
+  --raio: 10px;
+  --mono: 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primaria-suave: #10302d;
+    --fundo: #0e1317;
+    --painel: #161c22;
+    --borda: #28333d;
+    --texto: #e3e9ee;
+    --texto-suave: #aab6c0;
+    --apagado: #7d8c96;
+    --atencao: #e8c06a;
+    --erro: #e8796a;
+    --sucesso: #6fd3a8;
+    --sombra: rgba(0, 0, 0, 0.3);
+  }
 }
 
 * {
@@ -16,241 +57,414 @@
 
 body {
   margin: 0;
-  padding: 14px 18px 22px;
+  padding: 18px 20px 26px;
   background: var(--fundo);
   color: var(--texto);
-  font-family: 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────── marca e entrada */
+
+.entrada {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 44px);
+  gap: 14px;
+}
+
+.cartao--entrada {
+  width: 100%;
+  max-width: 360px;
 }
 
 .marca {
-  margin: 0 0 10px;
-  color: var(--destaque);
-  font-size: 12px;
-  white-space: pre;
-}
-
-.quadro {
-  margin-bottom: 12px;
-}
-
-.titulo,
-.rodape {
-  margin: 0 0 8px;
-  color: var(--borda);
-  font-size: 12px;
-  white-space: pre;
-  overflow: hidden;
-}
-
-.rodape {
-  margin: 8px 0 0;
-}
-
-label {
-  display: block;
-  margin: 6px 0 3px;
-  color: var(--apagado);
-}
-
-input[type='text'],
-input[type='password'],
-textarea {
-  width: 100%;
-  padding: 5px 8px;
-  border: 1px solid var(--borda);
-  border-radius: 3px;
-  background: var(--painel);
-  color: var(--texto);
-  font: inherit;
-}
-
-input:focus,
-textarea:focus {
-  outline: none;
-  border-color: var(--destaque);
-}
-
-input.curto {
-  width: 120px;
-}
-
-textarea {
-  resize: vertical;
-}
-
-.acao {
-  margin-top: 10px;
-  padding: 6px 14px;
-  border: 1px solid var(--destaque);
-  border-radius: 3px;
-  background: transparent;
-  color: var(--destaque);
-  font: inherit;
-  cursor: pointer;
-}
-
-.acao:hover:not(:disabled) {
-  background: var(--destaque);
-  color: var(--fundo);
-}
-
-.acao:disabled {
-  border-color: var(--borda);
-  color: var(--apagado);
-  cursor: default;
-}
-
-.acao.secundaria {
-  border-color: var(--borda);
-  color: var(--texto);
-}
-
-.acao.secundaria:hover {
-  background: var(--borda);
-  color: var(--texto);
-}
-
-.link {
-  border: none;
-  background: none;
-  color: var(--apagado);
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.link:hover {
-  color: var(--texto);
-}
-
-.linha {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
-.linha label {
-  margin: 0;
-}
-
-.caixa {
+.marca__selo {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--apagado);
-  cursor: pointer;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--primaria);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  flex: none;
 }
+
+.marca__selo--pequeno {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+
+.marca__nome {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.marca__sub {
+  margin: 0;
+  color: var(--apagado);
+  font-size: 12.5px;
+}
+
+.rodape-entrada {
+  max-width: 360px;
+  margin: 0;
+  color: var(--apagado);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* ─────────────────────────────────────────────── barra superior */
 
 .barra {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--borda);
-  margin-bottom: 12px;
 }
 
-.abas {
+.barra__marca {
   display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
+  align-items: center;
+  gap: 9px;
 }
 
-.aba {
-  border: none;
-  background: none;
-  color: var(--apagado);
-  font: inherit;
-  cursor: pointer;
+.barra__titulo {
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.aba.ativa {
-  color: var(--destaque);
+.barra__sessao {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12.5px;
 }
 
 .destaque {
-  color: var(--destaque);
+  color: var(--sucesso);
+  font-weight: 600;
 }
 
 .apagado {
   color: var(--apagado);
 }
 
-.erro {
-  min-height: 18px;
-  margin: 8px 0 0;
-  color: var(--erro);
+/* O endereço do servidor em monoespaçada: cada caractere conta */
+#onde {
+  font-family: var(--mono);
+  font-size: 11.5px;
 }
 
-.aviso {
-  min-height: 18px;
-  margin: 8px 0 0;
-  color: var(--atencao);
-}
+/* ─────────────────────────────────────────────── abas */
 
-.aviso.ok {
-  color: var(--destaque);
-}
-
-.lista {
+.abas {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
   border: 1px solid var(--borda);
-  border-radius: 3px;
+  border-radius: var(--raio);
   background: var(--painel);
 }
 
-.item {
+.aba {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.aba:hover {
+  background: var(--fundo);
+}
+
+.aba.ativa {
+  background: var(--primaria);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────── cartões */
+
+.cartao {
+  margin-bottom: 14px;
+  padding: 18px 20px 20px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--painel);
+  box-shadow: 0 1px 3px var(--sombra);
+}
+
+.cartao__titulo {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────── formulário */
+
+.campo {
+  margin-bottom: 14px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--texto-suave);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+input[type='text'],
+input[type='password'],
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--borda);
+  border-radius: 7px;
+  background: var(--fundo);
+  color: var(--texto);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* Versão e servidor em monoespaçada: evita confundir 1 com l, 0 com O */
+#versao,
+#servidor {
+  font-family: var(--mono);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 62px;
+}
+
+input[type='text']:focus,
+input[type='password']:focus,
+textarea:focus {
+  border-color: var(--primaria);
+  outline: 2px solid var(--primaria-suave);
+  outline-offset: -1px;
+}
+
+.curto {
+  max-width: 130px;
+}
+
+.linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.linha--campos {
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.linha--acao {
+  margin-top: 16px;
+}
+
+.campo--curto {
+  margin-bottom: 0;
+}
+
+/* Caixa de marcar com explicação embaixo: "obrigatória" tem consequência */
+.caixa {
   display: flex;
   align-items: flex-start;
+  gap: 8px;
+  margin: 22px 0 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.caixa input {
+  margin: 2px 0 0;
+  accent-color: var(--primaria);
+}
+
+.caixa small {
+  display: block;
+  color: var(--apagado);
+  font-size: 11.5px;
+}
+
+/* ─────────────────────────────────────────────── botões */
+
+.acao {
+  padding: 9px 18px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: var(--primaria);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.acao:hover:not(:disabled) {
+  background: var(--primaria-escura);
+}
+
+.acao:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.acao--bloco {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.secundaria {
+  border-color: var(--borda);
+  background: var(--painel);
+  color: var(--texto);
+  font-weight: 500;
+}
+
+.secundaria:hover:not(:disabled) {
+  border-color: var(--primaria);
+  background: var(--fundo);
+}
+
+.link {
+  padding: 2px 4px;
+  border: none;
+  background: none;
+  color: var(--apagado);
+  font: inherit;
+  font-size: 12.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--erro);
+}
+
+/* ─────────────────────────────────────────────── avisos */
+
+.erro {
+  margin: 10px 0 0;
+  color: var(--erro);
+  font-size: 12.5px;
+  min-height: 18px;
+}
+
+.aviso {
+  margin: 12px 0 0;
+  color: var(--atencao);
+  font-size: 12.5px;
+  min-height: 18px;
+}
+
+.aviso.ok {
+  color: var(--sucesso);
+}
+
+#progresso {
+  font-size: 12.5px;
+}
+
+/* ─────────────────────────────────────────────── lista de versões */
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
   gap: 12px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--borda);
+  padding: 11px 13px;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  background: var(--fundo);
 }
 
-.item:last-child {
-  border-bottom: none;
+/* A versão é a informação que se procura primeiro na lista */
+.versao {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--primaria-suave);
+  color: var(--primaria-escura);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.item .versao {
-  color: var(--destaque);
-  min-width: 78px;
+@media (prefers-color-scheme: dark) {
+  .versao {
+    color: var(--sucesso);
+  }
 }
 
-.item .detalhe {
-  flex: 1;
+.detalhe {
   min-width: 0;
+  font-size: 12.5px;
 }
 
-.item .notas {
-  color: var(--apagado);
+.notas {
+  margin-top: 5px;
+  color: var(--texto-suave);
+  font-size: 12.5px;
   white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.vazio {
-  padding: 12px;
-  color: var(--apagado);
 }
 
 .etiqueta {
-  padding: 1px 6px;
-  border: 1px solid var(--atencao);
-  border-radius: 2px;
-  color: var(--atencao);
-  font-size: 11px;
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--atencao);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
-/* Barra de progresso do envio: fica alinhada porque a fonte é monoespaçada */
-#progresso {
-  color: var(--destaque);
-  white-space: pre;
-  letter-spacing: -0.5px;
-}
-
-/* A lista de versões rola sozinha, para a janela menor não esticar */
-.lista {
-  max-height: 190px;
-  overflow-y: auto;
+.vazio {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--apagado);
+  font-size: 12.5px;
+  text-align: center;
 }

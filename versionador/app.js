@@ -48,7 +48,10 @@ async function entrar() {
   const erro = el('erro-login');
   erro.textContent = '';
   const usuario = el('usuario').value.trim();
-  const senha = el('senha').value;
+  // Apara igual ao usuário: a senha vem colada da nota e o espaço que vem
+  // junto fazia o servidor responder "Usuário ou senha inválidos" (ele apara
+  // o usuário, não a senha).
+  const senha = el('senha').value.trim();
   if (!servidor() || !usuario || !senha) {
     erro.textContent = 'Preencha servidor, usuário e senha.';
     return;
