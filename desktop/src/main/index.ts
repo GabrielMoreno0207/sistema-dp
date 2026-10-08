@@ -43,7 +43,15 @@ import { AdminClient } from './admin-client';
 import { ApiClient, ApiError } from './api-client';
 import { Atualizador } from './atualizador';
 import { getComputerIdentity } from './computer-identity';
-import { horarioAtualizacao, loadConfig, normalizeServerUrl, saveConfig } from './config';
+import {
+  consumirEstadoAoAtualizar,
+  guardarEstadoAoAtualizar,
+  horarioAtualizacao,
+  loadConfig,
+  normalizeServerUrl,
+  saveConfig,
+  type EstadoJanela,
+} from './config';
 import { ServerConnection, type AvisoDoServidor } from './connection';
 import { setupFileLogging } from './logger';
 import { MessageStore } from './message-store';
@@ -237,6 +245,14 @@ function start(): void {
     if (win.isMinimized()) win.restore();
     win.show();
     win.focus();
+  }
+
+  /** Em que estado a janela está agora (usado ao sair para atualizar) */
+  function estadoDaJanela(): EstadoJanela {
+    const win = mainWindow;
+    if (!win || win.isDestroyed()) return 'escondida';
+    if (win.isMinimized()) return 'minimizada';
+    return win.isVisible() ? 'visivel' : 'escondida';
   }
 
   /**
@@ -758,6 +774,7 @@ function start(): void {
   handle(IpcChannels.GetSettings, (): SettingsView => ({
     serverUrl: config.serverUrl,
     autoStart: config.autoStart,
+    avisoAtualizacaoMudo: config.avisoAtualizacaoMudo,
     autoStartAvailable: app.isPackaged,
   }));
 
@@ -769,8 +786,9 @@ function start(): void {
     const serverUrl = rawUrl ? normalizeServerUrl(rawUrl) : null;
     if (rawUrl && !serverUrl) return { ok: false, message: 'Endereço inválido. Use o formato http://IP:PORTA' };
     const autoStart = data.autoStart === true;
+    const avisoAtualizacaoMudo = data.avisoAtualizacaoMudo === true;
 
-    saveConfig({ serverUrl, autoStart });
+    saveConfig({ serverUrl, autoStart, avisoAtualizacaoMudo });
     applyAutoStart(autoStart);
 
     const previous = config;
@@ -1701,8 +1719,20 @@ function start(): void {
 
   registrarProtocoloDeMidia();
 
+  // Voltando de uma atualização, o aplicativo reabre como estava antes dela:
+  // quem estava com a janela escondida na bandeja não a vê pular na frente.
+  const estadoAntesDaAtualizacao = consumirEstadoAoAtualizar();
   const win = ensureMainWindow();
-  if (!startHidden) win.once('ready-to-show', () => win.show());
+  if (!startHidden && estadoAntesDaAtualizacao !== 'escondida') {
+    win.once('ready-to-show', () => {
+      if (estadoAntesDaAtualizacao === 'minimizada') {
+        win.showInactive();
+        win.minimize();
+      } else {
+        win.show();
+      }
+    });
+  }
   connection.start();
 
   // Rede de segurança para o mural: se o aviso do servidor se perder (socket caído,
@@ -1722,11 +1752,15 @@ function start(): void {
       horario: horarioAtualizacao() ?? undefined,
       log: (mensagem) => console.log(`[atualizador] ${mensagem}`),
       avisarTela: (info) => {
+        // Como a janela está agora é como ela tem de voltar: quem reabre o
+        // aplicativo é o instalador, que não sabe se estava minimizado ou na
+        // bandeja. info nulo = a instalação não foi, então o estado não vale.
+        guardarEstadoAoAtualizar(info ? estadoDaJanela() : null);
         // Alerta do canto da tela, como um comunicado: aparece por cima de tudo
         // sem roubar o foco nem tapar o que a pessoa está fazendo. Vale também
         // com o aplicativo na bandeja, que é quando a janela principal não
-        // mostraria nada.
-        popup.avisarAtualizacao(info);
+        // mostraria nada. Mudo nas Configurações: atualiza sem avisar.
+        popup.avisarAtualizacao(config.avisoAtualizacaoMudo ? null : info);
       },
     });
     atualizador.iniciar();

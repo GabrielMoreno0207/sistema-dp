@@ -350,6 +350,8 @@ export interface AppState {
 export interface DesktopSettings {
   serverUrl: string | null;
   autoStart: boolean;
+  /** Esconde o alerta de "vou atualizar" (a atualização acontece do mesmo jeito) */
+  avisoAtualizacaoMudo: boolean;
 }
 
 export interface SettingsView extends DesktopSettings {

@@ -9,7 +9,14 @@ interface StoredConfig {
   autoStart?: boolean;
   /** "HH:MM" da verificação diária de atualização (veio do HORARIO_ATUALIZACAO do .env) */
   horarioAtualizacao?: string | null;
+  /** Alerta de atualização mudo (a atualização continua acontecendo) */
+  avisoAtualizacaoMudo?: boolean;
+  /** Como a janela estava quando o aplicativo saiu para atualizar (ver estadoAoAtualizar) */
+  estadoAoAtualizar?: EstadoJanela | null;
 }
+
+/** Em que estado a janela estava: o aplicativo volta da atualização do mesmo jeito */
+export type EstadoJanela = 'visivel' | 'minimizada' | 'escondida';
 
 export type LoadedConfig = DesktopSettings;
 
@@ -95,13 +102,39 @@ export function loadConfig(): LoadedConfig {
   return {
     serverUrl: savedUrl ?? envUrl ?? SERVIDOR_PADRAO,
     autoStart: typeof saved.autoStart === 'boolean' ? saved.autoStart : true,
+    avisoAtualizacaoMudo: saved.avisoAtualizacaoMudo === true,
   };
 }
 
 export function saveConfig(settings: DesktopSettings): void {
   // Mantém o que a tela não edita (ex.: horário de atualização)
-  const next: StoredConfig = { ...readSavedConfig(), serverUrl: settings.serverUrl, autoStart: settings.autoStart };
+  const next: StoredConfig = {
+    ...readSavedConfig(),
+    serverUrl: settings.serverUrl,
+    autoStart: settings.autoStart,
+    avisoAtualizacaoMudo: settings.avisoAtualizacaoMudo,
+  };
   writeFileSync(configFilePath(), JSON.stringify(next, null, 2), 'utf-8');
+}
+
+/**
+ * Guarda como a janela estava antes de a atualização fechar o aplicativo.
+ * Quem reabre é o instalador, sem saber de nada: é por aqui que o aplicativo
+ * volta minimizado (ou na bandeja) se era assim que estava. null limpa.
+ */
+export function guardarEstadoAoAtualizar(estado: EstadoJanela | null): void {
+  try {
+    writeFileSync(configFilePath(), JSON.stringify({ ...readSavedConfig(), estadoAoAtualizar: estado }, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[config] falha ao guardar o estado da janela:', err);
+  }
+}
+
+/** Lê e apaga o estado guardado: ele vale só para a primeira abertura depois da atualização. */
+export function consumirEstadoAoAtualizar(): EstadoJanela | null {
+  const estado = readSavedConfig().estadoAoAtualizar ?? null;
+  if (estado) guardarEstadoAoAtualizar(null);
+  return estado;
 }
 
 /** Horário da verificação diária de atualização: config.json, depois o .env (null = padrão 03:00) */

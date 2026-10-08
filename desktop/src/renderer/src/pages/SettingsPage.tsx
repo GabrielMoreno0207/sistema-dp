@@ -7,6 +7,7 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<SettingsView | null>(null);
   const [serverUrl, setServerUrl] = useState('');
   const [autoStart, setAutoStart] = useState(true);
+  const [avisoAtualizacaoMudo, setAvisoAtualizacaoMudo] = useState(false);
   const [result, setResult] = useState<OperationResult | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -15,6 +16,7 @@ export function SettingsPage() {
       setSettings(loaded);
       setServerUrl(loaded.serverUrl ?? '');
       setAutoStart(loaded.autoStart);
+      setAvisoAtualizacaoMudo(loaded.avisoAtualizacaoMudo);
     });
   }
 
@@ -36,6 +38,7 @@ export function SettingsPage() {
       const saved = await window.dp.saveSettings({
         serverUrl: serverUrl.trim() || null,
         autoStart,
+        avisoAtualizacaoMudo,
       });
       if (saved.ok) load();
       return saved;
@@ -77,6 +80,19 @@ export function SettingsPage() {
           <span>
             Iniciar automaticamente com o Windows (em segundo plano)
             {!settings.autoStartAvailable && <small> — disponível apenas no aplicativo instalado</small>}
+          </span>
+        </label>
+
+        <h2>Atualização</h2>
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={avisoAtualizacaoMudo}
+            onChange={(e) => setAvisoAtualizacaoMudo(e.target.checked)}
+          />
+          <span>
+            Mutar notificação de atualização
+            <small> — o aplicativo continua se atualizando sozinho; só o aviso no canto da tela deixa de aparecer</small>
           </span>
         </label>
 
