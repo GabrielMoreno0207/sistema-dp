@@ -339,11 +339,15 @@ interface MensagemProps {
 }
 
 /**
- * Imagem do chat em tamanho grande, por cima de tudo. Fecha com Esc, com o X ou
+ * Imagem em tamanho grande, por cima de tudo. Fecha com Esc, com o X ou
  * clicando fora; "Abrir no Windows" leva ao visualizador do sistema (zoom,
  * salvar, imprimir).
+ *
+ * Nasceu no chat e serve a qualquer mídia do servidor (o mural usa a mesma):
+ * tudo o que ela precisa é do id, que o processo principal baixa com a
+ * credencial do aplicativo.
  */
-function VisualizadorImagem(props: {
+export function VisualizadorImagem(props: {
   midiaId: string;
   nome: string;
   abrindo: boolean;

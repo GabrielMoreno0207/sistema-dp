@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MuralPost } from '../../../shared/types';
 import { BarraDeReacoes } from './Reacoes';
+import { VisualizadorImagem } from './conversa-comuns';
 
 interface MuralProps {
   post: MuralPost | null;
@@ -18,15 +19,39 @@ function dataHora(iso: string): string {
 /**
  * Mural: o recado que a Central do DP deixa fixado, com imagem ou vídeo.
  * A mídia vem pelo protocolo dpmidia://, que busca no servidor com o token do PC.
+ *
+ * A foto ocupa a largura do cartão, acima do texto: antes ficava numa coluna de
+ * 320px ao lado, e foto de celular chegava espremida. Um clique abre em tela
+ * cheia, com os mesmos botões do chat (copiar e abrir no Windows).
  */
 export function Mural({ post, podeReagir }: MuralProps) {
   const [erro, setErro] = useState('');
+  const [imagemAberta, setImagemAberta] = useState(false);
+  const [abrindo, setAbrindo] = useState(false);
 
   async function reagir(emoji: string | null) {
     if (!post) return;
     const resultado = await window.dp.muralReagir(post.id, emoji);
     setErro(resultado.ok ? '' : resultado.message);
   }
+
+  async function copiarImagem(midiaId: string) {
+    const resultado = await window.dp.conversasCopiarImagem(midiaId);
+    setErro(resultado.ok ? '' : resultado.message);
+  }
+
+  async function abrirNoWindows(midiaId: string, nome: string) {
+    setAbrindo(true);
+    try {
+      const resultado = await window.dp.conversasAbrirArquivo(midiaId, nome);
+      if (!resultado.ok && resultado.message) setErro(resultado.message);
+    } finally {
+      setAbrindo(false);
+    }
+  }
+
+  const midia = post?.midia ?? null;
+  const ehImagem = midia?.tipo !== 'VIDEO';
 
   return (
     <section className="mural">
@@ -38,12 +63,17 @@ export function Mural({ post, podeReagir }: MuralProps) {
         </div>
       ) : (
         <article className="cartao mural__cartao">
-          {post.midia && (
-            <div className="mural__midia">
-              {post.midia.tipo === 'VIDEO' ? (
-                <video src={`dpmidia://m/${post.midia.id}`} controls preload="metadata" />
+          {midia && (
+            <div className={`mural__midia ${ehImagem ? 'mural__midia--clicavel' : ''}`}>
+              {ehImagem ? (
+                <img
+                  src={`dpmidia://m/${midia.id}`}
+                  alt={post.titulo}
+                  title="Clique para ver em tela cheia"
+                  onClick={() => setImagemAberta(true)}
+                />
               ) : (
-                <img src={`dpmidia://m/${post.midia.id}`} alt={post.titulo} />
+                <video src={`dpmidia://m/${midia.id}`} controls preload="metadata" />
               )}
             </div>
           )}
@@ -61,6 +91,17 @@ export function Mural({ post, podeReagir }: MuralProps) {
             </div>
             {erro && <p className="feedback feedback--error">{erro}</p>}
           </div>
+
+          {imagemAberta && midia && ehImagem && (
+            <VisualizadorImagem
+              midiaId={midia.id}
+              nome={post.titulo}
+              abrindo={abrindo}
+              onAbrirNoWindows={() => void abrirNoWindows(midia.id, post.titulo)}
+              onCopiar={() => void copiarImagem(midia.id)}
+              onFechar={() => setImagemAberta(false)}
+            />
+          )}
         </article>
       )}
     </section>
