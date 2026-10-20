@@ -201,6 +201,10 @@ function start(): void {
   // Conteúdo da nova tela inicial: recado do mural, atalhos da pessoa e a foto dela
   let adminClient = config.serverUrl ? new AdminClient(config.serverUrl) : null;
   let mural: MuralPost | null = null;
+  /** id + data da edição do recado em exibição, para saber quando mudou */
+  let muralChave: string | null = null;
+  /** Já houve uma busca do mural: antes disso não existe "mudou" */
+  let muralConhecido = false;
   let atalhos: Atalho[] = [];
   let foto: MidiaPublica | null = null;
 
@@ -517,12 +521,19 @@ function start(): void {
   async function syncMural(): Promise<void> {
     if (!api || connection.getState().status !== 'connected') return;
     try {
-      const anterior = mural?.id ?? null;
+      const anterior = muralChave;
       mural = await api.obterMural();
       sendToMain(IpcChannels.MuralChanged, mural);
-      if ((mural?.id ?? null) !== anterior) {
+      // A data da edição entra na chave: o RH trocar a foto ou o texto do mesmo
+      // recado também é novidade. Reação não conta, não mexe no updatedAt.
+      muralChave = mural ? `${mural.id}:${mural.updatedAt}` : null;
+      if (muralChave !== anterior) {
         console.log(`[mural] ${mural ? `recado em exibição: ${mural.titulo}` : 'nenhum recado em exibição'}`);
+        // A primeira busca (abertura do aplicativo) não é novidade: só avisa o
+        // que mudou com o aplicativo já aberto
+        if (muralConhecido && mural) popup.enfileirarMural(mural);
       }
+      muralConhecido = true;
     } catch (err) {
       console.error('[mural] falha ao buscar o recado:', err);
     }
@@ -1639,6 +1650,12 @@ function start(): void {
   popup.on('conversa', (conversaId) => {
     showMainWindow();
     sendToMain(IpcChannels.OpenConversa, conversaId);
+  });
+
+  // "Visualizar" no alerta do mural: abre a tela inicial, onde o recado fica
+  popup.on('mural', () => {
+    showMainWindow();
+    sendToMain(IpcChannels.AbrirMural, null);
   });
 
   connection.on('change', (state) => {

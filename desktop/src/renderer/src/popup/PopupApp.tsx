@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, PopupState } from '../../../shared/types';
+import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, MuralPost, PopupState } from '../../../shared/types';
 import { formatMessageDate, MESSAGE_TYPE_META } from '../lib/message-meta';
 import { playAlertSound } from '../lib/sound';
 import { Icone } from '../lib/icones';
@@ -12,6 +12,7 @@ function chaveDo(item: PopupState['current']): string | null {
   if (!item) return null;
   if (item.tipo === 'COMUNICADO') return item.comunicado.id;
   if (item.tipo === 'MENSAGEM') return item.mensagem.id;
+  if (item.tipo === 'MURAL') return `mural:${item.post.id}:${item.post.updatedAt}`;
   return 'atualizacao';
 }
 
@@ -93,6 +94,7 @@ export function PopupApp() {
   );
 
   if (atual.tipo === 'MENSAGEM') return <AlertaMensagem aviso={atual.mensagem} onFechar={fechar} rodape={rodape} />;
+  if (atual.tipo === 'MURAL') return <AlertaMural post={atual.post} onFechar={fechar} rodape={rodape} />;
   return <AlertaComunicado comunicado={atual.comunicado} onFechar={fechar} rodape={rodape} />;
 }
 
@@ -132,6 +134,35 @@ function AlertaComunicado({ comunicado, onFechar, rodape }: AlertaProps & { comu
             <Icone nome="ciencia" tamanho={13} /> Abra o comunicado para confirmar que leu
           </p>
         )}
+
+        {rodape}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Mural novo ou alterado. Formato de comunicado, porque é o que ele é para quem
+ * recebe: o recado mudou e vale a pena olhar. "Visualizar" leva à tela inicial.
+ */
+function AlertaMural({ post, onFechar, rodape }: AlertaProps & { post: MuralPost }) {
+  return (
+    <div className="toast toast--mural" key={post.id} role="alert">
+      <span className="toast__icon">
+        <Icone nome="mural" />
+      </span>
+
+      <div className="toast__body">
+        <div className="toast__top">
+          <span className="toast__kicker">Mural · RH</span>
+          <span className="toast__time">{formatMessageDate(post.updatedAt || post.createdAt)}</span>
+          <button className="toast__close" aria-label="Fechar" title="Fechar" onClick={onFechar}>
+            <Icone nome="fechar" tamanho={14} />
+          </button>
+        </div>
+
+        <strong className="toast__title">Conteúdo do Mural atualizado</strong>
+        <p className="toast__content">{post.titulo}</p>
 
         {rodape}
       </div>

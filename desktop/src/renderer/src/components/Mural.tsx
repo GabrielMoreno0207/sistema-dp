@@ -82,9 +82,9 @@ export function Mural({ post, podeReagir }: MuralProps) {
             <h3>{post.titulo}</h3>
             <p>{post.texto}</p>
             <footer className="mural__rodape">
+              <span className="mural__autor">{post.criadoPor}</span>
+              <span aria-hidden>·</span>
               <span>{dataHora(post.updatedAt || post.createdAt)}</span>
-              <span>·</span>
-              <span>{post.criadoPor}</span>
             </footer>
             <div className="mural__reacoes">
               <BarraDeReacoes reacoes={post.reacoes} onReagir={podeReagir ? (emoji) => void reagir(emoji) : undefined} sempreVisivel />

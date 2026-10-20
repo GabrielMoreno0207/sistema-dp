@@ -1,7 +1,7 @@
 import { app, screen, type BrowserWindow } from 'electron';
 import { EventEmitter } from 'node:events';
 import { PopupChannels } from '../shared/popup-channels';
-import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, ItemAlerta, PopupState } from '../shared/types';
+import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, ItemAlerta, MuralPost, PopupState } from '../shared/types';
 
 /** Tamanho de notificação (o card tem 380x150; o resto é margem para a sombra) */
 const POPUP_SIZE = { width: 400, height: 170 };
@@ -15,6 +15,8 @@ const CHAVE_ATUALIZACAO = 'atualizacao';
 function chaveDo(item: ItemAlerta): string {
   if (item.tipo === 'COMUNICADO') return item.comunicado.id;
   if (item.tipo === 'MENSAGEM') return item.mensagem.id;
+  // A data da edição entra na chave: recado alterado é alerta novo
+  if (item.tipo === 'MURAL') return `mural:${item.post.id}:${item.post.updatedAt}`;
   return CHAVE_ATUALIZACAO;
 }
 
@@ -25,7 +27,7 @@ function chaveDo(item: ItemAlerta): string {
  * sempre por cima das outras janelas e com som (tocado pela interface do popup).
  * Comunicado URGENTE fura a fila.
  */
-export class PopupManager extends EventEmitter<{ view: [string]; conversa: [string] }> {
+export class PopupManager extends EventEmitter<{ view: [string]; conversa: [string]; mural: [] }> {
   private win: BrowserWindow | null = null;
   private loaded = false;
   private queue: ItemAlerta[] = [];
@@ -64,6 +66,19 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
       added = true;
     }
     if (added) this.render();
+  }
+
+  /**
+   * Recado do mural novo ou alterado: um alerta igual ao do comunicado, com
+   * "Visualizar". Só o último vale — trocar o recado duas vezes seguidas não
+   * enfileira dois avisos do mesmo mural.
+   */
+  enfileirarMural(post: MuralPost): void {
+    const chave = `mural:${post.id}:${post.updatedAt}`;
+    if (this.queue.some((item) => chaveDo(item) === chave)) return;
+    this.queue = this.queue.filter((item) => item.tipo !== 'MURAL');
+    this.queue.push({ tipo: 'MURAL', post });
+    this.render();
   }
 
   /** Mensagem nova do chat: entra no fim da fila, sem furar a dos comunicados. */
@@ -120,7 +135,8 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
     this.remove(chaveDo(alvo));
     // O aviso da atualização não tem o que abrir: fechar é tudo o que ele faz
     if (alvo.tipo === 'ATUALIZACAO') return;
-    if (alvo.tipo === 'MENSAGEM') this.emit('conversa', alvo.mensagem.conversaId);
+    if (alvo.tipo === 'MURAL') this.emit('mural');
+    else if (alvo.tipo === 'MENSAGEM') this.emit('conversa', alvo.mensagem.conversaId);
     else this.emit('view', chaveDo(alvo));
   }
 

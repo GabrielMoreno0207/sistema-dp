@@ -18,6 +18,7 @@ const api: DesktopApi = {
   onConnectionChange: (listener) => subscribe(IpcChannels.ConnectionChanged, listener),
   onMessagesChange: (listener) => subscribe(IpcChannels.MessagesChanged, listener),
   onOpenMessage: (listener) => subscribe(IpcChannels.OpenMessage, listener),
+  onAbrirMural: (listener) => subscribe(IpcChannels.AbrirMural, listener),
   onOpenConversa: (listener) => subscribe(IpcChannels.OpenConversa, listener),
   conversaEmFoco: (conversaId) => ipcRenderer.send(IpcChannels.ConversaEmFoco, conversaId),
 

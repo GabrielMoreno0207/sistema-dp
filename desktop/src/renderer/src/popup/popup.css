@@ -81,6 +81,8 @@ body.popup-body {
 /* Mensagem do chat: mesmo formato, no verde-água do sistema */
 .toast--mensagem { --accent: #12968a; --accent-soft: #e0f5f2; }
 .toast--warning { --accent: #d97706; --accent-soft: #fff4e0; }
+/* Mural: roxo, para não se confundir com o comunicado nem com a mensagem */
+.toast--mural { --accent: #7c3aed; --accent-soft: #ede4fd; }
 /* Atualização: azul calmo, sem brilho piscando — é aviso, não urgência */
 .toast--atualizacao {
   --accent: #2563eb;

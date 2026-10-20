@@ -387,6 +387,7 @@ export interface AvisoMensagem {
 export type ItemAlerta =
   | { tipo: 'COMUNICADO'; comunicado: DpMessage }
   | { tipo: 'MENSAGEM'; mensagem: AvisoMensagem }
+  | { tipo: 'MURAL'; post: MuralPost }
   | { tipo: 'ATUALIZACAO'; info: AtualizacaoEmAndamento };
 
 export interface PopupState {
@@ -414,6 +415,8 @@ export interface DesktopApi {
   confirmarCiencia(messageId: string): Promise<OperationResult>;
   onConnectionChange(listener: (state: ConnectionState) => void): () => void;
   onMessagesChange(listener: (state: MessagesState) => void): () => void;
+  /** "Visualizar" no alerta do mural: leva para a tela inicial, onde o recado está */
+  onAbrirMural(listener: () => void): () => void;
   /** Pedido para abrir uma mensagem na janela principal (ex.: "Visualizar" no popup) */
   onOpenMessage(listener: (messageId: string) => void): () => void;
   /** Pedido para abrir uma conversa do chat (alerta de mensagem nova) */
@@ -658,5 +661,7 @@ export const IpcChannels = {
   JanelaEstado: 'janela:estado',
   /** Pedido para abrir a janelinha da senha (botão de fechar, bandeja, Alt+F4) */
   PedirSenhaParaFechar: 'janela:pedir-senha',
+  /** "Visualizar" no alerta do mural: a tela inicial sobe com o recado à vista */
+  AbrirMural: 'mural:abrir',
 } as const;
 // Canais do popup: ver popup-channels.ts

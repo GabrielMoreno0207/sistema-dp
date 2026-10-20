@@ -2483,21 +2483,25 @@ input[type='radio'] {
   font-size: 15px;
 }
 
-/* A foto manda no cartão: fica em cima, na largura toda, e o texto vem abaixo */
+/*
+ * Cartão do mural: a foto encosta nas bordas (o cartão recorta), o texto vem
+ * embaixo com respiro. O recado é para ler de longe, no meio da fábrica, então
+ * a descrição é 15px na cor cheia do texto - era 13px no tom apagado e ninguém
+ * enxergava.
+ */
 .mural__cartao {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 18px;
-  border-left: 4px solid var(--acento);
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
 
-/* Só centraliza: o fundo escuro vai na mídia, senão foto em pé fica entre
-   duas tarjas pretas da largura do cartão */
 .mural__midia {
   display: flex;
   justify-content: center;
   width: 100%;
+  background: var(--surface-alta);
+  border-bottom: 1px solid var(--border);
 }
 
 /*
@@ -2511,8 +2515,6 @@ input[type='radio'] {
   max-width: 100%;
   max-height: min(58vh, 560px);
   object-fit: contain;
-  border-radius: 10px;
-  background: #0d1418;
 }
 
 .mural__midia--clicavel img {
@@ -2521,34 +2523,46 @@ input[type='radio'] {
 
 .mural__texto {
   min-width: 0;
+  padding: 18px 22px 16px;
 }
 
 .mural__texto h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 10px;
+  font-size: 19px;
+  line-height: 1.3;
 }
 
 .mural__texto p {
   margin: 0;
-  color: var(--text-soft);
-  font-size: 13px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.65;
   white-space: pre-wrap;
 }
 
 .mural__rodape {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: 12px;
+}
+
+.mural__autor {
+  font-weight: 600;
+  color: var(--text-soft);
 }
 
 .mural__vazio {
-  padding: 18px;
-  border-left: 4px solid var(--border);
+  padding: 20px 22px;
+  border: 1px dashed var(--border);
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
+
 
 /* ---------------- Conversas recentes ---------------- */
 .historico {

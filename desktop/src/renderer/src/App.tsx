@@ -89,6 +89,18 @@ export function App() {
     [],
   );
 
+  // "Visualizar" no alerta do mural: tela inicial, rolada até o recado
+  useEffect(
+    () =>
+      window.dp.onAbrirMural(() => {
+        setPage('home');
+        setSelectedId(null);
+        // Depois de a tela inicial desenhar: o cartão do mural fica no fim dela
+        setTimeout(() => document.querySelector('.mural')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+      }),
+    [],
+  );
+
   // X da janela, Alt+F4 ou "Sair" na bandeja: quem encerra é a caixa da senha
   useEffect(() => window.dp.onPedirSenhaParaFechar(() => setFechandoSistema(true)), []);
 
