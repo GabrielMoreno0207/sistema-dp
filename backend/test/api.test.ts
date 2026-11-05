@@ -87,10 +87,15 @@ async function sendMessage(payload: Record<string, unknown>) {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('saúde e proteção', () => {
-  test('GET /api/health é público', async () => {
+  test('GET /api/health é público e diz a versão que subiu', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.json(), { status: 'ok', service: 'sistema-dp-backend' });
+    const corpo = res.json();
+    assert.equal(corpo.status, 'ok');
+    assert.equal(corpo.service, 'sistema-dp-backend');
+    // É por aqui que o versionador confere se a troca de versão pegou
+    assert.match(corpo.versao, /^\d+\.\d+\.\d+$/);
+    assert.ok(!Number.isNaN(new Date(corpo.desde).getTime()));
   });
 
   test('rotas protegidas exigem token', async () => {

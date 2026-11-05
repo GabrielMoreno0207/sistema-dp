@@ -3,7 +3,16 @@
 Tudo pelo **versionador**, de qualquer máquina que enxergue o servidor. Não é
 preciso entrar no servidor nem visitar os computadores.
 
-O versionador pede o endereço do servidor e o login do TI.
+Abra com **`versionador.vbs`** (sem terminal junto) ou `versionador.cmd`. Ele
+pede o endereço do servidor e o login do TI.
+
+**No endereço, use o servidor direto (`http://192.168.20.1:3000`), não o domínio
+`https://comunica.trinys.com.br`.** O domínio passa pelo proxy, que tem teto de
+tamanho de envio (hoje 100 MiB) e ainda grava o pacote inteiro em disco antes de
+repassar. O instalador do desktop já tem 107 MB: pelo domínio dá **HTTP 413**.
+Quem publica é o TI, de dentro da rede — é o único lugar do sistema que fala
+direto com o servidor. O aplicativo dos PCs e o celular continuam no domínio,
+com HTTPS, porque aí trafega senha de funcionário.
 
 ---
 
@@ -43,6 +52,31 @@ O que acontece depois: o servidor confere o pacote, troca os arquivos e
 reinicia (5 a 10 segundos). As migrações do banco rodam nessa subida. A tela do
 versionador espera ele voltar e confirma a versão. **Se a versão nova não
 subir, a anterior volta sozinha.**
+
+---
+
+## Colocar quem ficou atrás na última versão
+
+Publicar deixa a versão disponível; não força ninguém a instalar. Cada PC
+confere na abertura do aplicativo e às 03:00, e só instala quando o computador
+está parado há 5 minutos — enquanto a pessoa trabalha, ele adia de meia em meia
+hora. Por isso é comum publicar várias versões e só a sua máquina estar na mais
+nova.
+
+No versionador, o painel **Quem já atualizou** mostra cada computador com a
+versão que tem instalada, e o botão **Instalar a x.y.z nos N que faltam** faz o
+resto:
+
+- a última versão passa a ser **obrigatória** (instala mesmo com alguém usando
+  o computador: o aplicativo avisa na tela, fecha, instala e volta sozinho);
+- o aviso sai na hora para quem está ligado;
+- quem está desligado instala ao abrir o aplicativo.
+
+Ninguém passa pelas versões do meio: o servidor sempre entrega a mais nova, então
+quem está sete versões atrás pula direto para a última, numa instalação só.
+
+Depois, se quiser, use *deixar opcional* na lista para a versão voltar a esperar
+o computador ficar livre.
 
 ---
 

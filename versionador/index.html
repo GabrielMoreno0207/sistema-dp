@@ -18,96 +18,171 @@
           </div>
         </div>
 
-        <label for="servidor">Servidor</label>
-        <input id="servidor" type="text" spellcheck="false" placeholder="http://localhost:3000" />
+        <div class="campo">
+          <label for="servidor">Servidor</label>
+          <input id="servidor" type="text" spellcheck="false" placeholder="http://192.168.20.1:3000" />
+          <small class="dica">Use o endereço direto, não o domínio: pelo proxy o instalador não passa.</small>
+        </div>
 
-        <label for="usuario">Usuário</label>
-        <input id="usuario" type="text" spellcheck="false" autocomplete="off" />
+        <div class="campo">
+          <label for="usuario">Usuário</label>
+          <input id="usuario" type="text" spellcheck="false" autocomplete="off" />
+        </div>
 
-        <label for="senha">Senha</label>
-        <input id="senha" type="password" autocomplete="off" />
+        <div class="campo">
+          <label for="senha">Senha</label>
+          <input id="senha" type="password" autocomplete="off" />
+        </div>
 
-        <button id="btn-entrar" class="acao acao--bloco">Entrar</button>
+        <button id="btn-entrar" class="botao botao--principal botao--bloco">Entrar</button>
         <p id="erro-login" class="erro" role="alert"></p>
       </div>
       <p class="rodape-entrada">Publica as versões do aplicativo e do servidor. Use a conta do TI.</p>
     </section>
 
     <!-- ── área de trabalho ────────────────────────────────── -->
-    <main id="tela-principal" hidden>
-      <header class="barra">
-        <div class="barra__marca">
+    <div id="tela-principal" class="app" hidden>
+      <header class="topo">
+        <div class="topo__marca">
           <span class="marca__selo marca__selo--pequeno" aria-hidden="true">CD</span>
-          <span class="barra__titulo">Versionador</span>
+          <span class="topo__titulo">Versionador</span>
         </div>
-        <div class="barra__sessao">
-          <span id="quem" class="destaque"></span>
-          <span id="onde" class="apagado"></span>
-          <button id="btn-sair" class="link">Sair</button>
+        <div class="topo__sessao">
+          <span id="onde" class="endereco"></span>
+          <span id="quem" class="quem"></span>
+          <button id="btn-tema" class="botao botao--fantasma" title="Claro ou escuro">modo escuro</button>
+          <button id="btn-sair" class="botao botao--fantasma">Sair</button>
         </div>
       </header>
 
-      <nav class="abas" role="tablist" aria-label="O que publicar">
-        <button class="aba ativa" data-alvo="desktop" role="tab">Desktop</button>
-        <button class="aba" data-alvo="mobile" role="tab">Celular · APK</button>
-        <button
-          class="aba"
-          data-alvo="mobile-ota"
-          role="tab"
-          title="Atualização rápida: só o JavaScript, o app reinicia sozinho"
-        >
-          Celular · rápida
-        </button>
-        <button class="aba" data-alvo="backend" role="tab">Servidor</button>
-      </nav>
+      <div class="corpo">
+        <!--
+          Cada aplicativo com a versão que está no ar embaixo do nome: dá para
+          ver de uma vez o que já foi publicado em cada frente, que é a dúvida
+          de quem abre o versionador depois de uns dias.
+        -->
+        <nav class="alvos" role="tablist" aria-label="O que publicar">
+          <button class="alvo ativo" data-alvo="desktop" role="tab" aria-selected="true">
+            <span class="alvo__nome">Computador</span>
+            <span class="alvo__versao" data-versao="desktop">—</span>
+          </button>
+          <button class="alvo" data-alvo="mobile" role="tab" aria-selected="false">
+            <span class="alvo__nome">Celular · APK</span>
+            <span class="alvo__versao" data-versao="mobile">—</span>
+          </button>
+          <button class="alvo" data-alvo="mobile-ota" role="tab" aria-selected="false">
+            <span class="alvo__nome">Celular · rápida</span>
+            <span class="alvo__versao" data-versao="mobile-ota">—</span>
+          </button>
+          <button class="alvo" data-alvo="backend" role="tab" aria-selected="false">
+            <span class="alvo__nome">Servidor</span>
+            <span class="alvo__versao" data-versao="backend">—</span>
+          </button>
+        </nav>
 
-      <section class="cartao">
-        <h2 class="cartao__titulo">Publicar nova versão</h2>
+        <main class="painel">
+          <!--
+            O estado do servidor em cima de tudo: antes de publicar, a primeira
+            pergunta é sempre "o servidor está de pé e em que versão?".
+          -->
+          <section class="status" id="status">
+            <div class="status__item">
+              <span class="status__rotulo">Servidor</span>
+              <span class="status__valor" id="status-servidor">consultando…</span>
+            </div>
+            <div class="status__item">
+              <span class="status__rotulo">Versão no ar</span>
+              <span class="status__valor status__valor--mono" id="status-versao">—</span>
+            </div>
+            <div class="status__item">
+              <span class="status__rotulo">No ar há</span>
+              <span class="status__valor" id="status-desde">—</span>
+            </div>
+            <div class="status__item">
+              <span class="status__rotulo">Computadores</span>
+              <span class="status__valor" id="status-pcs">—</span>
+            </div>
+            <div class="status__item">
+              <span class="status__rotulo">Celulares</span>
+              <span class="status__valor" id="status-celulares">—</span>
+            </div>
+          </section>
 
-        <div class="campo">
-          <label for="btn-arquivo">Arquivo</label>
-          <div class="linha">
-            <button id="btn-arquivo" class="acao secundaria">Escolher arquivo…</button>
-            <span id="arquivo-escolhido" class="apagado">nenhum arquivo escolhido</span>
+          <div class="colunas">
+            <section class="cartao">
+              <header class="cartao__topo">
+                <h2 class="cartao__titulo">Publicar nova versão</h2>
+              </header>
+              <p id="legenda-alvo" class="cartao__dica"></p>
+
+              <!-- Arrastar o arquivo é o caminho curto; o botão fica para quem preferir o diálogo -->
+              <div id="solta" class="solta">
+                <p class="solta__chamada">Arraste o arquivo aqui</p>
+                <button id="btn-arquivo" class="botao botao--secundario">escolher no computador…</button>
+                <p id="arquivo-escolhido" class="solta__arquivo">nenhum arquivo escolhido</p>
+              </div>
+
+              <div class="grade">
+                <div class="campo campo--versao">
+                  <label for="versao">Versão</label>
+                  <input id="versao" type="text" spellcheck="false" placeholder="1.5.0" />
+                  <!-- Qual é a próxima: o erro clássico é republicar o número que já está no ar -->
+                  <button id="btn-sugerir" class="botao botao--fantasma" hidden></button>
+                </div>
+                <label class="marcar">
+                  <input id="obrigatoria" type="checkbox" />
+                  <span>
+                    Atualização obrigatória
+                    <small>Instala mesmo com alguém usando o computador</small>
+                  </span>
+                </label>
+              </div>
+
+              <div class="campo">
+                <label for="notas">O que mudou</label>
+                <textarea
+                  id="notas"
+                  rows="3"
+                  placeholder="- corrige o aviso de mensagens não lidas&#10;- melhora a busca por setor"
+                ></textarea>
+                <small class="dica">Esse texto aparece para quem vai atualizar.</small>
+              </div>
+
+              <div class="acoes">
+                <button id="btn-publicar" class="botao botao--principal">Publicar</button>
+                <div id="progresso" class="progresso" hidden>
+                  <div class="progresso__trilha"><span id="progresso-barra" class="progresso__barra"></span></div>
+                  <span id="progresso-texto" class="progresso__texto"></span>
+                </div>
+              </div>
+
+              <p id="conferencia" class="recado recado--atencao"></p>
+              <p id="aviso" class="recado" role="status"></p>
+            </section>
+
+            <!--
+              O painel que faltava: quem já está na última e o botão que coloca
+              os atrasados nela sem esperar a verificação da madrugada.
+            -->
+            <section class="cartao" id="cartao-parque">
+              <header class="cartao__topo">
+                <h2 class="cartao__titulo" id="titulo-parque">Quem já atualizou</h2>
+                <button id="btn-recarregar" class="botao botao--fantasma">recarregar</button>
+              </header>
+              <div id="parque" class="parque"></div>
+            </section>
           </div>
-        </div>
 
-        <div class="linha linha--campos">
-          <div class="campo campo--curto">
-            <label for="versao">Versão</label>
-            <input id="versao" type="text" spellcheck="false" placeholder="1.5.0" class="curto" />
-          </div>
-          <label class="caixa">
-            <input id="obrigatoria" type="checkbox" />
-            <span>
-              Atualização obrigatória
-              <small>Instala mesmo com alguém usando o computador</small>
-            </span>
-          </label>
-        </div>
-
-        <div class="campo">
-          <label for="notas">Notas da versão</label>
-          <textarea
-            id="notas"
-            rows="3"
-            placeholder="- corrige o aviso de mensagens não lidas&#10;- melhora a busca por setor"
-          ></textarea>
-        </div>
-
-        <div class="linha linha--acao">
-          <button id="btn-publicar" class="acao">Publicar</button>
-          <span id="progresso" class="apagado"></span>
-        </div>
-
-        <p id="aviso" class="aviso" role="status"></p>
-      </section>
-
-      <section class="cartao">
-        <h2 class="cartao__titulo">Versões publicadas</h2>
-        <div id="lista" class="lista"></div>
-      </section>
-    </main>
+          <section class="cartao">
+            <header class="cartao__topo">
+              <h2 class="cartao__titulo">Versões publicadas</h2>
+              <span id="contagem-versoes" class="cartao__dica"></span>
+            </header>
+            <div id="lista" class="lista"></div>
+          </section>
+        </main>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>

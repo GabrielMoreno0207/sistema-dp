@@ -115,12 +115,78 @@ async function publicar(servidor, token, alvo, dadosVersao, onProgresso) {
   }
 }
 
+/**
+ * Mensagem de erro de uma resposta. Quando a rota nem existe no servidor, o
+ * backend responde "Rota PATCH /api/... não encontrada": nesse caso o
+ * problema não é a versão, é o servidor estar desatualizado, e a tela precisa
+ * dizer isso em vez de "não encontrada".
+ */
+function erroDaResposta(resposta, quando) {
+  const mensagem = resposta.json?.message ?? '';
+  if (resposta.status === 404 && /^Rota /.test(mensagem)) {
+    return { ok: false, servidorAntigo: true, erro: 'Este servidor ainda não tem essa função. Publique primeiro o pacote do servidor, na aba Servidor.' };
+  }
+  return { ok: false, erro: mensagem || `${quando} (HTTP ${resposta.status})` };
+}
+
+/** Liga ou desliga a obrigatoriedade de uma versão já publicada. */
+async function marcarObrigatoria(servidor, token, alvo, versao, obrigatoria) {
+  const resposta = await pedirJson(servidor, `/api/atualizacoes/${alvo}/${versao}`, {
+    metodo: 'PATCH',
+    corpo: { obrigatoria },
+    token,
+  });
+  if (resposta.status !== 200) return erroDaResposta(resposta, 'Falha ao mudar a versão');
+  return { ok: true, release: resposta.json };
+}
+
+/** Manda todos os aparelhos conectados conferirem a atualização agora. */
+async function avisarTodos(servidor, token, alvo) {
+  const resposta = await pedirJson(servidor, `/api/atualizacoes/${alvo}/avisar`, { metodo: 'POST', token });
+  if (resposta.status !== 200) return erroDaResposta(resposta, 'Falha ao avisar os aparelhos');
+  return { ok: true, ...resposta.json };
+}
+
+/**
+ * Aparelhos cadastrados (PCs e celulares), com a versão que cada um tem
+ * instalada. É com isso que a tela mostra quem ficou atrás.
+ */
+async function listarAparelhos(servidor, token) {
+  const resposta = await pedirJson(servidor, '/api/computers', { token });
+  if (resposta.status !== 200) {
+    return { ok: false, erro: resposta.json?.message ?? `Falha ao listar os aparelhos (HTTP ${resposta.status})` };
+  }
+  return { ok: true, aparelhos: resposta.json?.computers ?? [] };
+}
+
 async function remover(servidor, token, alvo, versao) {
   const resposta = await pedirJson(servidor, `/api/atualizacoes/${alvo}/${versao}`, { metodo: 'DELETE', token });
   if (resposta.status !== 204) {
     return { ok: false, erro: resposta.json?.message ?? `Falha ao remover (HTTP ${resposta.status})` };
   }
   return { ok: true };
+}
+
+/**
+ * Servidor de pé? Devolve também quanto demorou para responder e qual versão
+ * subiu — é como se confere, sem entrar no servidor, que a troca pegou.
+ */
+async function saude(servidor) {
+  const comecou = Date.now();
+  try {
+    const resposta = await pedirJson(servidor, '/api/health');
+    const ms = Date.now() - comecou;
+    if (resposta.status !== 200) return { ok: false, ms, erro: `HTTP ${resposta.status}` };
+    return {
+      ok: true,
+      ms,
+      // Servidor anterior ao 1.27.0 não informa nenhum dos dois
+      versao: resposta.json?.versao ?? null,
+      desde: resposta.json?.desde ?? null,
+    };
+  } catch (err) {
+    return { ok: false, ms: Date.now() - comecou, erro: err.message };
+  }
 }
 
 /**
@@ -131,7 +197,11 @@ async function esperarServidor(servidor, { tentativas = 40, intervaloMs = 1500 }
   for (let tentativa = 1; tentativa <= tentativas; tentativa += 1) {
     try {
       const resposta = await pedirJson(servidor, '/api/health');
-      if (resposta.ok) return { ok: true, tentativas: tentativa };
+      // Era "resposta.ok", que pedirJson nunca devolve: a espera ia até o fim
+      // das 40 tentativas e dizia que o servidor não voltou, mesmo de pé.
+      if (resposta.status === 200) {
+        return { ok: true, tentativas: tentativa, versao: resposta.json?.versao ?? null };
+      }
     } catch {
       // ainda subindo
     }
@@ -140,4 +210,14 @@ async function esperarServidor(servidor, { tentativas = 40, intervaloMs = 1500 }
   return { ok: false, erro: 'O servidor não voltou a responder. Veja os logs do container.' };
 }
 
-module.exports = { entrar, listar, publicar, remover, esperarServidor };
+module.exports = {
+  entrar,
+  saude,
+  listar,
+  publicar,
+  remover,
+  esperarServidor,
+  marcarObrigatoria,
+  avisarTodos,
+  listarAparelhos,
+};

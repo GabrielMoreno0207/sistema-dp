@@ -90,6 +90,23 @@ export class UpdateStorage {
     await this.gravarCatalogo(release.app, [...atuais, release]);
   }
 
+  /**
+   * Muda dados de uma versão já publicada, sem tocar no arquivo. Hoje só a
+   * obrigatoriedade: é como o TI faz uma versão antiga virar obrigatória para
+   * quem ficou atrás, sem precisar publicar de novo.
+   */
+  async atualizar(app: AppName, versao: string, mudancas: Partial<Pick<Release, 'obrigatoria'>>): Promise<Release | null> {
+    const atuais = await this.listar(app);
+    const alvo = atuais.find((r) => r.versao === versao);
+    if (!alvo) return null;
+    const novo: Release = { ...alvo, ...mudancas };
+    await this.gravarCatalogo(
+      app,
+      atuais.map((r) => (r.versao === versao ? novo : r)),
+    );
+    return novo;
+  }
+
   /** Tira a versão do ar: sai do catálogo e o arquivo é apagado. */
   async remover(app: AppName, versao: string): Promise<Release | null> {
     const atuais = await this.listar(app);

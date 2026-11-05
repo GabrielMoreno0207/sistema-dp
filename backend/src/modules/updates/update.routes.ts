@@ -22,6 +22,13 @@ const appVersaoParamsSchema = {
   },
 } as const;
 
+const obrigatoriaBodySchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['obrigatoria'],
+  properties: { obrigatoria: { type: 'boolean' } },
+} as const;
+
 const verificarQuerySchema = {
   type: 'object',
   additionalProperties: false,
@@ -121,6 +128,35 @@ export const updateRoutes: FastifyPluginAsync<UpdateRoutesOptions> = async (
       return reply.code(201).send({ ...publico, aplicando: true });
     }
     return reply.code(201).send(publico);
+  });
+
+  /**
+   * Muda a obrigatoriedade de uma versão já publicada.
+   *
+   * É o que o versionador usa para instalar a última em quem ficou atrás:
+   * obrigatória, o aplicativo não adia esperando o computador ficar livre.
+   */
+  app.patch(
+    '/atualizacoes/:app/:versao',
+    { schema: { params: appVersaoParamsSchema, body: obrigatoriaBodySchema } },
+    async (request) => {
+      const admin = requireSuperAdmin(request);
+      const { versao } = request.params as { versao: string };
+      const { obrigatoria } = request.body as { obrigatoria: boolean };
+      return updates.marcarObrigatoria(appDaRota(request), versao, obrigatoria, admin.name);
+    },
+  );
+
+  /**
+   * Reenvia o aviso de atualização para todos os aparelhos conectados.
+   *
+   * Serve para quem publicou várias versões e só instalou na própria máquina:
+   * em vez de esperar as 03:00 de cada PC, o aviso sai na hora e cada um pula
+   * direto para a última (o servidor sempre entrega a mais nova, não a seguinte).
+   */
+  app.post('/atualizacoes/:app/avisar', { schema: { params: appParamsSchema } }, async (request) => {
+    const admin = requireSuperAdmin(request);
+    return updates.avisarTodos(appDaRota(request), admin.name);
   });
 
   /** Tira uma versão do ar (o arquivo é apagado do servidor). */

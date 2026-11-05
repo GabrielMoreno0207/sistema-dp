@@ -110,6 +110,39 @@ export class UpdateService {
     return { ...paraPublico(release), arquivo: release.arquivo };
   }
 
+  /**
+   * Liga ou desliga a obrigatoriedade de uma versão já publicada.
+   *
+   * É o caminho para colocar quem ficou atrás na última versão: obrigatória, o
+   * aplicativo instala mesmo com alguém usando o computador, em vez de adiar de
+   * meia em meia hora enquanto a pessoa trabalha.
+   */
+  async marcarObrigatoria(app: AppName, versao: string, obrigatoria: boolean, quem: string): Promise<ReleasePublico> {
+    const release = await this.storage.atualizar(app, versao, { obrigatoria });
+    if (!release) throw new NotFoundError(`Versão ${versao} do ${app} não encontrada`);
+    this.log.warn(
+      `Versão ${app} ${versao} agora é ${obrigatoria ? 'obrigatória' : 'opcional'} (por ${quem})`,
+    );
+    return paraPublico(release);
+  }
+
+  /**
+   * Manda todos os aparelhos conectados conferirem a atualização agora, sem
+   * esperar as 03:00 nem a próxima abertura do aplicativo.
+   *
+   * O aviso é o mesmo que sai ao publicar, então vale também para quem está com
+   * uma versão antiga do aplicativo instalada: nada de novo é exigido do cliente.
+   */
+  async avisarTodos(app: AppName, quem: string): Promise<{ versao: string; obrigatoria: boolean; avisados: number }> {
+    const ultima = await this.ultima(app);
+    if (!ultima) throw new NotFoundError(`Nenhuma versão publicada para ${app}`);
+    const avisados = this.realtime?.atualizacaoPublicada(app, ultima.versao) ?? 0;
+    this.log.info(
+      `Aviso de atualização reenviado: ${app} ${ultima.versao} para ${avisados} aparelho(s) conectado(s), por ${quem}`,
+    );
+    return { versao: ultima.versao, obrigatoria: ultima.obrigatoria, avisados };
+  }
+
   async remover(app: AppName, versao: string, quem: string): Promise<void> {
     const removida = await this.storage.remover(app, versao);
     if (!removida) throw new NotFoundError(`Versão ${versao} do ${app} não encontrada`);

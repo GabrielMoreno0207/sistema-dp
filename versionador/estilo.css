@@ -2,8 +2,13 @@
  * Visual do versionador.
  *
  * É a ferramenta que coloca versão em produção, então a tela precisa transmitir
- * cuidado: tipografia do sistema, cartões com hierarquia clara e a cor do
- * próprio produto (o mesmo verde-água do Comunicação DP).
+ * cuidado: tipografia do sistema, hierarquia clara e a cor do próprio produto
+ * (o mesmo verde-água do Comunicação DP).
+ *
+ * A tela é dividida em três partes fixas: a barra de cima (onde estou e com
+ * quem), a coluna dos aplicativos (o que publicar, com a versão que está no ar)
+ * e o painel, que rola. Só o painel rola — a barra e a coluna ficam paradas,
+ * para nunca se perder de vista em qual aplicativo se está mexendo.
  *
  * Monoespaçada fica só onde ajuda a ler: número de versão, endereço do servidor
  * e nome de arquivo — onde cada caractere importa.
@@ -19,45 +24,99 @@
   --primaria-escura: #0d7a6f;
   --primaria-suave: #e3f5f2;
 
-  --fundo: #f4f6f8;
+  --fundo: #eef1f4;
   --painel: #ffffff;
+  --painel-alto: #f7f9fa;
   --borda: #dde3e8;
+  --borda-forte: #c6d0d8;
   --texto: #1b2430;
   --texto-suave: #4a5465;
   --apagado: #78838f;
 
   --atencao: #b5731a;
+  --atencao-suave: #fdf3e3;
   --erro: #c0392b;
+  --erro-suave: #fdecea;
   --sucesso: #1e8a62;
-  --sombra: rgba(20, 30, 40, 0.08);
+  --sucesso-suave: #e4f5ec;
+  --sombra: rgba(20, 30, 40, 0.07);
 
-  --raio: 10px;
+  --raio: 12px;
+  --raio-pequeno: 8px;
   --mono: 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
 }
 
+/*
+ * Tema escuro, nas duas situações:
+ *
+ *  - o Windows está no escuro e ninguém escolheu nada (o @media, que também
+ *    pinta certo no instante antes de o app.js rodar);
+ *  - a pessoa escolheu "escuro" na barra de cima (data-tema no <html>).
+ *
+ * A escolha explícita vence o sistema, daí o :not([data-tema='claro']).
+ * As duas listas de cores são iguais de propósito: variável de CSS não pode
+ * ser definida uma vez e aplicada em dois seletores sem repetir o bloco.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --primaria-suave: #10302d;
-    --fundo: #0e1317;
-    --painel: #161c22;
-    --borda: #28333d;
-    --texto: #e3e9ee;
-    --texto-suave: #aab6c0;
-    --apagado: #7d8c96;
-    --atencao: #e8c06a;
-    --erro: #e8796a;
-    --sucesso: #6fd3a8;
-    --sombra: rgba(0, 0, 0, 0.3);
+  :root:not([data-tema='claro']) {
+  --primaria-suave: #10302d;
+  --fundo: #0b0f13;
+  --painel: #151b21;
+  --painel-alto: #1b222a;
+  --borda: #28333d;
+  --borda-forte: #37444f;
+  --texto: #e3e9ee;
+  --texto-suave: #aab6c0;
+  --apagado: #7d8c96;
+  --atencao: #e8c06a;
+  --atencao-suave: #302716;
+  --erro: #e8796a;
+  --erro-suave: #33191a;
+  --sucesso: #6fd3a8;
+  --sucesso-suave: #13291f;
+  --sombra: rgba(0, 0, 0, 0.35);
   }
+}
+
+:root[data-tema='escuro'] {
+  --primaria-suave: #10302d;
+  --fundo: #0b0f13;
+  --painel: #151b21;
+  --painel-alto: #1b222a;
+  --borda: #28333d;
+  --borda-forte: #37444f;
+  --texto: #e3e9ee;
+  --texto-suave: #aab6c0;
+  --apagado: #7d8c96;
+  --atencao: #e8c06a;
+  --atencao-suave: #302716;
+  --erro: #e8796a;
+  --erro-suave: #33191a;
+  --sucesso: #6fd3a8;
+  --sucesso-suave: #13291f;
+  --sombra: rgba(0, 0, 0, 0.35);
 }
 
 * {
   box-sizing: border-box;
 }
 
+/*
+ * O atributo hidden perde para qualquer classe que defina display (.app é
+ * grid, .progresso é flex). Sem isto a tela de trabalho aparece por baixo da
+ * entrada e a barra de progresso fica sempre à mostra.
+ */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
-  padding: 18px 20px 26px;
   background: var(--fundo);
   color: var(--texto);
   font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
@@ -72,13 +131,15 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 44px);
   gap: 14px;
+  min-height: 100%;
+  padding: 24px 20px;
 }
 
 .cartao--entrada {
   width: 100%;
-  max-width: 360px;
+  max-width: 370px;
+  margin: 0;
 }
 
 .marca {
@@ -92,6 +153,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: none;
   width: 42px;
   height: 42px;
   border-radius: 11px;
@@ -100,14 +162,13 @@ body {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.5px;
-  flex: none;
 }
 
 .marca__selo--pequeno {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  font-size: 11px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font-size: 10.5px;
 }
 
 .marca__nome {
@@ -124,123 +185,259 @@ body {
 }
 
 .rodape-entrada {
-  max-width: 360px;
+  max-width: 370px;
   margin: 0;
   color: var(--apagado);
   font-size: 12px;
   text-align: center;
 }
 
-/* ─────────────────────────────────────────────── barra superior */
+/* ─────────────────────────────────────────────── estrutura */
 
-.barra {
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+}
+
+.topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
-  padding-bottom: 14px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--borda);
+  background: var(--painel);
 }
 
-.barra__marca {
+.topo__marca {
   display: flex;
   align-items: center;
   gap: 9px;
 }
 
-.barra__titulo {
-  font-size: 15px;
+.topo__titulo {
+  font-size: 14.5px;
   font-weight: 600;
 }
 
-.barra__sessao {
+.topo__sessao {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   font-size: 12.5px;
 }
 
-.destaque {
-  color: var(--sucesso);
-  font-weight: 600;
-}
-
-.apagado {
-  color: var(--apagado);
-}
-
 /* O endereço do servidor em monoespaçada: cada caractere conta */
-#onde {
+.endereco {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--painel-alto);
+  color: var(--texto-suave);
   font-family: var(--mono);
   font-size: 11.5px;
 }
 
-/* ─────────────────────────────────────────────── abas */
-
-.abas {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  padding: 4px;
-  border: 1px solid var(--borda);
-  border-radius: var(--raio);
-  background: var(--painel);
+.quem {
+  color: var(--sucesso);
+  font-weight: 600;
 }
 
-.aba {
-  flex: 1;
-  padding: 8px 10px;
+.corpo {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* ─────────────────────────────────────────────── coluna dos aplicativos */
+
+.alvos {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 10px;
+  border-right: 1px solid var(--borda);
+  background: var(--painel);
+  overflow-y: auto;
+}
+
+.alvo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 11px;
   border: none;
-  border-radius: 7px;
+  border-left: 3px solid transparent;
+  border-radius: var(--raio-pequeno);
   background: transparent;
   color: var(--texto-suave);
   font: inherit;
-  font-size: 13px;
+  text-align: left;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
-.aba:hover {
-  background: var(--fundo);
+.alvo:hover {
+  background: var(--painel-alto);
 }
 
-.aba.ativa {
-  background: var(--primaria);
-  color: #fff;
+.alvo.ativo {
+  border-left-color: var(--primaria);
+  background: var(--primaria-suave);
+  color: var(--texto);
+}
+
+.alvo__nome {
+  font-size: 13px;
   font-weight: 600;
 }
 
-/* ─────────────────────────────────────────────── cartões */
+/* A versão que está no ar, embaixo do nome do aplicativo */
+.alvo__versao {
+  color: var(--apagado);
+  font-family: var(--mono);
+  font-size: 11px;
+}
 
-.cartao {
-  margin-bottom: 14px;
-  padding: 18px 20px 20px;
+.alvo.ativo .alvo__versao {
+  color: var(--primaria-escura);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema='claro']) .alvo.ativo .alvo__versao {
+    color: var(--sucesso);
+  }
+}
+
+:root[data-tema='escuro'] .alvo.ativo .alvo__versao {
+  color: var(--sucesso);
+}
+
+/* ─────────────────────────────────────────────── painel */
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px 22px;
+  overflow-y: auto;
+  /*
+   * As duas colunas se medem pela largura do painel, não da janela: a coluna
+   * dos aplicativos come quase 200px e uma regra feita na largura da janela
+   * acertaria o número errado.
+   */
+  container: painel / inline-size;
+}
+
+.colunas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@container painel (max-width: 760px) {
+  .colunas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ─────────────────────────────────────────────── faixa de status */
+
+.status {
+  display: flex;
+  gap: 10px 28px;
+  flex-wrap: wrap;
+  padding: 11px 16px;
   border: 1px solid var(--borda);
   border-radius: var(--raio);
   background: var(--painel);
   box-shadow: 0 1px 3px var(--sombra);
 }
 
+.status__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.status__rotulo {
+  color: var(--apagado);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.status__valor {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.status__valor--mono {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.status__valor--ok {
+  color: var(--sucesso);
+}
+
+.status__valor--ruim {
+  color: var(--erro);
+}
+
+/* ─────────────────────────────────────────────── cartões */
+
+.cartao {
+  padding: 15px 17px 17px;
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--painel);
+  box-shadow: 0 1px 3px var(--sombra);
+}
+
+.cartao__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .cartao__titulo {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 14px;
   font-weight: 600;
+}
+
+.cartao__dica {
+  margin: 0;
+  color: var(--apagado);
+  font-size: 12px;
 }
 
 /* ─────────────────────────────────────────────── formulário */
 
 .campo {
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 label {
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   color: var(--texto-suave);
   font-size: 12.5px;
   font-weight: 500;
+}
+
+.dica {
+  display: block;
+  margin-top: 4px;
+  color: var(--apagado);
+  font-size: 11.5px;
 }
 
 input[type='text'],
@@ -248,9 +445,9 @@ input[type='password'],
 textarea {
   width: 100%;
   padding: 8px 10px;
-  border: 1px solid var(--borda);
-  border-radius: 7px;
-  background: var(--fundo);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pequeno);
+  background: var(--painel-alto);
   color: var(--texto);
   font: inherit;
   font-size: 13px;
@@ -263,8 +460,8 @@ textarea {
 }
 
 textarea {
-  resize: vertical;
   min-height: 62px;
+  resize: vertical;
 }
 
 input[type='text']:focus,
@@ -275,130 +472,407 @@ textarea:focus {
   outline-offset: -1px;
 }
 
-.curto {
-  max-width: 130px;
+/* Versão de um lado, obrigatoriedade do outro: as duas decidem como a atualização chega */
+.grade {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 12px;
 }
 
-.linha {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.linha--campos {
-  align-items: flex-start;
-  gap: 18px;
-  margin-bottom: 14px;
-}
-
-.linha--acao {
-  margin-top: 16px;
-}
-
-.campo--curto {
+.campo--versao {
   margin-bottom: 0;
 }
 
-/* Caixa de marcar com explicação embaixo: "obrigatória" tem consequência */
-.caixa {
+.campo--versao .botao--fantasma {
+  margin-top: 3px;
+  padding: 2px 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  text-align: left;
+}
+
+.marcar {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin: 22px 0 0;
+  margin: 21px 0 0;
   font-weight: 400;
   cursor: pointer;
 }
 
-.caixa input {
+.marcar input {
   margin: 2px 0 0;
   accent-color: var(--primaria);
 }
 
-.caixa small {
+.marcar small {
   display: block;
   color: var(--apagado);
   font-size: 11.5px;
 }
 
+/* ─────────────────────────────────────────────── área de soltar o arquivo */
+
+.solta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 14px;
+  padding: 16px 14px;
+  border: 1.5px dashed var(--borda-forte);
+  border-radius: var(--raio);
+  background: var(--painel-alto);
+  text-align: center;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+/* Arquivo sendo arrastado por cima: a área responde para não parecer travada */
+.solta--sobre {
+  border-color: var(--primaria);
+  background: var(--primaria-suave);
+}
+
+.solta--cheia {
+  border-style: solid;
+  border-color: var(--primaria);
+}
+
+.solta__chamada {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 12.5px;
+}
+
+.solta__arquivo {
+  margin: 0;
+  color: var(--apagado);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.solta--cheia .solta__arquivo {
+  color: var(--texto);
+}
+
 /* ─────────────────────────────────────────────── botões */
 
-.acao {
-  padding: 9px 18px;
+.botao {
+  padding: 8px 16px;
   border: 1px solid transparent;
-  border-radius: 7px;
-  background: var(--primaria);
-  color: #fff;
+  border-radius: var(--raio-pequeno);
+  background: var(--painel-alto);
+  color: var(--texto);
   font: inherit;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
 
-.acao:hover:not(:disabled) {
-  background: var(--primaria-escura);
-}
-
-.acao:disabled {
-  opacity: 0.55;
+.botao:disabled {
+  opacity: 0.5;
   cursor: default;
 }
 
-.acao--bloco {
+.botao--principal {
+  background: var(--primaria);
+  color: #fff;
+  font-weight: 600;
+}
+
+.botao--bloco {
   width: 100%;
-  margin-top: 18px;
+  margin-top: 6px;
+  padding: 10px 16px;
 }
 
-.secundaria {
-  border-color: var(--borda);
+.botao--principal:hover:not(:disabled) {
+  background: var(--primaria-escura);
+}
+
+.botao--secundario {
+  border-color: var(--borda-forte);
   background: var(--painel);
-  color: var(--texto);
-  font-weight: 500;
 }
 
-.secundaria:hover:not(:disabled) {
+.botao--secundario:hover:not(:disabled) {
   border-color: var(--primaria);
-  background: var(--fundo);
 }
 
-.link {
-  padding: 2px 4px;
-  border: none;
+.botao--fantasma {
+  padding: 4px 8px;
   background: none;
   color: var(--apagado);
-  font: inherit;
-  font-size: 12.5px;
-  text-decoration: underline;
-  cursor: pointer;
+  font-size: 12px;
 }
 
-.link:hover {
+.botao--fantasma:hover:not(:disabled) {
+  color: var(--primaria-escura);
+}
+
+/* Ação que mexe no computador de outras pessoas: cor própria, não a do produto */
+.botao--empurrar {
+  width: 100%;
+  border-color: var(--atencao);
+  background: var(--atencao-suave);
+  color: var(--atencao);
+  font-weight: 600;
+}
+
+.botao--empurrar:hover:not(:disabled) {
+  background: var(--atencao);
+  color: #fff;
+}
+
+.botao--pequeno {
+  padding: 3px 9px;
+  font-size: 11.5px;
+}
+
+.botao--perigo:hover:not(:disabled) {
+  border-color: var(--erro);
   color: var(--erro);
 }
 
-/* ─────────────────────────────────────────────── avisos */
+/* ─────────────────────────────────────────────── publicar: ação e progresso */
+
+.acoes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.progresso {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.progresso__trilha {
+  flex: 1;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--painel-alto);
+  overflow: hidden;
+}
+
+.progresso__barra {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primaria);
+  transition: width 0.15s linear;
+}
+
+.progresso__texto {
+  flex: none;
+  color: var(--apagado);
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+
+/* ─────────────────────────────────────────────── recados */
 
 .erro {
+  min-height: 18px;
   margin: 10px 0 0;
   color: var(--erro);
   font-size: 12.5px;
-  min-height: 18px;
 }
 
-.aviso {
+.recado {
   margin: 12px 0 0;
-  color: var(--atencao);
+  color: var(--texto-suave);
   font-size: 12.5px;
-  min-height: 18px;
 }
 
-.aviso.ok {
+.recado:empty {
+  margin: 0;
+}
+
+.recado--ok {
   color: var(--sucesso);
 }
 
-#progresso {
+.recado--erro {
+  color: var(--erro);
+}
+
+.recado--atencao {
+  color: var(--atencao);
+}
+
+.recado--atencao:empty {
+  display: none;
+}
+
+/* ─────────────────────────────────────────────── quem já atualizou */
+
+.parque {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.parque__resumo {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.parque__numero {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.parque__legenda {
+  margin: 0;
+  color: var(--texto-suave);
   font-size: 12.5px;
+}
+
+.parque__nota {
+  margin: 0;
+  color: var(--apagado);
+  font-size: 11.5px;
+}
+
+.parque__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 250px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.aparelho {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.aparelho:last-child {
+  border-bottom: none;
+}
+
+/* Ligado agora = recebe o aviso na hora; desligado = só quando abrir o app */
+.ponto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--borda-forte);
+}
+
+.ponto--ligado {
+  background: var(--sucesso);
+}
+
+.aparelho__texto {
+  min-width: 0;
+}
+
+.aparelho__nome {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparelho__quem {
+  display: block;
+  color: var(--apagado);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aparelho__versao {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--painel-alto);
+  color: var(--apagado);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.aparelho__versao--atrasada {
+  background: var(--atencao-suave);
+  color: var(--atencao);
+  font-weight: 700;
+}
+
+.aparelho__versao--em-dia {
+  background: var(--sucesso-suave);
+  color: var(--sucesso);
+}
+
+.parque__rotulo {
+  margin: 2px 0 -4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borda);
+  color: var(--apagado);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Quantos aparelhos em cada versão: mostra onde o parque empacou */
+.espalhamento {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 9px;
+  margin: 0;
+}
+
+.espalhamento__versao {
+  color: var(--texto-suave);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.espalhamento__trilha {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--painel-alto);
+  overflow: hidden;
+}
+
+.espalhamento__barra {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--borda-forte);
+}
+
+.espalhamento__barra--atual {
+  background: var(--primaria);
+}
+
+.espalhamento__quantos {
+  color: var(--apagado);
+  font-size: 11px;
 }
 
 /* ─────────────────────────────────────────────── lista de versões */
@@ -411,16 +885,21 @@ textarea:focus {
 
 .item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
   align-items: start;
   gap: 12px;
-  padding: 11px 13px;
+  padding: 10px 12px;
   border: 1px solid var(--borda);
-  border-radius: 8px;
-  background: var(--fundo);
+  border-radius: var(--raio-pequeno);
+  background: var(--painel-alto);
 }
 
-/* A versão é a informação que se procura primeiro na lista */
+/* A que está sendo distribuída tem destaque: é a que todo mundo vai receber */
+.item--atual {
+  border-left: 3px solid var(--primaria);
+  background: var(--painel);
+}
+
 .versao {
   padding: 3px 9px;
   border-radius: 999px;
@@ -429,17 +908,38 @@ textarea:focus {
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 700;
+  text-align: center;
 }
 
 @media (prefers-color-scheme: dark) {
-  .versao {
+  :root:not([data-tema='claro']) .versao {
     color: var(--sucesso);
   }
+}
+
+:root[data-tema='escuro'] .versao {
+  color: var(--sucesso);
 }
 
 .detalhe {
   min-width: 0;
   font-size: 12.5px;
+}
+
+.detalhe__linha {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+  flex-wrap: wrap;
+  color: var(--apagado);
+  font-size: 11.5px;
+}
+
+.impressao {
+  margin-top: 3px;
+  color: var(--apagado);
+  font-family: var(--mono);
+  font-size: 10.5px;
 }
 
 .notas {
@@ -449,22 +949,79 @@ textarea:focus {
   white-space: pre-wrap;
 }
 
+.item__acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .etiqueta {
   display: inline-block;
   padding: 1px 7px;
   border-radius: 999px;
-  background: var(--atencao);
-  color: #fff;
+  background: var(--borda);
+  color: var(--texto-suave);
   font-size: 10.5px;
   font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.etiqueta--obrigatoria {
+  background: var(--atencao);
+  color: #fff;
+}
+
+.etiqueta--atual {
+  background: var(--primaria);
+  color: #fff;
+}
+
+/* Quantos aparelhos estão nesta versão: um dado, não um estado — por isso discreto */
+.contagem {
+  padding: 1px 7px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-suave);
+  font-size: 11px;
 }
 
 .vazio {
   margin: 0;
-  padding: 18px 0;
+  padding: 16px 0;
   color: var(--apagado);
   font-size: 12.5px;
   text-align: center;
+}
+
+/* ─────────────────────────────────────────────── janela estreita */
+
+/*
+ * Aqui a medida é a da janela mesmo: é a coluna dos aplicativos que vira uma
+ * fileira em cima, e ela não está dentro de nenhum outro recipiente.
+ */
+@media (max-width: 720px) {
+  .corpo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .alvos {
+    flex-direction: row;
+    gap: 6px;
+    border-right: none;
+    border-bottom: 1px solid var(--borda);
+    overflow-x: auto;
+  }
+
+  .alvo {
+    flex: 1;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    border-radius: var(--raio-pequeno) var(--raio-pequeno) 0 0;
+  }
+
+  .alvo.ativo {
+    border-bottom-color: var(--primaria);
+  }
 }

@@ -100,7 +100,8 @@ export interface LembreteNotifier {
 
 /** Avisa os PCs conectados de que saiu uma versão nova. */
 export interface AtualizacaoNotifier {
-  atualizacaoPublicada(app: string, versao: string): void;
+  /** Devolve quantos aparelhos estavam conectados para receber o aviso. */
+  atualizacaoPublicada(app: string, versao: string): number;
 }
 
 /** Avisa todos os aparelhos de que o TI apagou dados (a tela não pode continuar mostrando). */
@@ -242,8 +243,14 @@ export function createSocketServer(
       return employeeIds.length;
     },
 
-    atualizacaoPublicada(aplicativo: string, versao: string): void {
+    /**
+     * O número devolvido é o que o versionador mostra ao mandar todos
+     * atualizarem agora: sem ele, não dá para saber se o recado chegou a
+     * alguém ou se o parque estava todo desligado.
+     */
+    atualizacaoPublicada(aplicativo: string, versao: string): number {
       io.to(Rooms.all).emit('atualizacao:publicada', { app: aplicativo, versao });
+      return io.sockets.adapter.rooms.get(Rooms.all)?.size ?? 0;
     },
 
     dadosLimpos(o: 'comunicados' | 'conversas'): void {

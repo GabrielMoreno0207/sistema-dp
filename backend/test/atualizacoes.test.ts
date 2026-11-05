@@ -239,6 +239,78 @@ describe('remoção', () => {
   });
 });
 
+describe('instalar a última em quem ficou atrás', () => {
+  test('marca uma versão já publicada como obrigatória e desmarca de novo', async () => {
+    const marcar = await app.inject({
+      method: 'PATCH',
+      url: '/api/atualizacoes/desktop/1.5.0',
+      headers: { authorization: `Bearer ${tokenTi}` },
+      payload: { obrigatoria: true },
+    });
+    assert.equal(marcar.statusCode, 200);
+    assert.equal(marcar.json().obrigatoria, true);
+
+    // Quem está atrás passa a receber a versão como obrigatória, sem republicar
+    const consulta = await app.inject({
+      method: 'GET',
+      url: '/api/atualizacoes/desktop/verificar?versao=1.4.0',
+      headers: { authorization: `Bearer ${tokenTi}` },
+    });
+    assert.equal(consulta.json().release.obrigatoria, true);
+
+    const desmarcar = await app.inject({
+      method: 'PATCH',
+      url: '/api/atualizacoes/desktop/1.5.0',
+      headers: { authorization: `Bearer ${tokenTi}` },
+      payload: { obrigatoria: false },
+    });
+    assert.equal(desmarcar.json().obrigatoria, false);
+  });
+
+  test('versão que não existe devolve 404', async () => {
+    const resposta = await app.inject({
+      method: 'PATCH',
+      url: '/api/atualizacoes/desktop/9.9.9',
+      headers: { authorization: `Bearer ${tokenTi}` },
+      payload: { obrigatoria: true },
+    });
+    assert.equal(resposta.statusCode, 404);
+  });
+
+  test('reenvia o aviso da última versão para quem está conectado', async () => {
+    const resposta = await app.inject({
+      method: 'POST',
+      url: '/api/atualizacoes/desktop/avisar',
+      headers: { authorization: `Bearer ${tokenTi}` },
+    });
+    assert.equal(resposta.statusCode, 200);
+    const corpo = resposta.json();
+    assert.equal(corpo.versao, '1.5.0');
+    // Nenhum PC conectado no teste: o importante é a contagem vir no corpo
+    assert.equal(typeof corpo.avisados, 'number');
+  });
+
+  test('sem versão publicada não há o que avisar', async () => {
+    const resposta = await app.inject({
+      method: 'POST',
+      url: '/api/atualizacoes/mobile/avisar',
+      headers: { authorization: `Bearer ${tokenTi}` },
+    });
+    assert.equal(resposta.statusCode, 404);
+  });
+
+  test('sem autenticação não muda nem avisa', async () => {
+    const semToken = await app.inject({ method: 'POST', url: '/api/atualizacoes/desktop/avisar' });
+    assert.equal(semToken.statusCode, 401);
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: '/api/atualizacoes/desktop/1.5.0',
+      payload: { obrigatoria: true },
+    });
+    assert.equal(patch.statusCode, 401);
+  });
+});
+
 describe('página pública e downloads', () => {
   test('o endereço do servidor no navegador mostra a página do Comunica Trinys', async () => {
     const resposta = await app.inject({ method: 'GET', url: '/', headers: { host: 'comunica.trinys.com.br', 'x-forwarded-proto': 'https' } });
