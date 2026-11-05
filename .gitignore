@@ -48,6 +48,10 @@ logs/
 # Configuração local do versionador (guarda servidor e usuário)
 versionador/config.json
 
+# Script de cadastro em massa: leva a senha do TI em texto puro e o hash dela,
+# porque é gerado com as credenciais prontas para colar no cliente SQL.
+backend/scripts/cadastrar-funcionarios-em-massa.sql
+
 # Sistema / editores
 .DS_Store
 Thumbs.db
