@@ -118,8 +118,18 @@ export class AdminClient {
   }
 
   /** Assume o atendimento: o chamado sai da fila sem dono e passa a ser meu. */
-  async aceitarChamado(id: string): Promise<ChamadoCompleto> {
-    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`);
+  async aceitarChamado(id: string, assumir = false): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`, { assumir });
+  }
+
+  /** Nota interna do TI: fica no chamado, invisível para quem abriu. */
+  async anotarChamado(id: string, conteudo: string): Promise<void> {
+    await this.request<unknown>('POST', `/api/chamados/${encodeURIComponent(id)}/notas`, { conteudo });
+  }
+
+  /** Apaga o chamado de vez (a tela só oferece isso nos de teste). */
+  async apagarChamado(id: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/chamados/${encodeURIComponent(id)}`);
   }
 
   async marcarChamadoLido(id: string): Promise<void> {

@@ -1,4 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import type { ConversaResumo, MensagemConversa, Participante } from '../../../shared/types';
 import { Icone } from '../lib/icones';
@@ -338,54 +346,285 @@ interface MensagemProps {
   onAviso?(mensagem: string): void;
 }
 
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 8;
+const ZOOM_PASSO = 1.3;
+/** Um clique na imagem ajustada vai direto para este nível */
+const ZOOM_DE_UM_CLIQUE = 2.5;
+/** Cartaz/print comprido: mais de duas vezes mais alto que largo */
+const PROPORCAO_COMPRIDA = 2.2;
+
 /**
- * Imagem em tamanho grande, por cima de tudo. Fecha com Esc, com o X ou
- * clicando fora; "Abrir no Windows" leva ao visualizador do sistema (zoom,
- * salvar, imprimir).
+ * Imagem em tamanho grande, por cima de tudo, com zoom.
  *
- * Nasceu no chat e serve a qualquer mídia do servidor (o mural usa a mesma):
- * tudo o que ela precisa é do id, que o processo principal baixa com a
- * credencial do aplicativo.
+ * Fecha com Esc, com o X ou clicando no fundo. A roda do mouse aproxima e
+ * afasta no ponto onde está o cursor; com a imagem aproximada, arrastar move.
+ * Quem não usa a roda tem os botões − / + / Ajustar e as teclas + − 0.
+ *
+ * O zoom muda o tamanho da imagem e rola a área, em vez de usar
+ * `transform: scale`. Escalar deixa a camada do tamanho da imagem ampliada
+ * (um cartaz a 400% passa de 4000x14000), e placa de vídeo antiga — a GeForce
+ * 210 das máquinas da fábrica — não guarda textura desse tamanho: aparecem
+ * listras e pedaços repetidos na tela. Dimensionando a imagem, quem desenha é
+ * o caminho normal de pintura, que trabalha em pedaços e não estoura.
+ *
+ * Nasceu no chat e serve a qualquer imagem: mídia do servidor (chat e mural,
+ * por `midiaId` — o processo principal baixa com a credencial do aplicativo)
+ * ou imagem já carregada em `src`, que é o caso do anexo do comunicado.
  */
 export function VisualizadorImagem(props: {
-  midiaId: string;
+  /** Mídia do servidor (chat, mural) */
+  midiaId?: string;
+  /** Imagem já em mãos, em data URL (anexo do comunicado) */
+  src?: string;
   nome: string;
-  abrindo: boolean;
-  onAbrirNoWindows(): void;
-  onCopiar(): void;
+  abrindo?: boolean;
+  /** Cada botão só aparece quando quem chamou sabe fazer aquilo */
+  onAbrirNoWindows?(): void;
+  onCopiar?(): void;
+  onSalvar?(): void;
   onFechar(): void;
 }) {
-  const { midiaId, nome, abrindo, onAbrirNoWindows, onCopiar, onFechar } = props;
+  const { midiaId, src, nome, abrindo, onAbrirNoWindows, onCopiar, onSalvar, onFechar } = props;
+  const [zoom, setZoom] = useState(ZOOM_MIN);
+  /** Tamanho da imagem ajustada à tela: é o 1x, e todo zoom parte dele */
+  const [base, setBase] = useState<{ largura: number; altura: number; escala: number } | null>(null);
+  const palco = useRef<HTMLDivElement | null>(null);
+  /** Arrasto em andamento: de onde o cursor saiu e onde a rolagem estava */
+  const arrasto = useRef<{ x: number; y: number; esquerda: number; topo: number; moveu: boolean } | null>(null);
+  /** Para onde rolar assim que o tamanho novo entrar na tela */
+  const rolagemPendente = useRef<{ x: number; y: number } | null>(null);
+  /** O ajuste de abertura é feito uma vez só, quando a imagem termina de carregar */
+  const jaAjustou = useRef(false);
+
+  const endereco = src ?? `dpmidia://m/${midiaId}`;
+
+  // A rolagem é acertada depois que a imagem já está no tamanho novo, senão o
+  // navegador corta o valor pelo tamanho antigo.
+  useLayoutEffect(() => {
+    const area = palco.current;
+    const alvo = rolagemPendente.current;
+    if (!area || !alvo) return;
+    rolagemPendente.current = null;
+    area.scrollLeft = alvo.x;
+    area.scrollTop = alvo.y;
+  }, [zoom, base]);
+
+  /**
+   * Muda o nível de zoom. Com `cursor`, o ponto da imagem que está embaixo do
+   * mouse fica parado — é o que faz a roda parecer natural.
+   */
+  function aplicarZoom(novo: number, cursor?: { x: number; y: number }) {
+    const alvo = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, novo));
+    if (alvo === zoom) return;
+    const area = palco.current;
+    if (area) {
+      const caixa = area.getBoundingClientRect();
+      const px = cursor ? cursor.x - caixa.left : caixa.width / 2;
+      const py = cursor ? cursor.y - caixa.top : caixa.height / 2;
+      const fator = alvo / zoom;
+      rolagemPendente.current = {
+        x: Math.max(0, (area.scrollLeft + px) * fator - px),
+        y: Math.max(0, (area.scrollTop + py) * fator - py),
+      };
+    }
+    setZoom(alvo);
+  }
+
+  // Roda do mouse: listener na mão porque o do React é passivo e não deixa
+  // cancelar a rolagem da área.
+  useEffect(() => {
+    const area = palco.current;
+    if (!area) return;
+    function roda(evento: WheelEvent) {
+      evento.preventDefault();
+      const fator = evento.deltaY < 0 ? ZOOM_PASSO : 1 / ZOOM_PASSO;
+      aplicarZoom(zoom * fator, { x: evento.clientX, y: evento.clientY });
+    }
+    area.addEventListener('wheel', roda, { passive: false });
+    return () => area.removeEventListener('wheel', roda);
+  });
 
   useEffect(() => {
     function tecla(evento: KeyboardEvent) {
       if (evento.key === 'Escape') onFechar();
+      if (evento.key === '+' || evento.key === '=') aplicarZoom(zoom * ZOOM_PASSO);
+      if (evento.key === '-' || evento.key === '_') aplicarZoom(zoom / ZOOM_PASSO);
+      if (evento.key === '0') aplicarZoom(ZOOM_MIN);
       // Ctrl+C com a imagem aberta: copia a imagem (não há texto selecionado aqui)
-      if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 'c') {
+      if (onCopiar && (evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 'c') {
         evento.preventDefault();
         onCopiar();
       }
     }
     window.addEventListener('keydown', tecla);
     return () => window.removeEventListener('keydown', tecla);
-  }, [onFechar, onCopiar]);
+  });
+
+  /**
+   * Cartaz em pé (os do RH são quase sempre assim) cabe inteiro na altura e
+   * vira uma tira estreita, ilegível. Nesses casos a imagem abre já na largura
+   * da tela, mostrando o topo — o botão Ajustar volta ao inteiro.
+   */
+  function aoCarregar(evento: SyntheticEvent<HTMLImageElement>) {
+    if (jaAjustou.current) return;
+    const area = palco.current;
+    const img = evento.currentTarget;
+    if (!area || !img.naturalWidth || !img.naturalHeight) return;
+    jaAjustou.current = true;
+
+    const caixa = area.getBoundingClientRect();
+    // Imagem menor que a tela fica no tamanho dela: esticar só borra
+    const escala = Math.min(caixa.width / img.naturalWidth, caixa.height / img.naturalHeight, 1);
+    const largura = img.naturalWidth * escala;
+    const altura = img.naturalHeight * escala;
+    setBase({ largura, altura, escala });
+
+    if (img.naturalHeight / img.naturalWidth < PROPORCAO_COMPRIDA) return;
+    // Sobe até a largura da tela, mas nunca além do tamanho real da imagem
+    const alvo = Math.min(ZOOM_MAX, caixa.width / largura, 1 / escala);
+    if (alvo <= ZOOM_MIN) return;
+    rolagemPendente.current = { x: 0, y: 0 };
+    setZoom(alvo);
+  }
+
+  function pegar(evento: ReactPointerEvent<HTMLDivElement>) {
+    const area = palco.current;
+    if (!area || evento.button !== 0) return;
+    // Clique na barra de rolagem: deixa o Windows cuidar dela
+    const caixa = area.getBoundingClientRect();
+    if (evento.clientX - caixa.left > area.clientWidth || evento.clientY - caixa.top > area.clientHeight) return;
+    arrasto.current = {
+      x: evento.clientX,
+      y: evento.clientY,
+      esquerda: area.scrollLeft,
+      topo: area.scrollTop,
+      moveu: false,
+    };
+    area.setPointerCapture(evento.pointerId);
+  }
+
+  function mover(evento: ReactPointerEvent<HTMLDivElement>) {
+    const inicio = arrasto.current;
+    const area = palco.current;
+    if (!inicio || !area) return;
+    const dx = evento.clientX - inicio.x;
+    const dy = evento.clientY - inicio.y;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) inicio.moveu = true;
+    area.scrollLeft = inicio.esquerda - dx;
+    area.scrollTop = inicio.topo - dy;
+  }
+
+  function soltar(evento: ReactPointerEvent<HTMLDivElement>) {
+    const inicio = arrasto.current;
+    arrasto.current = null;
+    if (evento.currentTarget.hasPointerCapture(evento.pointerId)) {
+      evento.currentTarget.releasePointerCapture(evento.pointerId);
+    }
+    // Arrastar para mover não pode ser confundido com clicar
+    if (!inicio || inicio.moveu) return;
+    // Clique na área escura, ao lado da imagem: fecha, como clicar no fundo
+    if (!(evento.target instanceof HTMLImageElement)) {
+      onFechar();
+      return;
+    }
+    if (zoom === ZOOM_MIN) aplicarZoom(ZOOM_DE_UM_CLIQUE, { x: evento.clientX, y: evento.clientY });
+    else aplicarZoom(ZOOM_MIN);
+  }
+
+  const podeRolar = base !== null && zoom > ZOOM_MIN;
 
   // No body: um ancestral com transform/overflow do chat não prende a camada
   return createPortal(
     <div className="visualizador" role="dialog" aria-modal="true" aria-label={nome} onClick={onFechar}>
       <div className="visualizador__barra" onClick={(e) => e.stopPropagation()}>
         <span className="visualizador__nome">{nome}</span>
-        <button type="button" className="botao" onClick={onCopiar} title="Copiar imagem (Ctrl+C)">
-          Copiar imagem
-        </button>
-        <button type="button" className="botao" onClick={onAbrirNoWindows} disabled={abrindo}>
-          {abrindo ? 'Abrindo...' : 'Abrir no Windows'}
-        </button>
+        <span className="visualizador__zoom">
+          <button
+            type="button"
+            className="visualizador__lupa"
+            onClick={() => aplicarZoom(zoom / ZOOM_PASSO)}
+            disabled={zoom <= ZOOM_MIN}
+            title="Afastar (tecla −)"
+            aria-label="Afastar"
+          >
+            −
+          </button>
+          <span className="visualizador__nivel">{Math.round(zoom * (base?.escala || 1) * 100)}%</span>
+          <button
+            type="button"
+            className="visualizador__lupa"
+            onClick={() => aplicarZoom(zoom * ZOOM_PASSO)}
+            disabled={zoom >= ZOOM_MAX}
+            title="Aproximar (tecla +)"
+            aria-label="Aproximar"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="botao"
+            onClick={() => aplicarZoom(ZOOM_MIN)}
+            disabled={zoom === ZOOM_MIN}
+            title="Voltar ao tamanho da tela (tecla 0)"
+          >
+            Ajustar
+          </button>
+        </span>
+        {onCopiar && (
+          <button type="button" className="botao" onClick={onCopiar} title="Copiar imagem (Ctrl+C)">
+            Copiar imagem
+          </button>
+        )}
+        {onSalvar && (
+          <button type="button" className="botao" onClick={onSalvar} disabled={abrindo}>
+            Salvar imagem
+          </button>
+        )}
+        {onAbrirNoWindows && (
+          <button type="button" className="botao" onClick={onAbrirNoWindows} disabled={abrindo}>
+            {abrindo ? 'Abrindo...' : 'Abrir no Windows'}
+          </button>
+        )}
         <button type="button" className="visualizador__fechar" onClick={onFechar} title="Fechar (Esc)" autoFocus>
           <Icone nome="fechar" tamanho={20} />
         </button>
       </div>
-      <img className="visualizador__imagem" src={`dpmidia://m/${midiaId}`} alt={nome} onClick={(e) => e.stopPropagation()} />
+
+      <div
+        className="visualizador__palco"
+        ref={palco}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={pegar}
+        onPointerMove={mover}
+        onPointerUp={soltar}
+        onPointerCancel={() => {
+          arrasto.current = null;
+        }}
+      >
+        <img
+          className="visualizador__imagem"
+          src={endereco}
+          alt={nome}
+          draggable={false}
+          onLoad={aoCarregar}
+          style={
+            base
+              ? {
+                  width: Math.round(base.largura * zoom),
+                  height: Math.round(base.altura * zoom),
+                  maxWidth: 'none',
+                  maxHeight: 'none',
+                  cursor: podeRolar ? 'grab' : 'zoom-in',
+                }
+              : undefined
+          }
+        />
+      </div>
+
+      <p className="visualizador__dica" onClick={(e) => e.stopPropagation()}>
+        Role o mouse para aproximar · clique na imagem para ampliar · arraste para mover
+      </p>
     </div>,
     document.body,
   );

@@ -10,7 +10,7 @@ import { useTheme } from '../theme';
 export function MaisScreen() {
   const t = useTheme();
   const nav = useNav();
-  const { employee, foto, atualizacao, atualizacaoRapida, device } = useApp();
+  const { employee, foto, atualizacao, atualizacaoRapida, device, chamadosNaoLidos } = useApp();
   const acesso = employee?.acessoAdmin ?? 'NENHUM';
   const ehDpOuTi = acesso !== 'NENHUM';
 
@@ -50,7 +50,13 @@ export function MaisScreen() {
         <MenuRow icon="🖼️" label="Foto de perfil" onPress={() => nav.push({ name: 'foto' })} />
         <MenuRow icon="🔑" label="Trocar minha senha" onPress={() => nav.push({ name: 'password' })} />
         <MenuRow icon="📌" label="Mural" onPress={() => nav.push({ name: 'mural' })} />
-        <MenuEmConstrucao icon="🛟" label="Chamados para o TI" />
+        <MenuRow
+          icon="🛟"
+          label="Chamados para o TI"
+          hint="Computador, impressora, TOTVS, rede, relatório"
+          badge={chamadosNaoLidos}
+          onPress={() => nav.push({ name: 'chamados' })}
+        />
 
         {ehDpOuTi ? (
           <>
@@ -61,7 +67,12 @@ export function MaisScreen() {
             <MenuRow icon="🎚️" label="Ajustes" hint="Resposta automática e minhas mensagens" onPress={() => nav.push({ name: 'adminAjustes' })} />
             {acesso === 'TI' ? (
               <>
-                <MenuEmConstrucao icon="🛠️" label="Fila do TI" />
+                <MenuRow
+                  icon="🛠️"
+                  label="Fila do TI"
+                  hint="Chamados de todo mundo: aceitar e atender"
+                  onPress={() => nav.push({ name: 'filaChamados' })}
+                />
                 <MenuEmConstrucao icon="🔍" label="Conversas (TI)" />
               </>
             ) : null}

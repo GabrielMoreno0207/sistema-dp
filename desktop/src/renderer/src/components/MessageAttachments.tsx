@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { DpAttachment } from '../../../shared/types';
 import { nomeDeArquivo } from '../../../shared/arquivo';
 import { Icone } from '../lib/icones';
+import { VisualizadorImagem } from './conversa-comuns';
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -15,10 +16,25 @@ function formatSize(bytes: number): string {
  * O funcionário não precisa clicar nem baixar nada: a imagem aparece inteira
  * dentro do comunicado. O processo main baixa o arquivo e devolve em data URL
  * (a interface não fala com a rede).
+ *
+ * A coluna do comunicado é estreita, e cartaz em pé (como os do RH) fica
+ * ilegível nela: um clique abre a imagem em tela cheia, com zoom — a mesma
+ * tela que o chat e o mural usam.
  */
-function ImagemAberta({ attachment }: { attachment: DpAttachment }) {
+function ImagemAberta({
+  attachment,
+  abrindo,
+  onSalvar,
+  onAbrirNoWindows,
+}: {
+  attachment: DpAttachment;
+  abrindo: boolean;
+  onSalvar(): void;
+  onAbrirNoWindows(): void;
+}) {
   const [source, setSource] = useState<string | null>(null);
   const [falhou, setFalhou] = useState(false);
+  const [aberta, setAberta] = useState(false);
   const nome = nomeDeArquivo(attachment.name);
 
   useEffect(() => {
@@ -45,7 +61,27 @@ function ImagemAberta({ attachment }: { attachment: DpAttachment }) {
 
   if (!source) return <div className="anexo-imagem__carregando" aria-label={`Carregando ${nome}`} />;
 
-  return <img className="anexo-imagem__img" src={source} alt={nome} />;
+  return (
+    <>
+      <img
+        className="anexo-imagem__img"
+        src={source}
+        alt={nome}
+        title="Clique para ampliar"
+        onClick={() => setAberta(true)}
+      />
+      {aberta && (
+        <VisualizadorImagem
+          src={source}
+          nome={nome}
+          abrindo={abrindo}
+          onSalvar={onSalvar}
+          onAbrirNoWindows={onAbrirNoWindows}
+          onFechar={() => setAberta(false)}
+        />
+      )}
+    </>
+  );
 }
 
 /**
@@ -107,8 +143,14 @@ export function MessageAttachments({ messageId, attachments }: MessageAttachment
     <section className="attachments">
       {imagens.map((attachment) => (
         <figure key={attachment.id} className="anexo-imagem">
-          <ImagemAberta attachment={attachment} />
+          <ImagemAberta
+            attachment={attachment}
+            abrindo={busyId === attachment.id}
+            onSalvar={() => void run(attachment.id, 'save')}
+            onAbrirNoWindows={() => void run(attachment.id, 'open')}
+          />
           <figcaption className="anexo-imagem__rodape">
+            <span className="anexo-imagem__dica">Clique na imagem para ampliar e dar zoom</span>
             <button
               className="btn btn--ghost btn--sm"
               disabled={busyId === attachment.id}

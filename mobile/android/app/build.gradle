@@ -96,8 +96,11 @@ android {
         applicationId "br.com.comunicacaodp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "2.2.2"
+        // Suba os dois a cada APK novo: o versionCode é o que o Android usa
+        // para aceitar a instalação por cima, e o versionName é o que o app
+        // informa ao servidor para saber se já está na versão publicada.
+        versionCode 11
+        versionName "2.3.1"
         // Versão da parte nativa, para a atualização rápida (package.json -> otaRuntime).
         // O pacote rápido só é aceito por um APK com o mesmo número.
         buildConfigField "int", "OTA_RUNTIME", otaRuntime().toString()

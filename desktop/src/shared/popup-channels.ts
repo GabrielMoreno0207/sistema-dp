@@ -8,4 +8,6 @@ export const PopupChannels = {
   Changed: 'popup:changed',
   View: 'popup:view',
   Dismiss: 'popup:dismiss',
+  /** A tela do alerta mede o cartão e pede a altura da janela */
+  Altura: 'popup:altura',
 } as const;

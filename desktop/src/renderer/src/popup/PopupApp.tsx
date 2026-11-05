@@ -32,6 +32,25 @@ export function PopupApp() {
     return window.dpPopup.onPopupChange(setState);
   }, []);
 
+  /**
+   * A janela acompanha a altura do cartão.
+   *
+   * Com altura fixa, comunicado com anexo e pedido de ciência não cabia: o
+   * título aparecia cortado ao meio e a descrição com a última linha pela
+   * metade. Aqui o cartão cresce com o que tem dentro e o processo principal
+   * recebe a medida — inclusive quando a fonte termina de carregar e quando o
+   * alerta da vez troca, que é o que o ResizeObserver pega.
+   */
+  useEffect(() => {
+    const raiz = document.getElementById('root');
+    if (!raiz) return;
+    const avisar = () => window.dpPopup.popupAltura(Math.ceil(raiz.getBoundingClientRect().height));
+    const observador = new ResizeObserver(avisar);
+    observador.observe(raiz);
+    avisar();
+    return () => observador.disconnect();
+  }, []);
+
   const atual = state.current;
   const chave = chaveDo(atual);
   const urgente = atual?.tipo === 'COMUNICADO' && atual.comunicado.type === 'URGENTE';

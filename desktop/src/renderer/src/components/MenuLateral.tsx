@@ -27,7 +27,7 @@ const ITENS: ItemMenu[] = [
   { page: 'home', label: 'Início', icone: 'inicio' },
   { page: 'announcements', label: 'Comunicados', icone: 'comunicados' },
   { page: 'messages', label: 'Mensagens', icone: 'mensagens' },
-  { page: 'chamados', label: 'Chamados TI', icone: 'chamados', emConstrucao: true },
+  { page: 'chamados', label: 'Chamados TI', icone: 'chamados' },
   { page: 'profile', label: 'Meu perfil', icone: 'perfil' },
   { page: 'settings', label: 'Configurações', icone: 'configuracoes' },
 ];
@@ -45,7 +45,7 @@ const ITENS_ADMIN: (ItemMenu & { soTi?: boolean })[] = [
   { page: 'admin-mural', label: 'Mural', icone: 'mural' },
   { page: 'admin-cadastros', label: 'Cadastros', icone: 'cadastros' },
   { page: 'admin-ajustes', label: 'Ajustes', icone: 'ajustes' },
-  { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true, emConstrucao: true },
+  { page: 'admin-chamados', label: 'Fila do TI', icone: 'fila', soTi: true },
   { page: 'admin-conversas', label: 'Conversas (TI)', icone: 'auditoria', soTi: true },
 ];
 

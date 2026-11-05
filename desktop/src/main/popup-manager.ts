@@ -3,10 +3,18 @@ import { EventEmitter } from 'node:events';
 import { PopupChannels } from '../shared/popup-channels';
 import type { AtualizacaoEmAndamento, AvisoMensagem, DpMessage, ItemAlerta, MuralPost, PopupState } from '../shared/types';
 
-/** Tamanho de notificação (o card tem 380x150; o resto é margem para a sombra) */
+/**
+ * Tamanho de notificação (o card tem 380x150; o resto é margem para a sombra).
+ * É só o tamanho inicial: assim que a tela do alerta mede o cartão, a janela
+ * passa a acompanhar o conteúdo — comunicado com anexo e pedido de ciência tem
+ * duas linhas a mais e, na altura fixa, o título saía cortado ao meio.
+ */
 const POPUP_SIZE = { width: 400, height: 170 };
 /** O aviso da atualização tem uma linha a mais (o que fazer se não abrir sozinho) */
 const POPUP_SIZE_ATUALIZACAO = { width: 400, height: 196 };
+/** Limites de segurança: alerta nunca vira uma tarja minúscula nem uma parede */
+const ALTURA_MINIMA = 120;
+const ALTURA_MAXIMA = 360;
 const MARGIN = 6;
 /** Só existe um aviso de atualização por vez */
 const CHAVE_ATUALIZACAO = 'atualizacao';
@@ -33,6 +41,8 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
   private queue: ItemAlerta[] = [];
   /** Quantas mensagens já saíram da fila no lote atual (para mostrar "2 de 3") */
   private handledInBatch = 0;
+  /** Altura do cartão medida pela tela do alerta (null = ainda não mediu) */
+  private alturaMedida: number | null = null;
   private quitting = false;
 
   constructor(private readonly createWindow: () => BrowserWindow) {
@@ -226,14 +236,28 @@ export class PopupManager extends EventEmitter<{ view: [string]; conversa: [stri
     win.moveTop();
   }
 
+  /**
+   * Altura que a tela do alerta pediu, depois de medir o cartão. Assim o
+   * conteúdo manda no tamanho da janela, e não o contrário.
+   */
+  definirAltura(altura: number): void {
+    if (!Number.isFinite(altura)) return;
+    const alvo = Math.min(ALTURA_MAXIMA, Math.max(ALTURA_MINIMA, Math.ceil(altura)));
+    if (alvo === this.alturaMedida) return;
+    this.alturaMedida = alvo;
+    if (this.win && !this.win.isDestroyed()) this.placeWindow(this.win);
+  }
+
   /** Canto inferior direito da área de trabalho (acima da barra de tarefas) */
   private placeWindow(win: BrowserWindow): void {
     const { workArea } = screen.getPrimaryDisplay();
-    const tamanho = this.queue[0]?.tipo === 'ATUALIZACAO' ? POPUP_SIZE_ATUALIZACAO : POPUP_SIZE;
+    const padrao = this.queue[0]?.tipo === 'ATUALIZACAO' ? POPUP_SIZE_ATUALIZACAO : POPUP_SIZE;
+    const height = this.alturaMedida ?? padrao.height;
     win.setBounds({
-      x: workArea.x + workArea.width - tamanho.width - MARGIN,
-      y: workArea.y + workArea.height - tamanho.height - MARGIN,
-      ...tamanho,
+      x: workArea.x + workArea.width - padrao.width - MARGIN,
+      y: workArea.y + workArea.height - height - MARGIN,
+      width: padrao.width,
+      height,
     });
   }
 

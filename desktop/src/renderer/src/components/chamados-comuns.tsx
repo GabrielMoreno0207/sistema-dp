@@ -8,12 +8,32 @@ import { Icone, type NomeIcone } from '../lib/icones';
  * rede?"). O ícone e o exemplo resolvem isso sem obrigar ninguém a ler uma
  * lista suspensa: a pessoa reconhece a figura do que está na frente dela.
  */
-export const CATEGORIAS: { valor: CategoriaChamado; label: string; icone: NomeIcone; exemplo: string }[] = [
+export const CATEGORIAS: {
+  valor: CategoriaChamado;
+  label: string;
+  icone: NomeIcone;
+  exemplo: string;
+  /** Pedido de trabalho novo: sem a descrição o TI não tem o que fazer */
+  descricaoObrigatoria?: boolean;
+  /** Troca o rótulo e o exemplo do campo de texto quando ele é obrigatório */
+  pergunta?: string;
+  dica?: string;
+}[] = [
   { valor: 'COMPUTADOR', label: 'Computador', icone: 'computador', exemplo: 'Não liga, travando, lento' },
   { valor: 'IMPRESSORA', label: 'Impressora', icone: 'impressora', exemplo: 'Não imprime, sem papel, atolou' },
+  { valor: 'TOTVS', label: 'TOTVS', icone: 'totvs', exemplo: 'Erro, lentidão ou dúvida no TOTVS' },
   { valor: 'SISTEMA', label: 'Sistema', icone: 'programa', exemplo: 'Programa com erro ou fechando' },
   { valor: 'REDE', label: 'Rede', icone: 'rede', exemplo: 'Sem internet, rede caindo' },
   { valor: 'ACESSO', label: 'Acesso e senha', icone: 'chave', exemplo: 'Esqueci a senha, sem permissão' },
+  {
+    valor: 'RELATORIO',
+    label: 'Relatório',
+    icone: 'relatorio',
+    exemplo: 'Pedir um relatório novo',
+    descricaoObrigatoria: true,
+    pergunta: 'Como precisa ser o relatório?',
+    dica: 'Quais informações precisa mostrar, de qual período, com qual filtro e para que vai ser usado. Ex.: produção por setor, do mês, separada por turno, para a reunião de segunda.',
+  },
   { valor: 'OUTRO', label: 'Outro', icone: 'duvida', exemplo: 'Não sei em qual encaixa' },
 ];
 
@@ -70,6 +90,10 @@ export function EtiquetaStatus({ status }: { status: StatusChamado }) {
  *
  * É o primeiro passo de quem abre um chamado, então aparece grande e clicável:
  * seis cartões, um clique, sem abrir menu nenhum.
+ *
+ * A tela do funcionário usa a grade direto, sem este seletor — aqui ele fica
+ * para quando houver escolha de categoria dentro de um formulário (o TI
+ * reclassificando um chamado, por exemplo).
  */
 export function SeletorCategoria({
   valor,
@@ -145,6 +169,30 @@ export function LinhaDoTempo({ status, responsavelNome }: { status: StatusChamad
   );
 }
 
+/**
+ * Andamento em quatro traços, para a lista.
+ *
+ * É a mesma informação da linha do tempo, no tamanho de uma linha: quem abriu
+ * enxerga de relance se o chamado saiu do lugar, sem precisar abrir cada um.
+ */
+export function BarraAndamento({ status }: { status: StatusChamado }) {
+  const atual = ETAPAS.findIndex((etapa) => etapa.status === status);
+  return (
+    <span
+      className={`barra-andamento barra-andamento--${status.toLowerCase()}`}
+      role="img"
+      aria-label={`Situação: ${ROTULO_STATUS[status]}`}
+    >
+      {ETAPAS.map((etapa, posicao) => (
+        <span
+          key={etapa.status}
+          className={`barra-andamento__passo ${posicao <= atual ? 'barra-andamento__passo--feito' : ''}`}
+        />
+      ))}
+    </span>
+  );
+}
+
 /** Quem pegou o chamado, ou o aviso de que ele ainda está livre na fila. */
 export function Responsavel({ nome }: { nome: string | null }) {
   if (!nome) {
@@ -157,6 +205,30 @@ export function Responsavel({ nome }: { nome: string | null }) {
   return (
     <span className="responsavel">
       <Icone nome="perfil" tamanho={15} /> {nome}
+    </span>
+  );
+}
+
+/**
+ * Setor de quem abriu o chamado.
+ *
+ * É por ele que o TI se localiza: "a impressora da Costura" diz mais do que o
+ * nome de quem ligou. Sem setor cadastrado, aparece o aviso em vez de sumir —
+ * some é pior, dá a impressão de que a pessoa não tem setor nenhum.
+ */
+export function EtiquetaSetor({ setor }: { setor: string | null | undefined }) {
+  // undefined = servidor antigo, que ainda não manda o setor. Nesse caso a
+  // etiqueta some, em vez de dizer "sem setor" de todo mundo e mentir.
+  if (setor === undefined) return null;
+  if (!setor) return <span className="etiqueta-setor etiqueta-setor--vazio">sem setor</span>;
+  return <span className="etiqueta-setor">{setor}</span>;
+}
+
+/** Chamado aberto por alguém do próprio TI: existe para testar, e pode sumir. */
+export function EtiquetaTeste() {
+  return (
+    <span className="etiqueta-teste" title="Aberto por uma conta do TI — serve para teste e pode ser apagado">
+      TESTE
     </span>
   );
 }

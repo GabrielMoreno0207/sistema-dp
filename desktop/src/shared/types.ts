@@ -146,7 +146,15 @@ export type DadosAtalho = Pick<Atalho, 'rotulo' | 'icone' | 'cor' | 'destino'>;
 
 // ---- Chamados para o TI ----
 
-export type CategoriaChamado = 'COMPUTADOR' | 'IMPRESSORA' | 'SISTEMA' | 'REDE' | 'ACESSO' | 'OUTRO';
+export type CategoriaChamado =
+  | 'COMPUTADOR'
+  | 'IMPRESSORA'
+  | 'TOTVS'
+  | 'SISTEMA'
+  | 'REDE'
+  | 'ACESSO'
+  | 'RELATORIO'
+  | 'OUTRO';
 export type PrioridadeChamado = 'BAIXA' | 'NORMAL' | 'ALTA';
 export type StatusChamado = 'ABERTO' | 'EM_ANDAMENTO' | 'RESOLVIDO' | 'FECHADO';
 
@@ -171,6 +179,10 @@ export interface Chamado {
   status: StatusChamado;
   solicitanteId: string;
   solicitanteNome: string;
+  /** Setor de quem abriu, guardado junto com o nome */
+  solicitanteSetor: string | null;
+  /** Aberto por alguém do próprio TI: chamado de teste, pode ser apagado */
+  teste: boolean;
   computadorId: string | null;
   responsavelId: string | null;
   responsavelNome: string | null;
@@ -184,8 +196,20 @@ export interface ChamadoResumo extends Chamado {
   totalMensagens: number;
 }
 
+/** Nota interna do TI dentro do chamado (quem abriu não enxerga) */
+export interface ChamadoNota {
+  id: number;
+  chamadoId: string;
+  autorId: string;
+  autorNome: string;
+  conteudo: string;
+  createdAt: string;
+}
+
 export interface ChamadoCompleto extends Chamado {
   mensagens: ChamadoMensagem[];
+  /** Vem sempre vazia para quem abriu o chamado */
+  notas: ChamadoNota[];
   midias: { id: string; tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO'; nome: string; url: string }[];
   naoLidas: number;
 }
@@ -502,7 +526,12 @@ export interface DesktopApi {
   adminResponderChamado(id: string, conteudo: string): Promise<OperationResult>;
   adminMudarStatus(id: string, status: StatusChamado): Promise<OperationResult>;
   /** Assume o atendimento de um chamado que ainda está sem dono na fila */
-  adminAceitarChamado(id: string): Promise<OperationResult>;
+  /** `assumir` troca o responsável quando o chamado já está com outra pessoa */
+  adminAceitarChamado(id: string, assumir?: boolean): Promise<OperationResult>;
+  /** Apaga um chamado de teste (só o TI, e a tela só oferece nos de teste) */
+  adminApagarChamado(id: string): Promise<OperationResult>;
+  /** Deixa uma nota interna do TI no chamado */
+  adminAnotarChamado(id: string, conteudo: string): Promise<OperationResult>;
   adminListarMural(): Promise<{ ok: boolean; posts: MuralPost[]; message: string }>;
   adminSalvarMural(dados: {
     id: string | null;
@@ -575,6 +604,8 @@ export interface PopupApi {
   onPopupChange(listener: (state: PopupState) => void): () => void;
   popupView(messageId: string): Promise<void>;
   popupDismiss(messageId: string): Promise<void>;
+  /** Altura do cartão, em pixels, para a janela acompanhar o conteúdo */
+  popupAltura(altura: number): void;
 }
 
 export const IpcChannels = {
@@ -628,6 +659,8 @@ export const IpcChannels = {
   AdminChamadoResponder: 'admin:chamado-responder',
   AdminChamadoStatus: 'admin:chamado-status',
   AdminChamadoAceitar: 'admin:chamado-aceitar',
+  AdminChamadoApagar: 'admin:chamado-apagar',
+  AdminChamadoNota: 'admin:chamado-nota',
   AdminMuralList: 'admin:mural-list',
   AdminMuralSalvar: 'admin:mural-salvar',
   AdminMuralRemover: 'admin:mural-remover',

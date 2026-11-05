@@ -3,7 +3,7 @@
  * Sem biblioteca: são poucas telas e o botão voltar do Android é tratado no App.
  */
 import { createContext, useContext } from 'react';
-import type { MensagemConversa, MidiaPublica, MuralPost } from '../core/types';
+import type { CategoriaChamado, MensagemConversa, MidiaPublica, MuralPost } from '../core/types';
 
 export type Tab = 'inicio' | 'comunicados' | 'mensagens' | 'mais';
 
@@ -27,6 +27,9 @@ export type Route =
   | { name: 'encaminhar'; mensagem: MensagemConversa }
   | { name: 'imagem'; midia: Pick<MidiaPublica, 'id' | 'nome' | 'mimeType'> }
   | { name: 'mural' }
+  | { name: 'chamados' }
+  | { name: 'novoChamado'; categoria: CategoriaChamado }
+  | { name: 'chamado'; id: string }
   | { name: 'perfil' }
   | { name: 'foto' }
   | { name: 'password' }
@@ -41,7 +44,9 @@ export type Route =
   | { name: 'adminMuralEditar'; post: MuralPost | null }
   | { name: 'adminCadastros' }
   | { name: 'adminFuncionario'; funcionario: FuncionarioAdmin | null }
-  | { name: 'adminAjustes' };
+  | { name: 'adminAjustes' }
+  | { name: 'filaChamados' }
+  | { name: 'filaChamado'; id: string };
 
 export interface Nav {
   push(route: Route): void;

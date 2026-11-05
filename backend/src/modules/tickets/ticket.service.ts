@@ -12,15 +12,24 @@ import {
   type Chamado,
   type ChamadoCompleto,
   type ChamadoMensagem,
+  type ChamadoNota,
   type ChamadoResumo,
   type Prioridade,
   type StatusChamado,
 } from './ticket.types';
 
+/**
+ * Caracteres mínimos na descrição de um pedido de relatório.
+ *
+ * Não é burocracia: "preciso de um relatório" não diz o que mostrar, de qual
+ * período nem para quê, e o chamado volta para quem abriu só para perguntar.
+ */
+const MINIMO_DESCRICAO_RELATORIO = 15;
+
 /** Quem está agindo: o funcionário no PC, ou alguém do DP/TI na Central. */
 export type Solicitante =
-  | { tipo: 'FUNCIONARIO'; id: string; nome: string; computadorId: string }
-  | { tipo: 'ADMIN'; id: string; nome: string; ti: boolean };
+  | { tipo: 'FUNCIONARIO'; id: string; nome: string; computadorId: string; setor: string | null; ti: boolean }
+  | { tipo: 'ADMIN'; id: string; nome: string; setor: string | null; ti: boolean };
 
 export interface DadosNovoChamado {
   titulo: string;
@@ -50,7 +59,15 @@ export class TicketService {
   async solicitanteDoPc(computadorId: string): Promise<Solicitante> {
     const employee = await this.employees.getSessionEmployee(computadorId);
     if (!employee) throw new AppError('Entre com seu usuário para abrir um chamado', 401, 'NO_EMPLOYEE');
-    return { tipo: 'FUNCIONARIO', id: employee.id, nome: employee.name, computadorId };
+    return {
+      tipo: 'FUNCIONARIO',
+      id: employee.id,
+      nome: employee.name,
+      computadorId,
+      setor: employee.sector,
+      // Quem é do TI é reconhecido pelo setor, igual ao resto do sistema
+      ti: employee.acessoAdmin === 'TI',
+    };
   }
 
   async abrir(quem: Solicitante, dados: DadosNovoChamado): Promise<ChamadoCompleto> {
@@ -64,6 +81,17 @@ export class TicketService {
     }
     if (dados.midiaIds.length > LIMITES_CHAMADO.maxMidias) {
       throw new AppError(`No máximo ${LIMITES_CHAMADO.maxMidias} imagens por chamado.`, 400, 'MUITAS_IMAGENS');
+    }
+
+    // Relatório não é defeito, é trabalho a fazer: sem dizer o que o relatório
+    // precisa mostrar, não há o que desenvolver. A tela já cobra, e aqui a
+    // regra vale para qualquer caminho (Central do DP, celular, script).
+    if (dados.categoria === 'RELATORIO' && dados.descricao.trim().length < MINIMO_DESCRICAO_RELATORIO) {
+      throw new AppError(
+        'Conte como o relatório precisa ser: quais informações, de qual período e para que vai ser usado.',
+        400,
+        'DESCRICAO_CURTA',
+      );
     }
 
     // As imagens precisam existir de verdade (e serem imagens, não vídeo)
@@ -83,6 +111,9 @@ export class TicketService {
         status: 'ABERTO',
         solicitanteId: quem.id,
         solicitanteNome: quem.nome,
+        solicitanteSetor: quem.setor,
+        // O próprio TI abrindo chamado está testando o fluxo, não pedindo ajuda
+        teste: quem.ti,
         computadorId: quem.tipo === 'FUNCIONARIO' ? quem.computadorId : null,
         responsavelId: null,
         responsavelNome: null,
@@ -140,16 +171,18 @@ export class TicketService {
   private async exigirAcesso(id: string, quem: Solicitante): Promise<Chamado> {
     const chamado = await this.chamados.findById(id);
     if (!chamado) throw new NotFoundError('Chamado não encontrado');
-    const ehDoTi = quem.tipo === 'ADMIN' && quem.ti;
+    const ehDoTi = quem.ti;
     if (!ehDoTi && chamado.solicitanteId !== quem.id) throw new NotFoundError('Chamado não encontrado');
     return chamado;
   }
 
   private async completar(chamado: Chamado, quem: Solicitante): Promise<ChamadoCompleto> {
-    const ehDoTi = quem.tipo === 'ADMIN' && quem.ti;
-    const [mensagens, midiaIds] = await Promise.all([
+    const ehDoTi = quem.ti;
+    const [mensagens, midiaIds, notas] = await Promise.all([
       this.chamados.listMensagens(chamado.id),
       this.chamados.listMidiaIds(chamado.id),
+      // A leitura das notas nem acontece para quem abriu o chamado
+      ehDoTi ? this.chamados.listNotas(chamado.id) : Promise.resolve([] as ChamadoNota[]),
     ]);
     const midias = [];
     for (const midiaId of midiaIds) {
@@ -162,6 +195,7 @@ export class TicketService {
     return {
       ...chamado,
       mensagens,
+      notas,
       midias,
       naoLidas: mensagens.filter((m) => m.lidaEm === null && m.autorTipo === (ehDoTi ? 'SOLICITANTE' : 'TI')).length,
     };
@@ -174,7 +208,7 @@ export class TicketService {
       throw new AppError('Este chamado está fechado. Abra um novo para continuar.', 409, 'CHAMADO_FECHADO');
     }
 
-    const ehDoTi = quem.tipo === 'ADMIN' && quem.ti;
+    const ehDoTi = quem.ti;
     const agora = new Date().toISOString();
     const mensagem = await this.chamados.addMensagem(
       {
@@ -200,25 +234,51 @@ export class TicketService {
   }
 
   /**
+   * Nota interna: recado do TI para o TI dentro do chamado.
+   *
+   * Serve para o atendimento trocar de mão sem recomeçar — o que já foi
+   * tentado, o que descobriu, onde parou. Quem abriu o chamado não vê, e por
+   * isso a nota pode dizer o que não cabe na conversa com a pessoa.
+   */
+  async anotar(id: string, quem: Solicitante, conteudo: string): Promise<ChamadoNota> {
+    if (!quem.ti) throw new AppError('Só o TI escreve notas no chamado.', 403, 'FORBIDDEN');
+    await this.exigirAcesso(id, quem);
+    const nota = await this.chamados.addNota(
+      {
+        chamadoId: id,
+        autorId: quem.id,
+        autorNome: quem.nome,
+        conteudo: textoObrigatorio(conteudo, 'a nota', LIMITES_CHAMADO.maxNota),
+      },
+      new Date().toISOString(),
+    );
+    // Nota não avisa o solicitante: ela não é para ele
+    this.log.info(`Nota no chamado ${id} por ${quem.nome}`);
+    return nota;
+  }
+
+  /**
    * Alguém do TI assume o chamado.
    *
    * A fila é compartilhada: o chamado cai para o time todo e quem puder atender
    * clica em aceitar. A partir daí o nome fica visível para o solicitante e para
    * o resto do TI, que assim não começa o mesmo atendimento em paralelo.
    *
-   * Chamado que já tem dono não é roubado: quem chegou depois recebe o aviso de
-   * quem está cuidando. Pegar de volta um atendimento parado é conversa entre as
-   * pessoas, não um botão.
+   * Chamado que já tem dono não muda de mão por acidente: quem clica em aceitar
+   * recebe o aviso de quem está cuidando. Para assumir mesmo assim — a pessoa
+   * saiu de férias, entrou em reunião, trocou de turno — é preciso dizer
+   * `assumir`, e a troca fica registrada numa nota interna.
    */
-  async aceitar(id: string, quem: Solicitante): Promise<ChamadoCompleto> {
+  async aceitar(id: string, quem: Solicitante, assumir = false): Promise<ChamadoCompleto> {
     const chamado = await this.exigirAcesso(id, quem);
-    if (quem.tipo !== 'ADMIN' || !quem.ti) {
+    if (!quem.ti) {
       throw new AppError('Só o TI aceita chamados.', 403, 'FORBIDDEN');
     }
     if (chamado.status === 'FECHADO') {
       throw new AppError('Este chamado já foi encerrado.', 409, 'CHAMADO_FECHADO');
     }
-    if (chamado.responsavelId && chamado.responsavelId !== quem.id) {
+    const deOutraPessoa = Boolean(chamado.responsavelId) && chamado.responsavelId !== quem.id;
+    if (deOutraPessoa && !assumir) {
       throw new AppError(`${chamado.responsavelNome} já está cuidando deste chamado.`, 409, 'CHAMADO_COM_DONO');
     }
 
@@ -233,15 +293,31 @@ export class TicketService {
       },
       agora,
     );
+    // A troca de mão fica escrita: quem pegou, de quem e quando
+    if (deOutraPessoa) {
+      await this.chamados.addNota(
+        {
+          chamadoId: id,
+          autorId: quem.id,
+          autorNome: quem.nome,
+          conteudo: `${quem.nome} assumiu o chamado, que estava com ${chamado.responsavelNome}.`,
+        },
+        agora,
+      );
+    }
     this.realtime.chamadoAtualizado(chamado.solicitanteId, id);
-    this.log.info(`Chamado ${chamado.numero} aceito por ${quem.nome}`);
+    this.log.info(
+      deOutraPessoa
+        ? `Chamado ${chamado.numero} assumido por ${quem.nome} (estava com ${chamado.responsavelNome})`
+        : `Chamado ${chamado.numero} aceito por ${quem.nome}`,
+    );
     return this.completar(atualizado, quem);
   }
 
   /** Muda o status. Só o TI; quem abriu pode apenas fechar o próprio chamado resolvido. */
   async mudarStatus(id: string, quem: Solicitante, status: StatusChamado): Promise<ChamadoCompleto> {
     const chamado = await this.exigirAcesso(id, quem);
-    const ehDoTi = quem.tipo === 'ADMIN' && quem.ti;
+    const ehDoTi = quem.ti;
     if (!ehDoTi && !(status === 'FECHADO' && chamado.status === 'RESOLVIDO')) {
       throw new AppError('Só o TI muda o andamento do chamado.', 403, 'FORBIDDEN');
     }
@@ -265,13 +341,13 @@ export class TicketService {
   /** Abriu o chamado na tela: as mensagens do outro lado passam a lidas. */
   async marcarLidas(id: string, quem: Solicitante): Promise<number> {
     await this.exigirAcesso(id, quem);
-    const ehDoTi = quem.tipo === 'ADMIN' && quem.ti;
+    const ehDoTi = quem.ti;
     return this.chamados.marcarLidas(id, ehDoTi ? 'SOLICITANTE' : 'TI', new Date().toISOString());
   }
 
   /** Só o TI apaga um chamado (some para todo mundo). */
   async remover(id: string, quem: Solicitante): Promise<void> {
-    if (!(quem.tipo === 'ADMIN' && quem.ti)) throw new AppError('Só o TI apaga chamados.', 403, 'FORBIDDEN');
+    if (!quem.ti) throw new AppError('Só o TI apaga chamados.', 403, 'FORBIDDEN');
     const removido = await this.chamados.delete(id);
     if (!removido) throw new NotFoundError('Chamado não encontrado');
   }

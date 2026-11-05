@@ -367,3 +367,308 @@ describe('aceitar o chamado (fila compartilhada do TI)', () => {
     assert.equal(tarde.statusCode, 409);
   });
 });
+
+/**
+ * O TI que atende do próprio computador.
+ *
+ * Quem é do setor do TI tem o poder pelo setor, sem login à parte — é assim no
+ * resto do sistema. Nos chamados, porém, as regras exigiam uma conta de admin:
+ * a pessoa via a fila, mas não conseguia aceitar, responder nem mudar o
+ * andamento ("Só o TI muda o andamento do chamado"). Este teste prende a
+ * correção.
+ */
+describe('TI pelo setor, atendendo do próprio PC', () => {
+  let tokenPcTi: string;
+  let chamadoId: string;
+
+  before(async () => {
+    await app.inject({ method: 'POST', url: '/api/sectors', headers: comToken(tokenTi), payload: { name: 'TI' } });
+    await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Bruno TI', registration: 'brunoti', sector: 'TI', password: 'Senha-Bruno-chamado' },
+    });
+    tokenPcTi = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/computers/register',
+        payload: {
+          computerId: 'PC-AAEE11110077',
+          hostname: 'pc-do-ti',
+          appVersion: '1.53.0',
+          platform: 'win32',
+          computerSecret: 'f'.repeat(40),
+        },
+      })
+    ).json().token;
+    await app.inject({
+      method: 'POST',
+      url: '/api/session/login',
+      headers: comToken(tokenPcTi),
+      payload: { registration: 'brunoti', password: 'Senha-Bruno-chamado' },
+    });
+  });
+
+  test('o chamado que o TI abre nasce marcado como teste, com o setor junto', async () => {
+    const criado = await app.inject({
+      method: 'POST',
+      url: '/api/chamados',
+      headers: comToken(tokenPcTi),
+      payload: { titulo: 'Computador', descricao: 'testando o fluxo', categoria: 'COMPUTADOR' },
+    });
+    assert.equal(criado.statusCode, 201);
+    chamadoId = criado.json().id;
+    assert.equal(criado.json().teste, true);
+    assert.equal(criado.json().solicitanteSetor, 'TI');
+  });
+
+  test('chamado de quem não é do TI não vem marcado como teste', async () => {
+    const doJoao = await app.inject({
+      method: 'POST',
+      url: '/api/chamados',
+      headers: comToken(tokenPc),
+      payload: { titulo: 'Impressora', descricao: 'nao puxa papel', categoria: 'IMPRESSORA' },
+    });
+    assert.equal(doJoao.json().teste, false);
+  });
+
+  test('aceita, responde e muda o andamento sem conta de admin', async () => {
+    const aceito = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${chamadoId}/aceitar`,
+      headers: comToken(tokenPcTi),
+    });
+    assert.equal(aceito.statusCode, 200);
+    assert.equal(aceito.json().responsavelNome, 'Bruno TI');
+
+    const resposta = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${chamadoId}/mensagens`,
+      headers: comToken(tokenPcTi),
+      payload: { conteudo: 'estou olhando' },
+    });
+    assert.equal(resposta.statusCode, 201);
+    // Fala como TI, não como solicitante, mesmo sendo quem abriu
+    assert.equal(resposta.json().mensagem.autorTipo, 'TI');
+
+    const status = await app.inject({
+      method: 'PUT',
+      url: `/api/chamados/${chamadoId}/status`,
+      headers: comToken(tokenPcTi),
+      payload: { status: 'RESOLVIDO' },
+    });
+    assert.equal(status.statusCode, 200);
+    assert.equal(status.json().status, 'RESOLVIDO');
+  });
+
+  test('e apaga o chamado de teste', async () => {
+    const apagado = await app.inject({
+      method: 'DELETE',
+      url: `/api/chamados/${chamadoId}`,
+      headers: comToken(tokenPcTi),
+    });
+    assert.equal(apagado.statusCode, 204);
+    const sumiu = await app.inject({ method: 'GET', url: `/api/chamados/${chamadoId}`, headers: comToken(tokenTi) });
+    assert.equal(sumiu.statusCode, 404);
+  });
+
+  test('funcionário comum continua sem mexer no andamento', async () => {
+    const doJoao = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/chamados',
+        headers: comToken(tokenPc),
+        payload: { titulo: 'Rede', descricao: 'sem internet', categoria: 'REDE' },
+      })
+    ).json();
+    const tentativa = await app.inject({
+      method: 'PUT',
+      url: `/api/chamados/${doJoao.id}/status`,
+      headers: comToken(tokenPc),
+      payload: { status: 'RESOLVIDO' },
+    });
+    assert.equal(tentativa.statusCode, 403);
+  });
+});
+
+/**
+ * Notas internas: recado do TI para o TI dentro do chamado.
+ *
+ * O ponto delicado é o vazamento: a nota pode falar de senha, de erro do
+ * próprio sistema ou de outra pessoa. Se ela aparecer para quem abriu o
+ * chamado, o estrago é imediato — por isso o teste cobre isso primeiro.
+ */
+describe('notas internas do TI', () => {
+  let doJoao: string;
+
+  before(async () => {
+    doJoao = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/chamados',
+        headers: comToken(tokenPc),
+        payload: { titulo: 'Computador lento', descricao: 'demora pra abrir tudo', categoria: 'COMPUTADOR' },
+      })
+    ).json().id;
+  });
+
+  test('o TI escreve e os outros do TI leem', async () => {
+    const criada = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${doJoao}/notas`,
+      headers: comToken(tokenTi),
+      payload: { conteudo: 'disco cheio, limpei temporarios. se voltar, trocar o HD' },
+    });
+    assert.equal(criada.statusCode, 201);
+    assert.equal(criada.json().nota.autorNome, 'TI');
+
+    const visto = await app.inject({ method: 'GET', url: `/api/chamados/${doJoao}`, headers: comToken(tokenTi) });
+    assert.equal(visto.json().notas.length, 1);
+    assert.match(visto.json().notas[0].conteudo, /trocar o HD/);
+  });
+
+  test('quem abriu o chamado não recebe as notas', async () => {
+    const comoSolicitante = await app.inject({
+      method: 'GET',
+      url: `/api/chamados/${doJoao}`,
+      headers: comToken(tokenPc),
+    });
+    assert.equal(comoSolicitante.statusCode, 200);
+    assert.deepEqual(comoSolicitante.json().notas, []);
+    // E nem no corpo bruto da resposta: nada do texto da nota pode trafegar
+    assert.doesNotMatch(comoSolicitante.body, /trocar o HD/);
+  });
+
+  test('quem abriu o chamado também não consegue escrever nota', async () => {
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${doJoao}/notas`,
+      headers: comToken(tokenPc),
+      payload: { conteudo: 'deixa eu escrever aqui' },
+    });
+    assert.equal(tentativa.statusCode, 403);
+  });
+
+  test('a nota acompanha o chamado quando outra pessoa do TI assume', async () => {
+    await app.inject({ method: 'POST', url: `/api/chamados/${doJoao}/aceitar`, headers: comToken(tokenTi) });
+    const depois = await app.inject({ method: 'GET', url: `/api/chamados/${doJoao}`, headers: comToken(tokenTi) });
+    assert.equal(depois.json().responsavelNome, 'TI');
+    assert.equal(depois.json().notas.length, 1);
+  });
+
+  test('apagar o chamado leva as notas junto', async () => {
+    const descartavel = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/chamados',
+        headers: comToken(tokenPc),
+        payload: { titulo: 'Teste', descricao: 'some depois', categoria: 'OUTRO' },
+      })
+    ).json().id;
+    await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${descartavel}/notas`,
+      headers: comToken(tokenTi),
+      payload: { conteudo: 'nota que vai junto' },
+    });
+    const apagado = await app.inject({ method: 'DELETE', url: `/api/chamados/${descartavel}`, headers: comToken(tokenTi) });
+    assert.equal(apagado.statusCode, 204);
+  });
+});
+
+/**
+ * Trocar de mão um chamado que já está com alguém.
+ *
+ * Sem isso, o atendimento de quem saiu de férias ou trocou de turno ficava
+ * preso: ninguém mais conseguia pegar. A troca não pode ser por acidente — só
+ * acontece quando a pessoa pede de propósito — e precisa ficar registrada.
+ */
+describe('assumir chamado de outra pessoa do TI', () => {
+  let tokenPcTi2: string;
+  let doJoao: string;
+
+  before(async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/employees',
+      headers: comToken(tokenTi),
+      payload: { name: 'Carla TI', registration: 'carlati', sector: 'TI', password: 'Senha-Carla-chamado' },
+    });
+    tokenPcTi2 = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/computers/register',
+        payload: {
+          computerId: 'PC-AAEE11110088',
+          hostname: 'pc-da-carla',
+          appVersion: '1.55.0',
+          platform: 'win32',
+          computerSecret: 'e'.repeat(40),
+        },
+      })
+    ).json().token;
+    await app.inject({
+      method: 'POST',
+      url: '/api/session/login',
+      headers: comToken(tokenPcTi2),
+      payload: { registration: 'carlati', password: 'Senha-Carla-chamado' },
+    });
+
+    doJoao = (
+      await app.inject({
+        method: 'POST',
+        url: '/api/chamados',
+        headers: comToken(tokenPc),
+        payload: { titulo: 'Impressora parada', descricao: 'nao liga', categoria: 'IMPRESSORA' },
+      })
+    ).json().id;
+    await app.inject({ method: 'POST', url: `/api/chamados/${doJoao}/aceitar`, headers: comToken(tokenTi) });
+  });
+
+  test('clicar em aceitar num chamado com dono continua avisando, sem trocar nada', async () => {
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${doJoao}/aceitar`,
+      headers: comToken(tokenPcTi2),
+    });
+    assert.equal(tentativa.statusCode, 409);
+    assert.match(tentativa.json().message, /já está cuidando/);
+
+    const inalterado = await app.inject({ method: 'GET', url: `/api/chamados/${doJoao}`, headers: comToken(tokenTi) });
+    assert.equal(inalterado.json().responsavelNome, 'TI');
+  });
+
+  test('pedindo para assumir, o chamado troca de mão', async () => {
+    const assumido = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${doJoao}/aceitar`,
+      headers: comToken(tokenPcTi2),
+      payload: { assumir: true },
+    });
+    assert.equal(assumido.statusCode, 200);
+    assert.equal(assumido.json().responsavelNome, 'Carla TI');
+  });
+
+  test('a troca fica registrada numa nota interna', async () => {
+    const visto = await app.inject({ method: 'GET', url: `/api/chamados/${doJoao}`, headers: comToken(tokenTi) });
+    const nota = visto.json().notas.at(-1);
+    assert.match(nota.conteudo, /Carla TI assumiu o chamado, que estava com TI/);
+  });
+
+  test('quem abriu vê o nome novo, e nenhuma nota', async () => {
+    const comoSolicitante = await app.inject({ method: 'GET', url: `/api/chamados/${doJoao}`, headers: comToken(tokenPc) });
+    assert.equal(comoSolicitante.json().responsavelNome, 'Carla TI');
+    assert.deepEqual(comoSolicitante.json().notas, []);
+  });
+
+  test('funcionário comum não assume chamado nenhum', async () => {
+    const tentativa = await app.inject({
+      method: 'POST',
+      url: `/api/chamados/${doJoao}/aceitar`,
+      headers: comToken(tokenPc),
+      payload: { assumir: true },
+    });
+    assert.equal(tentativa.statusCode, 403);
+  });
+});

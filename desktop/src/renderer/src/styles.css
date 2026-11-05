@@ -1211,6 +1211,13 @@ button.stat:hover {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  cursor: zoom-in;
+}
+
+.anexo-imagem__dica {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 /* Reserva um espaço enquanto o arquivo baixa, para o comunicado não "pular" */
@@ -2920,7 +2927,7 @@ input[type='radio'] {
 .fila__lista {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .chamados__vazio {
@@ -2933,17 +2940,31 @@ input[type='radio'] {
 }
 
 .chamado-item {
+  /*
+   * Três colunas e duas faixas, com áreas nomeadas.
+   *
+   * A primeira coluna tem largura fixa de propósito: é ela que faz o título de
+   * todos os chamados da lista começarem na mesma linha vertical, tendo o
+   * número uma casa ou quatro. Antes a coluna era "auto" e cada cartão media a
+   * sua — daí a lista parecer torta de um item para o outro.
+   */
   display: grid;
-  /* ícone · número · texto (as etiquetas vão para a linha de baixo, na 3ª coluna) */
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: 44px minmax(0, 1fr) max-content;
+  grid-template-areas:
+    'coluna texto  lado'
+    'coluna rodape rodape';
   align-items: start;
-  gap: 4px 12px;
-  padding: 11px 14px;
-  border: none;
-  border-left: 3px solid var(--acento);
-  border-radius: 10px;
+  column-gap: 12px;
+  row-gap: 9px;
+  padding: 12px 14px 11px;
+  /* A faixa da esquerda muda de cor conforme o chamado; a variável evita que o
+     :hover, que mexe na borda, apague essa informação. */
+  --faixa: var(--border);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--faixa);
+  border-radius: 12px;
   background: var(--surface);
-  box-shadow: 0 1px 3px var(--sombra);
+  box-shadow: 0 1px 2px var(--sombra);
   text-align: left;
   cursor: pointer;
 }
@@ -2954,20 +2975,52 @@ input[type='radio'] {
 
 .chamado-item--ativo {
   outline: 2px solid var(--acento);
+  outline-offset: -1px;
+  background: var(--surface-alta);
+}
+
+/* Coluna fixa da esquerda: o ícone da ocasião com o número do chamado embaixo */
+.chamado-item__coluna {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  grid-area: coluna;
 }
 
 .chamado-item__numero {
-  padding-top: 1px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
 
 .chamado-item__texto {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  /* Cada linha do item respira: título, quem pediu e categoria estavam
+     encostados uns nos outros. */
+  gap: 4px;
+  grid-area: texto;
   min-width: 0;
+  padding-top: 2px;
+}
+
+/* Quem está atendendo numa faixa só dele, separada por um fio: é a resposta
+   que o TI procura em cada linha da fila. */
+.chamado-item__rodape {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  grid-area: rodape;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.chamado-item__pegar {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .chamado-item__detalhe {
@@ -2978,14 +3031,73 @@ input[type='radio'] {
   white-space: nowrap;
 }
 
-.chamado-item__lado {
+/* O título não pode encostar na linha de baixo nem virar três linhas */
+.chamado-item__titulo {
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quem abriu: o setor primeiro, que é o que o TI procura */
+.chamado-item__quem {
   display: flex;
   align-items: center;
-  gap: 8px;
-  /* Etiquetas embaixo, em linha própria: antes espremiam o título em três linhas */
-  grid-column: 3;
-  flex-wrap: wrap;
-  margin-top: 2px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chamado-item__nome {
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chamado de teste: cinza, fora do caminho dos de verdade */
+.chamado-item--teste {
+  --faixa: var(--muted);
+  opacity: 0.82;
+}
+
+.etiqueta-setor {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--primary-soft);
+  color: var(--acento);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.etiqueta-setor--vazio {
+  background: var(--surface-alta);
+  color: var(--muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+.etiqueta-teste {
+  padding: 2px 8px;
+  border: 1px dashed var(--muted);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Etiquetas empilhadas na direita, com a borda direita sempre no mesmo lugar */
+.chamado-item__lado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  grid-area: lado;
+  padding-top: 2px;
 }
 
 .chamado-item__icone {
@@ -2994,14 +3106,21 @@ input[type='radio'] {
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface-alta);
   color: var(--acento);
+  flex: none;
 }
 
-/* Chamado sem dono: a borda chama o TI para pegar */
+/* Chamado sem dono: faixa e fundo chamam o TI para pegar */
 .chamado-item--livre {
-  border-left-color: var(--danger);
+  --faixa: var(--danger);
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+
+/* Chamado que já é meu: faixa na cor do sistema, sem alarme nenhum */
+.chamado-item--meu {
+  --faixa: var(--acento);
 }
 
 .chamado-item__badge {
@@ -3149,37 +3268,416 @@ input[type='radio'] {
 }
 
 /* ---------------- fila do TI (duas colunas) ---------------- */
+/*
+ * Daqui para baixo a tela se mede por container queries, e não pelo tamanho da
+ * janela. O motivo é o menu lateral: numa janela restaurada de 1000px o que
+ * sobra para a fila é bem menos do que isso, e uma regra escrita em cima da
+ * largura da janela acertaria o número errado.
+ */
 .page--fila {
   display: flex;
   flex-direction: column;
+  container: telafila / inline-size;
 }
 
 .fila {
   display: grid;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-  gap: 18px;
+  /*
+   * A lista acompanha a largura disponível em vez de ter um tamanho fixo.
+   * Com "minmax(360px, 440px)" ela segurava 440px mesmo numa janela média e
+   * espremia o painel do chamado no que sobrava.
+   */
+  grid-template-columns: clamp(300px, 34%, 440px) minmax(0, 1fr);
+  gap: 20px;
   min-height: 0;
   flex: 1;
 }
 
-.fila__lista {
-  overflow-y: auto;
-  padding-right: 4px;
+/* Estreitou de vez: as duas colunas viram uma, a lista por cima do chamado */
+@container telafila (max-width: 780px) {
+  .fila {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .fila__lista {
+    max-height: 42vh;
+  }
 }
 
-.fila__detalhe {
+.fila__lista {
   overflow-y: auto;
-  padding: 18px 20px;
+  padding: 2px 6px 8px 2px;
+  container: lista / inline-size;
+}
+
+/* Lista muito estreita: as etiquetas descem para a linha de baixo do cartão */
+@container lista (max-width: 330px) {
+  .chamado-item {
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas:
+      'coluna texto'
+      'coluna lado'
+      'rodape rodape';
+  }
+
+  .chamado-item__lado {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding-top: 0;
+  }
+
+  .chamado-item__rodape {
+    flex-wrap: wrap;
+  }
+}
+
+/* Contagem e caixa de marcação do cabeçalho, juntas na direita */
+.fila__ferramentas {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+/* Quantos chamados estão sem dono: é o número que decide o dia do TI */
+.fila__contador {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 13px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: 999px;
+  background: var(--erro-fundo);
+  color: var(--erro-texto);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.fila__vazio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 4px;
+  color: var(--muted);
+}
+
+/*
+ * O painel do chamado respira por conta própria.
+ *
+ * A regra que separa os blocos de uma página (.page > * + *) exclui .page--fila,
+ * porque aqui a página é uma grade de duas colunas. Sem isso, título, andamento,
+ * botões, descrição e conversa ficavam colados uns nos outros.
+ */
+.fila__detalhe {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  /* Sem recuo em cima: quem dá o espaço é o cabeçalho grudado, que precisa
+     encostar na borda do painel para cobrir o que passa por baixo dele. */
+  padding: 0 20px 18px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
+  container: painel / inline-size;
 }
 
-/* Sem chamado escolhido, o aviso fica no meio do cartão em vez de solto no topo */
-.fila__detalhe:has(> .page__subtitle:only-child) {
+/* O espaçamento agora é do gap: margem solta nos blocos viraria o dobro */
+.fila__detalhe > * {
+  margin-bottom: 0;
+}
+
+/*
+ * Cabeçalho do chamado: ícone, título e etiquetas numa faixa só.
+ *
+ * Ele gruda no topo enquanto o painel rola (position: sticky). O painel é
+ * comprido — andamento, descrição, notas e conversa —, e sem isso o TI perdia
+ * de vista de qual chamado estava tratando no meio da rolagem. As margens
+ * negativas tiram o recuo do painel para a faixa encostar nas bordas.
+ */
+.fila__titulo {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
-  place-items: center;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  grid-template-areas: 'icone texto marcas';
+  gap: 12px;
+  /*
+   * Margem só nas laterais. Com "-18px" em cima o cabeçalho grudava 18px
+   * abaixo do topo do painel, e o conteúdo rolava aparecendo nessa fresta.
+   */
+  margin: 0 -20px;
+  padding: 16px 20px 13px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.fila__titulo h2,
+.fila__titulo p {
+  margin: 0;
+}
+
+.fila__titulo-icone {
+  grid-area: icone;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--surface-alta);
+  color: var(--acento);
+  flex: none;
+}
+
+.fila__titulo-texto {
+  grid-area: texto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.fila__numero {
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Setor, nome, ocasião e horário na mesma linha, separados por pontos claros */
+.fila__identificacao,
+.fila__quem,
+.fila__fatos {
+  display: flex;
+  align-items: center;
+  /* Um respiro maior entre "quem pediu" e "o que é" no lugar de um ponto de
+     separação: quando a linha quebrava, o ponto ficava solto no fim dela. */
+  gap: 4px 14px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.fila__ponto {
+  opacity: 0.5;
+}
+
+/* Dentro de cada grupo o ponto de separação continua, então basta o respiro curto */
+.fila__quem,
+.fila__fatos {
+  gap: 4px 7px;
+}
+
+
+.fila__marcas {
+  grid-area: marcas;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/*
+ * Cada parte do painel com o seu rótulo.
+ *
+ * Situação, pedido, notas e conversa vinham um atrás do outro sem nome nenhum,
+ * e a tela parecia uma pilha de caixas. O rótulo pequeno em maiúsculas separa
+ * os assuntos sem roubar atenção do conteúdo.
+ */
+.bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bloco__titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* O espaçamento interno é do gap: margem dos blocos antigos viraria o dobro */
+.bloco > * {
+  margin-bottom: 0;
+}
+
+/* Os quatro estados viraram um seletor só, em vez de quatro botões soltos */
+.segmentado {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+.segmentado .botao {
+  padding: 8px 15px;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.segmentado .botao:last-child {
+  border-right: none;
+}
+
+.segmentado .botao:hover:not(:disabled) {
+  background: var(--surface-alta);
+  color: var(--text);
+}
+
+/* O estado de agora fica marcado, e não apagado: ele só está desabilitado
+   porque é o atual, e o cinza de "desligado" dizia o contrário. */
+.segmentado .botao--atual:disabled {
+  background: var(--acento);
+  color: var(--sobre-acento);
+  font-weight: 600;
+}
+
+/* O cartão do andamento termina no último elemento, sem sobra embaixo */
+.chamado__andamento .chamado__cabecalho {
+  margin-bottom: 0;
+}
+/* Confirmação de puxar para si um chamado que está com outra pessoa */
+.assumir {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/*
+ * Notas internas do TI.
+ *
+ * Fundo e borda tracejada diferentes do resto: quem está com a tela aberta na
+ * frente de um funcionário precisa reconhecer num relance que aquele bloco é
+ * interno, e não parte da conversa com ele.
+ */
+.notas {
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-alta);
+}
+
+.notas__topo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* O rótulo das notas segue o mesmo padrão dos outros blocos do painel */
+.notas__topo h3 {
+  margin: 0;
+}
+
+.notas__aviso {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.notas__vazio {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.notas__lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.nota {
+  padding: 8px 10px;
+  border-left: 2px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
+}
+
+.nota__cabecalho {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.nota__texto {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.notas__escrever {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.notas__escrever .botao {
+  flex: none;
+}
+
+.notas__escrever textarea {
+  /* min-width: 0 é o que impede a textarea de esmagar o botão ao lado:
+     sem isso ela usa a largura natural (cols) e empurra o botão para fora. */
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  resize: vertical;
+}
+
+.fila__apagar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* Sem chamado escolhido, o aviso fica no meio do painel em vez de solto no topo */
+.fila__nada {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: auto;
+  color: var(--muted);
+  text-align: center;
 }
 
 .fila__detalhe h2 {
@@ -4002,12 +4500,97 @@ input[type='radio'] {
   background: rgba(255, 255, 255, 0.24);
 }
 
-.visualizador__imagem {
+/* Área onde a imagem vive: o zoom cresce para dentro dela, nunca para fora */
+/*
+ * Área da imagem. A imagem ampliada cresce de verdade e a área rola — nada de
+ * transform: scale, que em placa de vídeo antiga (GeForce 210) estoura o
+ * tamanho de textura e desenha listras na tela.
+ *
+ * "safe center" centraliza a imagem menor que a área sem esconder o começo da
+ * imagem maior: com center puro, o que passa do topo e da esquerda fica
+ * inalcançável pela rolagem.
+ */
+.visualizador__palco {
+  display: grid;
   flex: 1;
+  align-content: safe center;
+  justify-content: safe center;
+  width: 100%;
   min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.visualizador__palco::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.visualizador__palco::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: content-box;
+}
+
+.visualizador__palco::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+  background-clip: content-box;
+}
+
+.visualizador__imagem {
+  display: block;
   max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   border-radius: 6px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.visualizador__zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Os botões de − e +: redondos, do tamanho de quem usa luva */
+.visualizador__lupa {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f2f5f8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.visualizador__lupa:hover:not(:disabled),
+.visualizador__lupa:focus-visible:not(:disabled) {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.visualizador__lupa:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.visualizador__nivel {
+  min-width: 52px;
+  color: #f2f5f8;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.visualizador__dica {
+  margin: 0;
+  color: rgba(242, 245, 248, 0.6);
+  font-size: 12px;
   cursor: default;
 }
 
@@ -5169,6 +5752,120 @@ svg {
   line-height: 1.35;
 }
 
+/*
+ * A grade quando ela É a tela, e não um campo de formulário: cartão maior,
+ * para ser alvo fácil de quem está com a mão suja e de pé na fábrica.
+ */
+/* O seletor repete o :not() da regra de largura da página logo acima; sem isso
+   ela é mais específica e o max-width daqui não vale. */
+.page:not(.page--split):not(.page--fila) > .ocasioes--abertura {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  /* Trava em quatro por linha: são oito ocasiões, e 4+4 evita o cartão órfão
+     sozinho na segunda fila. Em janela estreita cai para três, dois e um. */
+  max-width: 940px;
+  margin-bottom: 26px;
+}
+
+.ocasioes--abertura .ocasiao {
+  gap: 9px;
+  padding: 26px 16px;
+}
+
+.ocasioes--abertura .ocasiao__nome {
+  font-size: 16px;
+}
+
+.ocasioes--abertura .ocasiao__exemplo {
+  font-size: 12.5px;
+}
+
+.chamados__secao {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--text-soft);
+}
+
+/* Confirmação do chamado: a categoria escolhida fica à vista, com saída fácil */
+.novo-chamado__escolha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-alta);
+}
+
+.novo-chamado__icone {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 12px;
+  background: var(--primary-soft);
+  color: var(--acento);
+}
+
+.novo-chamado__escolha > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.novo-chamado__escolha small {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* O que o TI precisa receber junto do pedido de relatório */
+.novo-chamado__dica {
+  margin: -4px 0 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.botao--pequeno {
+  padding: 5px 12px;
+  font-size: 12.5px;
+}
+
+/* O botão que a pessoa veio apertar: maior que os outros */
+.botao--enviar {
+  padding: 11px 26px;
+  font-size: 15px;
+}
+
+/* Andamento em quatro traços, dentro da linha da lista */
+.barra-andamento {
+  display: flex;
+  gap: 4px;
+  width: 170px;
+  max-width: 100%;
+  margin: 4px 0 2px;
+}
+
+.barra-andamento__passo {
+  height: 4px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.barra-andamento__passo--feito {
+  background: var(--acento);
+}
+
+/* Resolvido e fechado não são "em andamento": mudam de cor junto com a etiqueta */
+.barra-andamento--resolvido .barra-andamento__passo--feito,
+.barra-andamento--fechado .barra-andamento__passo--feito {
+  background: var(--success);
+}
+
 .ocasiao--escolhida .ocasiao__exemplo {
   color: inherit;
   opacity: 0.85;
@@ -5315,4 +6012,86 @@ svg {
   align-items: center;
   gap: 7px;
   flex: none;
+}
+
+/*
+ * Painel do chamado estreito (janela restaurada).
+ *
+ * Nada aqui depende do tamanho da janela: é a largura do próprio painel que
+ * manda, então vale igual com o menu lateral aberto ou fechado.
+ */
+@container painel (max-width: 520px) {
+  /* As etiquetas descem para baixo do título em vez de espremê-lo */
+  .fila__titulo {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icone texto'
+      'marcas marcas';
+  }
+
+  .fila__marcas {
+    justify-content: flex-start;
+  }
+
+  /* Quem pediu numa linha, os dados do chamado na outra, sem ponto sobrando */
+  .fila__identificacao {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .fila__identificacao > .fila__ponto {
+    display: none;
+  }
+
+  /* Os quatro estados em dois por linha, do mesmo tamanho */
+  .segmentado {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-self: stretch;
+  }
+
+  .segmentado .botao {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .segmentado .botao:nth-child(2n) {
+    border-right: none;
+  }
+
+  .segmentado .botao:nth-last-child(-n + 2) {
+    border-bottom: none;
+  }
+
+  /* Caixa de texto em cima, botão embaixo: lado a lado a caixa virava uma
+     coluna estreita de quatro linhas */
+  .notas__escrever,
+  .chamado__responder,
+  .aceitar-chamado {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .notas__escrever .botao,
+  .chamado__responder .botao,
+  .aceitar-chamado .botao {
+    justify-content: center;
+  }
+
+  .balao {
+    max-width: 92%;
+  }
+
+  .andamento {
+    gap: 8px 14px;
+  }
+
+  /* A caixa de texto ocupa a linha inteira; o "flex: 1" base vale para a
+     altura quando a direcao vira coluna, e nao para a largura. */
+  .notas__escrever textarea,
+  .chamado__responder textarea {
+    flex: none;
+    width: 100%;
+  }
 }

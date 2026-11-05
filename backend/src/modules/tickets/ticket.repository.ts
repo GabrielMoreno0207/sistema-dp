@@ -1,4 +1,4 @@
-import type { Chamado, ChamadoMensagem, NovaMensagem, NovoChamado, StatusChamado } from './ticket.types';
+import type { Chamado, ChamadoMensagem, ChamadoNota, NovaMensagem, NovaNota, NovoChamado, StatusChamado } from './ticket.types';
 
 export interface FiltroChamados {
   /** Só os chamados desta pessoa (o funcionário vê apenas os dele) */
@@ -28,6 +28,10 @@ export interface ChamadoRepository {
   /** Não lidas por chamado, para montar a lista sem uma consulta por linha */
   contarNaoLidasPorChamado(ids: string[], de: ChamadoMensagem['autorTipo']): Promise<Map<string, number>>;
   contarMensagensPorChamado(ids: string[]): Promise<Map<string, number>>;
+
+  /** Nota interna do TI (quem abriu o chamado não enxerga) */
+  addNota(dados: NovaNota, agora: string): Promise<ChamadoNota>;
+  listNotas(chamadoId: string): Promise<ChamadoNota[]>;
 
   anexarMidias(chamadoId: string, midiaIds: string[]): Promise<void>;
   listMidiaIds(chamadoId: string): Promise<string[]>;

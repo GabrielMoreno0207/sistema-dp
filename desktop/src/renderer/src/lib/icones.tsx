@@ -16,6 +16,8 @@ import {
   LuHandHelping,
   LuHourglass,
   LuCircleDot,
+  LuFileChartColumn,
+  LuDatabase,
   LuBell,
   LuDiamond,
   LuBot,
@@ -144,6 +146,8 @@ export const ICONES = {
   aceitar: LuHandHelping,
   ampulheta: LuHourglass,
   ponto: LuCircleDot,
+  relatorio: LuFileChartColumn,
+  totvs: LuDatabase,
 } as const;
 
 export type NomeIcone = keyof typeof ICONES;

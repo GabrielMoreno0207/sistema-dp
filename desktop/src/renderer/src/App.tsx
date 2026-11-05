@@ -258,7 +258,7 @@ export function App() {
       content = <MuralAdminPage />;
       break;
     case 'admin-chamados':
-      content = <FilaChamadosPage />;
+      content = <FilaChamadosPage meuId={state?.admin?.id ?? state?.employee?.id ?? null} />;
       break;
     case 'admin-comunicados':
       content = <ComunicadosAdminPage ehTi={ehTi} />;

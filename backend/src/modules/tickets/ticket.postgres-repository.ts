@@ -6,7 +6,9 @@ import {
   type Categoria,
   type Chamado,
   type ChamadoMensagem,
+  type ChamadoNota,
   type NovaMensagem,
+  type NovaNota,
   type NovoChamado,
   type Prioridade,
   type StatusChamado,
@@ -23,12 +25,25 @@ function toChamado(row: Row): Chamado {
     status: text(row, 'status') as StatusChamado,
     solicitanteId: text(row, 'solicitante_id'),
     solicitanteNome: text(row, 'solicitante_nome'),
+    solicitanteSetor: nullableText(row, 'solicitante_setor'),
+    teste: Boolean(row.teste),
     computadorId: nullableText(row, 'computador_id'),
     responsavelId: nullableText(row, 'responsavel_id'),
     responsavelNome: nullableText(row, 'responsavel_nome'),
     createdAt: text(row, 'created_at'),
     updatedAt: text(row, 'updated_at'),
     resolvidoEm: nullableText(row, 'resolvido_em'),
+  };
+}
+
+function toNota(row: Row): ChamadoNota {
+  return {
+    id: Number(row.id),
+    chamadoId: text(row, 'chamado_id'),
+    autorId: text(row, 'autor_id'),
+    autorNome: text(row, 'autor_nome'),
+    conteudo: text(row, 'conteudo'),
+    createdAt: text(row, 'created_at'),
   };
 }
 
@@ -53,9 +68,9 @@ export class PostgresChamadoRepository implements ChamadoRepository {
     // O número vem da própria coluna de identidade: sem risco de dois iguais
     const row = await this.db.one(
       `INSERT INTO chamados (id, titulo, descricao, categoria, prioridade, status,
-         solicitante_id, solicitante_nome, computador_id, responsavel_id, responsavel_nome,
-         created_at, updated_at, resolvido_em)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12, NULL) RETURNING *`,
+         solicitante_id, solicitante_nome, solicitante_setor, teste, computador_id,
+         responsavel_id, responsavel_nome, created_at, updated_at, resolvido_em)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, NULL) RETURNING *`,
       [
         id,
         dados.titulo,
@@ -65,6 +80,8 @@ export class PostgresChamadoRepository implements ChamadoRepository {
         dados.status,
         dados.solicitanteId,
         dados.solicitanteNome,
+        dados.solicitanteSetor,
+        dados.teste,
         dados.computadorId,
         dados.responsavelId,
         dados.responsavelNome,
@@ -127,6 +144,20 @@ export class PostgresChamadoRepository implements ChamadoRepository {
       await tx.run('UPDATE chamados SET updated_at = $1 WHERE id = $2', [agora, dados.chamadoId]);
       return toMensagem(row as Row);
     });
+  }
+
+  async addNota(dados: NovaNota, agora: string): Promise<ChamadoNota> {
+    const row = await this.db.one(
+      `INSERT INTO chamado_notas (chamado_id, autor_id, autor_nome, conteudo, created_at)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [dados.chamadoId, dados.autorId, dados.autorNome, dados.conteudo, agora],
+    );
+    return toNota(row as Row);
+  }
+
+  async listNotas(chamadoId: string): Promise<ChamadoNota[]> {
+    const rows = await this.db.all('SELECT * FROM chamado_notas WHERE chamado_id = $1 ORDER BY id', [chamadoId]);
+    return rows.map(toNota);
   }
 
   async listMensagens(chamadoId: string): Promise<ChamadoMensagem[]> {

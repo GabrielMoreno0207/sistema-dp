@@ -777,6 +777,11 @@ function start(): void {
     if (isChaveDeAlerta(messageId)) popup.dispensar(messageId);
     else popup.dispensarAtual();
   });
+  ipcMain.on(PopupChannels.Altura, (event, altura: unknown) => {
+    if (!isTrustedSender(event as unknown as IpcMainInvokeEvent)) return;
+    if (typeof altura === 'number') popup.definirAltura(altura);
+  });
+
   handle(PopupChannels.View, (messageId) => {
     if (isChaveDeAlerta(messageId)) popup.view(messageId);
     else popup.dispensarAtual();
@@ -1030,8 +1035,26 @@ function start(): void {
   });
 
   handle(IpcChannels.AdminChamadoAceitar, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; assumir?: unknown } | null;
+    const id = typeof entrada?.id === 'string' ? entrada.id : '';
+    if (!CHAMADO_ID.test(id)) return { ok: false, message: 'Chamado inválido.' };
+    const saida = await comAdmin((client) => client.aceitarChamado(id, entrada?.assumir === true));
+    return 'dados' in saida ? { ok: true, message: '' } : saida;
+  });
+
+  handle(IpcChannels.AdminChamadoApagar, async (bruto): Promise<OperationResult> => {
     if (typeof bruto !== 'string' || !CHAMADO_ID.test(bruto)) return { ok: false, message: 'Chamado inválido.' };
-    const saida = await comAdmin((client) => client.aceitarChamado(bruto));
+    const saida = await comAdmin((client) => client.apagarChamado(bruto));
+    return 'dados' in saida ? { ok: true, message: 'Chamado de teste apagado.' } : saida;
+  });
+
+  handle(IpcChannels.AdminChamadoNota, async (bruto): Promise<OperationResult> => {
+    const entrada = bruto as { id?: unknown; conteudo?: unknown } | null;
+    const id = typeof entrada?.id === 'string' ? entrada.id : '';
+    const conteudo = textoValido(entrada?.conteudo, 2000);
+    if (!CHAMADO_ID.test(id)) return { ok: false, message: 'Chamado inválido.' };
+    if (!conteudo) return { ok: false, message: 'Escreva a nota.' };
+    const saida = await comAdmin((client) => client.anotarChamado(id, conteudo));
     return 'dados' in saida ? { ok: true, message: '' } : saida;
   });
 

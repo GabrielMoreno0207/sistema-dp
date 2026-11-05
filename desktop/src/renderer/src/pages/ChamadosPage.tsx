@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { CategoriaChamado, ChamadoCompleto, ChamadoResumo, PrioridadeChamado } from '../../../shared/types';
+import type { CategoriaChamado, ChamadoCompleto, ChamadoResumo } from '../../../shared/types';
 import {
+  BarraAndamento,
+  CATEGORIAS,
   ConversaChamado,
   EtiquetaPrioridade,
   EtiquetaStatus,
   ICONE_CATEGORIA,
   LinhaDoTempo,
-  PRIORIDADES,
   Responsavel,
   ROTULO_CATEGORIA,
-  ROTULO_URGENCIA,
-  SeletorCategoria,
   quando,
 } from '../components/chamados-comuns';
 import { Icone } from '../lib/icones';
 
-/** Chamados que a pessoa abriu para o TI. */
+/**
+ * Chamados para o TI, na visão de quem abre.
+ *
+ * A tela já começa na grade de ícones: pedir chamado é um clique na figura do
+ * que está com problema, e não um formulário. Quem quiser contar mais escreve
+ * uma linha na tela seguinte; quem não quiser só aperta Enviar.
+ */
 export function ChamadosPage() {
   const [chamados, setChamados] = useState<ChamadoResumo[]>([]);
   const [aberto, setAberto] = useState<ChamadoCompleto | null>(null);
-  const [criando, setCriando] = useState(false);
+  const [categoriaNova, setCategoriaNova] = useState<CategoriaChamado | null>(null);
   const [aviso, setAviso] = useState('');
   const [carregando, setCarregando] = useState(true);
 
@@ -48,12 +53,13 @@ export function ChamadosPage() {
     }
   }
 
-  if (criando) {
+  if (categoriaNova) {
     return (
       <NovoChamado
-        onCancelar={() => setCriando(false)}
+        categoria={categoriaNova}
+        onVoltar={() => setCategoriaNova(null)}
         onCriado={async () => {
-          setCriando(false);
+          setCategoriaNova(null);
           await carregar();
         }}
       />
@@ -73,65 +79,111 @@ export function ChamadosPage() {
     );
   }
 
+  const emAberto = chamados.filter((chamado) => chamado.status !== 'FECHADO');
+  const encerrados = chamados.filter((chamado) => chamado.status === 'FECHADO');
+
   return (
     <div className="page">
       <header className="page__header">
         <div>
           <h1>Chamados para o TI</h1>
-          <p className="page__subtitle">Problemas com computador, impressora, sistema, rede ou acesso.</p>
+          <p className="page__subtitle">Clique no que está com problema. O TI recebe na hora.</p>
         </div>
-        <button className="botao botao--primario" onClick={() => setCriando(true)}>
-          Abrir chamado
-        </button>
       </header>
 
       {aviso && <p className="aviso-em-breve">{aviso}</p>}
 
-      {carregando ? (
-        <p className="page__subtitle">Carregando…</p>
-      ) : chamados.length === 0 ? (
-        <div className="cartao chamados__vazio">
-          <p>Você ainda não abriu nenhum chamado.</p>
-          <button className="botao botao--primario" onClick={() => setCriando(true)}>
-            Abrir o primeiro
+      <div className="ocasioes ocasioes--abertura" role="group" aria-label="Com o que é o problema?">
+        {CATEGORIAS.map((categoria) => (
+          <button
+            key={categoria.valor}
+            type="button"
+            className="ocasiao"
+            onClick={() => setCategoriaNova(categoria.valor)}
+          >
+            <Icone nome={categoria.icone} tamanho={34} />
+            <strong className="ocasiao__nome">{categoria.label}</strong>
+            <small className="ocasiao__exemplo">{categoria.exemplo}</small>
           </button>
-        </div>
+        ))}
+      </div>
+
+      {carregando ? null : chamados.length === 0 ? (
+        <p className="page__subtitle">Você ainda não abriu nenhum chamado.</p>
       ) : (
-        <div className="chamados__lista">
-          {chamados.map((chamado) => (
-            <button key={chamado.id} className="chamado-item" onClick={() => void abrirDetalhe(chamado.id)}>
-              <span className="chamado-item__icone" aria-hidden>
-                <Icone nome={ICONE_CATEGORIA[chamado.categoria]} tamanho={22} />
-              </span>
-              <span className="chamado-item__numero">#{chamado.numero}</span>
-              <span className="chamado-item__texto">
-                <strong>{chamado.titulo}</strong>
-                <span className="chamado-item__detalhe">
-                  {ROTULO_CATEGORIA[chamado.categoria]} · aberto em {quando(chamado.createdAt)}
-                  {chamado.responsavelNome && ` · com ${chamado.responsavelNome}`}
+        <>
+          <h2 className="chamados__secao">Meus chamados</h2>
+          <div className="chamados__lista">
+            {[...emAberto, ...encerrados].map((chamado) => (
+              <button key={chamado.id} className="chamado-item" onClick={() => void abrirDetalhe(chamado.id)}>
+                {/* Mesmo desenho da fila do TI: coluna fixa com o ícone e o número,
+                    para o título de todos os chamados começar no mesmo lugar */}
+                <span className="chamado-item__coluna">
+                  <span className="chamado-item__icone" aria-hidden>
+                    <Icone nome={ICONE_CATEGORIA[chamado.categoria]} tamanho={20} />
+                  </span>
+                  <span className="chamado-item__numero">#{chamado.numero}</span>
                 </span>
-              </span>
-              <span className="chamado-item__lado">
-                <EtiquetaStatus status={chamado.status} />
-                {chamado.mensagensNaoLidas > 0 && <span className="chamado-item__badge">{chamado.mensagensNaoLidas}</span>}
-              </span>
-            </button>
-          ))}
-        </div>
+                <span className="chamado-item__texto">
+                  <strong className="chamado-item__titulo">{chamado.titulo}</strong>
+                  {/* A barra responde "e o meu chamado?" sem precisar abrir */}
+                  <BarraAndamento status={chamado.status} />
+                </span>
+                <span className="chamado-item__lado">
+                  <EtiquetaStatus status={chamado.status} />
+                  {chamado.mensagensNaoLidas > 0 && (
+                    <span className="chamado-item__badge">{chamado.mensagensNaoLidas}</span>
+                  )}
+                </span>
+                <span className="chamado-item__rodape">
+                  {chamado.responsavelNome ? (
+                    <Responsavel nome={chamado.responsavelNome} />
+                  ) : (
+                    <span className="chamado-item__detalhe">Esperando o TI aceitar</span>
+                  )}
+                  <span className="chamado-item__pegar">Aberto em {quando(chamado.createdAt)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-/** Formulário de abertura, com print opcional. */
-function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado(): Promise<void> }) {
-  const [titulo, setTitulo] = useState('');
-  const [descricao, setDescricao] = useState('');
-  const [categoria, setCategoria] = useState<CategoriaChamado>('COMPUTADOR');
-  const [prioridade, setPrioridade] = useState<PrioridadeChamado>('NORMAL');
+/** Primeira linha do que a pessoa escreveu, para virar o título da lista. */
+function tituloDoTexto(texto: string, categoria: CategoriaChamado): string {
+  const primeira = texto.split('\n')[0]?.trim() ?? '';
+  if (!primeira) return ROTULO_CATEGORIA[categoria];
+  return primeira.length > 80 ? `${primeira.slice(0, 79)}…` : primeira;
+}
+
+/**
+ * Confirmação do chamado: a categoria já veio do ícone, então só falta enviar.
+ *
+ * O texto é opcional de propósito. Na fábrica, obrigar a escrever é o que faz
+ * a pessoa desistir e ligar para o TI — e o TI pergunta o que faltar dentro do
+ * próprio chamado.
+ */
+function NovoChamado({
+  categoria,
+  onVoltar,
+  onCriado,
+}: {
+  categoria: CategoriaChamado;
+  onVoltar(): void;
+  onCriado(): Promise<void>;
+}) {
+  const [texto, setTexto] = useState('');
   const [imagens, setImagens] = useState<{ id: string; nome: string }[]>([]);
   const [aviso, setAviso] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const escolhida = CATEGORIAS.find((item) => item.valor === categoria);
+  // Relatório é pedido de trabalho novo: sem dizer como ele precisa ser,
+  // o TI não tem o que desenvolver — então aqui o texto não é opcional.
+  const obrigatorio = escolhida?.descricaoObrigatoria === true;
+  const faltaTexto = obrigatorio && texto.trim().length < 15;
 
   async function anexar() {
     const resultado = await window.dp.enviarImagemChamado();
@@ -145,12 +197,14 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
   async function enviar() {
     setEnviando(true);
     setAviso('');
+    const limpo = texto.trim();
     const resultado = await window.dp.abrirChamado({
-      titulo,
-      descricao,
+      titulo: obrigatorio ? `Relatório: ${tituloDoTexto(limpo, categoria)}` : tituloDoTexto(limpo, categoria),
+      // O servidor exige descrição; sem texto, o próprio ícone é o recado
+      descricao: limpo || `Aberto pelo ícone "${ROTULO_CATEGORIA[categoria]}", sem detalhes.`,
       categoria,
-      prioridade,
-      midiaIds: imagens.map((i) => i.id),
+      prioridade: 'NORMAL',
+      midiaIds: imagens.map((imagem) => imagem.id),
     });
     setEnviando(false);
     if (!resultado.ok) {
@@ -165,63 +219,52 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
       <header className="page__header">
         <div>
           <h1>Abrir chamado</h1>
-          <p className="page__subtitle">Conte o que está acontecendo. O TI responde por aqui mesmo.</p>
+          <p className="page__subtitle">Confira e envie. O TI responde por aqui mesmo.</p>
         </div>
-        <button className="botao" onClick={onCancelar}>
+        <button className="botao" onClick={onVoltar}>
           Voltar
         </button>
       </header>
 
-      <div className="cartao formulario">
-        {/* A ocasião vem antes do texto: é a pergunta mais fácil de responder */}
-        <label>Com o que é o problema?</label>
-        <SeletorCategoria valor={categoria} onEscolher={setCategoria} />
-
-        <label htmlFor="chamado-titulo">O que está acontecendo</label>
-        <input
-          id="chamado-titulo"
-          value={titulo}
-          maxLength={120}
-          autoFocus
-          placeholder="Ex.: A impressora do setor não imprime"
-          onChange={(evento) => setTitulo(evento.target.value)}
-        />
-
-        {/* Urgência em botões: três opções não merecem uma lista suspensa */}
-        <label>Isso te impede de trabalhar?</label>
-        <div className="urgencias" role="radiogroup" aria-label="Urgência">
-          {PRIORIDADES.map((opcao) => (
-            <button
-              key={opcao.valor}
-              type="button"
-              role="radio"
-              aria-checked={prioridade === opcao.valor}
-              className={`urgencia urgencia--${opcao.valor.toLowerCase()} ${prioridade === opcao.valor ? 'urgencia--escolhida' : ''}`}
-              onClick={() => setPrioridade(opcao.valor)}
-            >
-              {ROTULO_URGENCIA[opcao.valor]}
-            </button>
-          ))}
+      <div className="cartao formulario novo-chamado">
+        <div className="novo-chamado__escolha">
+          <span className="novo-chamado__icone" aria-hidden>
+            <Icone nome={ICONE_CATEGORIA[categoria]} tamanho={30} />
+          </span>
+          <span>
+            <strong>{ROTULO_CATEGORIA[categoria]}</strong>
+            {escolhida && <small>{escolhida.exemplo}</small>}
+          </span>
+          <button className="botao botao--pequeno" onClick={onVoltar}>
+            Trocar
+          </button>
         </div>
 
-        <label htmlFor="chamado-descricao">Detalhes</label>
+        <label htmlFor="chamado-texto">
+          {obrigatorio ? escolhida?.pergunta : 'Quer contar mais? (opcional)'}
+        </label>
+        {obrigatorio && escolhida?.dica && <p className="novo-chamado__dica">{escolhida.dica}</p>}
         <textarea
-          id="chamado-descricao"
-          rows={6}
-          value={descricao}
-          maxLength={4000}
-          placeholder="Desde quando acontece, o que aparece na tela, o que você já tentou…"
-          onChange={(evento) => setDescricao(evento.target.value)}
+          id="chamado-texto"
+          rows={obrigatorio ? 6 : 4}
+          value={texto}
+          maxLength={2000}
+          autoFocus
+          placeholder={obrigatorio ? 'Descreva o relatório que você precisa…' : 'Ex.: a impressora do setor não puxa o papel'}
+          onChange={(evento) => setTexto(evento.target.value)}
         />
 
         <div className="formulario__anexos">
           <button className="botao" onClick={() => void anexar()} disabled={imagens.length >= 3}>
-            Anexar print ({imagens.length}/3)
+            <Icone nome="anexo" tamanho={15} /> Anexar print ({imagens.length}/3)
           </button>
           {imagens.map((imagem) => (
             <span key={imagem.id} className="anexo-chip">
               {imagem.nome}
-              <button onClick={() => setImagens((atuais) => atuais.filter((i) => i.id !== imagem.id))} aria-label="Remover">
+              <button
+                onClick={() => setImagens((atuais) => atuais.filter((i) => i.id !== imagem.id))}
+                aria-label="Remover"
+              >
                 <Icone nome="fechar" tamanho={13} />
               </button>
             </span>
@@ -230,16 +273,15 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
 
         {aviso && <p className="aviso-em-breve">{aviso}</p>}
 
+        {/* Só o botão que interessa: voltar já está no cabeçalho e em "Trocar" */}
         <div className="formulario__acoes">
-          <button className="botao" onClick={onCancelar}>
-            Cancelar
-          </button>
           <button
-            className="botao botao--primario"
+            className="botao botao--primario botao--enviar"
             onClick={() => void enviar()}
-            disabled={enviando || !titulo.trim() || !descricao.trim()}
+            disabled={enviando || faltaTexto}
+            title={faltaTexto ? 'Conte como o relatório precisa ser para poder enviar' : undefined}
           >
-            {enviando ? 'Enviando…' : 'Abrir chamado'}
+            {enviando ? 'Enviando…' : 'Enviar chamado'}
           </button>
         </div>
       </div>
@@ -247,7 +289,7 @@ function NovoChamado({ onCancelar, onCriado }: { onCancelar(): void; onCriado():
   );
 }
 
-/** Chamado aberto: descrição, prints, conversa e resposta. */
+/** Chamado aberto: andamento, descrição, prints, conversa e resposta. */
 function DetalheChamado({
   chamado,
   onVoltar,

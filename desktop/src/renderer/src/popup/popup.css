@@ -48,9 +48,10 @@ body.popup-body {
   user-select: none;
 }
 
-/* Margem transparente em volta do card, para a sombra caber na janela */
+/* Margem transparente em volta do card, para a sombra caber na janela.
+   Sem altura fixa: o cartão manda, e o processo principal mede este bloco
+   para dar à janela a altura exata do conteúdo. */
 #root {
-  height: 100%;
   padding: 10px;
 }
 
@@ -58,7 +59,6 @@ body.popup-body {
   --accent: #17b3a3;
   --accent-soft: #e3f5f2;
   position: relative;
-  height: 100%;
   display: flex;
   gap: 12px;
   padding: 12px 12px 10px 14px;
@@ -92,12 +92,14 @@ body.popup-body {
 
 /* O aviso da atualização ganha uma linha a mais (a janela vem mais alta) */
 .toast--atualizacao .toast__content {
+  flex: none;
   max-height: 4.2em;
   -webkit-line-clamp: 3;
 }
 
 /* O que fazer se o aplicativo não voltar sozinho */
 .toast__dica {
+  flex: none;
   margin: 5px 0 0;
   font-size: 12px;
   color: #4a5465;
@@ -136,6 +138,7 @@ body.popup-body {
 }
 
 .toast__top {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -172,6 +175,7 @@ body.popup-body {
 }
 
 .toast__title {
+  flex: none;
   margin-top: 2px;
   font-size: 14.5px;
   overflow: hidden;
@@ -192,6 +196,7 @@ body.popup-body {
 }
 
 .toast__attachments {
+  flex: none;
   margin: 5px 0 0;
   font-size: 12px;
   font-weight: 600;
@@ -200,6 +205,7 @@ body.popup-body {
 
 /* Comunicado que pede "li e estou ciente" */
 .toast__ciencia {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -210,6 +216,7 @@ body.popup-body {
 }
 
 .toast__actions {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: flex-end;

@@ -28,7 +28,9 @@ import {
   NovaConversaScreen,
   NovoGrupoScreen,
 } from './src/ui/screens/ConversasScreens';
+import { ChamadoScreen, ChamadosScreen, NovoChamadoScreen } from './src/ui/screens/ChamadosScreens';
 import { DeviceSetupScreen, requestNotificationPermission } from './src/ui/screens/DeviceSetupScreen';
+import { FilaChamadoScreen, FilaChamadosScreen } from './src/ui/screens/FilaChamadosScreens';
 import { HomeScreen, MuralScreen } from './src/ui/screens/HomeScreen';
 import { LoginScreen } from './src/ui/screens/LoginScreen';
 import { MaisScreen, SobreScreen } from './src/ui/screens/MaisScreen';
@@ -56,6 +58,8 @@ const TELAS_ADMIN: Route['name'][] = [
   'adminCadastros',
   'adminFuncionario',
   'adminAjustes',
+  'filaChamados',
+  'filaChamado',
 ];
 
 function Root() {
@@ -101,6 +105,7 @@ function Root() {
     if (!request || !app.employee) return;
     if (request.kind === 'message') goTab('comunicados', { name: 'message', id: request.id });
     else if (request.kind === 'conversa') goTab('mensagens', { name: 'conversa', conversaId: request.conversaId });
+    else if (request.kind === 'chamado') goTab('mais', { name: 'chamado', id: request.chamadoId });
     else if (request.kind === 'atualizacao') goTab('mais', { name: 'sobre' });
     else goTab('mais');
     clearNavRequest();
@@ -180,6 +185,17 @@ function Tela({ route }: { route: Route }) {
       return <ImagemScreen midia={route.midia} />;
     case 'mural':
       return <MuralScreen />;
+    case 'chamados':
+      return <ChamadosScreen />;
+    case 'filaChamados':
+      return <FilaChamadosScreen />;
+    case 'filaChamado':
+      return <FilaChamadoScreen key={route.id} id={route.id} />;
+    case 'novoChamado':
+      return <NovoChamadoScreen categoria={route.categoria} />;
+    case 'chamado':
+      // key: abrir outro chamado pela notificação recomeça a tela
+      return <ChamadoScreen key={route.id} id={route.id} />;
     case 'perfil':
       return <ProfileScreen />;
     case 'foto':

@@ -15,6 +15,7 @@ const api: PopupApi = {
   },
   popupView: (messageId) => ipcRenderer.invoke(PopupChannels.View, messageId),
   popupDismiss: (messageId) => ipcRenderer.invoke(PopupChannels.Dismiss, messageId),
+  popupAltura: (altura) => ipcRenderer.send(PopupChannels.Altura, altura),
 };
 
 contextBridge.exposeInMainWorld('dpPopup', api);

@@ -5,7 +5,16 @@ import type { MidiaTipo } from '../content/content.types';
  */
 import { randomBytes } from 'node:crypto';
 
-export const CATEGORIAS = ['COMPUTADOR', 'IMPRESSORA', 'SISTEMA', 'REDE', 'ACESSO', 'OUTRO'] as const;
+export const CATEGORIAS = [
+  'COMPUTADOR',
+  'IMPRESSORA',
+  'TOTVS',
+  'SISTEMA',
+  'REDE',
+  'ACESSO',
+  'RELATORIO',
+  'OUTRO',
+] as const;
 export type Categoria = (typeof CATEGORIAS)[number];
 
 export const PRIORIDADES = ['BAIXA', 'NORMAL', 'ALTA'] as const;
@@ -29,6 +38,10 @@ export interface Chamado {
   status: StatusChamado;
   solicitanteId: string;
   solicitanteNome: string;
+  /** Setor de quem abriu, guardado junto com o nome */
+  solicitanteSetor: string | null;
+  /** Aberto por alguém do próprio TI: chamado de teste, pode ser apagado */
+  teste: boolean;
   computadorId: string | null;
   responsavelId: string | null;
   responsavelNome: string | null;
@@ -54,9 +67,28 @@ export interface ChamadoMensagem {
 
 export type NovaMensagem = Omit<ChamadoMensagem, 'id' | 'createdAt' | 'lidaEm'>;
 
+/**
+ * Nota interna do TI dentro do chamado.
+ *
+ * É o que uma pessoa do TI deixa escrito para a próxima: o que já tentou, o que
+ * descobriu, onde parou. Não é conversa com quem abriu — quem abriu não vê.
+ */
+export interface ChamadoNota {
+  id: number;
+  chamadoId: string;
+  autorId: string;
+  autorNome: string;
+  conteudo: string;
+  createdAt: string;
+}
+
+export type NovaNota = Omit<ChamadoNota, 'id' | 'createdAt'>;
+
 /** Chamado com tudo que a tela precisa mostrar */
 export interface ChamadoCompleto extends Chamado {
   mensagens: ChamadoMensagem[];
+  /** Notas internas do TI. Vem sempre vazia para quem abriu o chamado. */
+  notas: ChamadoNota[];
   /** Prints anexados na abertura (só os ids; a tela busca em /api/midias/:id) */
   midias: { id: string; tipo: MidiaTipo; nome: string; url: string }[];
   /** Mensagens do outro lado ainda não lidas */
@@ -73,6 +105,7 @@ export const LIMITES_CHAMADO = {
   maxTitulo: 120,
   maxDescricao: 4000,
   maxMensagem: 2000,
+  maxNota: 2000,
   /** Prints por chamado */
   maxMidias: 3,
   /** Chamados em aberto por pessoa, para não virar depósito */
@@ -88,9 +121,11 @@ export function gerarIdChamado(): string {
 export const ROTULO_CATEGORIA: Record<Categoria, string> = {
   COMPUTADOR: 'Computador',
   IMPRESSORA: 'Impressora',
+  TOTVS: 'TOTVS',
   SISTEMA: 'Sistema / programa',
   REDE: 'Rede / internet',
   ACESSO: 'Acesso e senha',
+  RELATORIO: 'Relatório',
   OUTRO: 'Outro',
 };
 

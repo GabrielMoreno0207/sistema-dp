@@ -355,8 +355,16 @@ export class ApiClient {
    * Assume o atendimento. Existe aqui para o processo principal poder chamar
    * com qualquer um dos dois clientes; quem não é do TI leva 403 do servidor.
    */
-  async aceitarChamado(id: string): Promise<ChamadoCompleto> {
-    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`);
+  async aceitarChamado(id: string, assumir = false): Promise<ChamadoCompleto> {
+    return this.request<ChamadoCompleto>('POST', `/api/chamados/${encodeURIComponent(id)}/aceitar`, { assumir });
+  }
+
+  async anotarChamado(id: string, conteudo: string): Promise<void> {
+    await this.request<unknown>('POST', `/api/chamados/${encodeURIComponent(id)}/notas`, { conteudo });
+  }
+
+  async apagarChamado(id: string): Promise<void> {
+    await this.request<void>('DELETE', `/api/chamados/${encodeURIComponent(id)}`);
   }
 
   async listarMural(): Promise<MuralPost[]> {

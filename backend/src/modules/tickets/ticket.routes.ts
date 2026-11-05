@@ -31,6 +31,21 @@ const mensagemBody = {
   properties: { conteudo: { type: 'string', minLength: 1, maxLength: LIMITES_CHAMADO.maxMensagem } },
 } as const;
 
+const notaBody = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['conteudo'],
+  properties: { conteudo: { type: 'string', minLength: 1, maxLength: LIMITES_CHAMADO.maxNota } },
+} as const;
+
+/** `assumir` só é preciso quando o chamado já está com outra pessoa do TI */
+const aceitarBody = {
+  type: 'object',
+  additionalProperties: false,
+  nullable: true,
+  properties: { assumir: { type: 'boolean' } },
+} as const;
+
 const statusBody = {
   type: 'object',
   additionalProperties: false,
@@ -57,7 +72,7 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (app,
     const principal = request.principal;
     if (!principal) throw new AppError('Autenticação necessária', 401, 'UNAUTHORIZED');
     if (principal.type === 'COMPUTER') return tickets.solicitanteDoPc(principal.computerId);
-    return { tipo: 'ADMIN', id: principal.userId, nome: principal.name, ti: principal.superAdmin };
+    return { tipo: 'ADMIN', id: principal.userId, nome: principal.name, setor: null, ti: principal.superAdmin };
   }
 
   /** Abre um chamado (funcionário no app ou pessoa do DP na Central). */
@@ -106,11 +121,20 @@ export const ticketRoutes: FastifyPluginAsync<TicketRoutesOptions> = async (app,
     return reply.code(201).send({ mensagem: await tickets.responder(id, quem, conteudo) });
   });
 
-  /** Alguém do TI assume o atendimento (a fila é compartilhada). */
-  app.post('/chamados/:id/aceitar', { schema: { params: chamadoParams } }, async (request) => {
+  /** Nota interna do TI: o solicitante não vê, e nem recebe aviso. */
+  app.post('/chamados/:id/notas', { schema: { params: chamadoParams, body: notaBody } }, async (request, reply) => {
     const quem = await quemEstaAgindo(request);
     const { id } = request.params as { id: string };
-    return tickets.aceitar(id, quem);
+    const { conteudo } = request.body as { conteudo: string };
+    return reply.code(201).send({ nota: await tickets.anotar(id, quem, conteudo) });
+  });
+
+  /** Alguém do TI assume o atendimento (a fila é compartilhada). */
+  app.post('/chamados/:id/aceitar', { schema: { params: chamadoParams, body: aceitarBody } }, async (request) => {
+    const quem = await quemEstaAgindo(request);
+    const { id } = request.params as { id: string };
+    const { assumir } = (request.body ?? {}) as { assumir?: boolean };
+    return tickets.aceitar(id, quem, assumir === true);
   });
 
   app.put('/chamados/:id/status', { schema: { params: chamadoParams, body: statusBody } }, async (request) => {

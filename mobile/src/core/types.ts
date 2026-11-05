@@ -116,7 +116,15 @@ export type DadosAtalho = Pick<Atalho, 'rotulo' | 'icone' | 'cor' | 'destino'>;
 
 // ---------------------------------------------------------------- chamados para o TI
 
-export type CategoriaChamado = 'COMPUTADOR' | 'IMPRESSORA' | 'SISTEMA' | 'REDE' | 'ACESSO' | 'OUTRO';
+export type CategoriaChamado =
+  | 'COMPUTADOR'
+  | 'IMPRESSORA'
+  | 'TOTVS'
+  | 'SISTEMA'
+  | 'REDE'
+  | 'ACESSO'
+  | 'RELATORIO'
+  | 'OUTRO';
 export type PrioridadeChamado = 'BAIXA' | 'NORMAL' | 'ALTA';
 export type StatusChamado = 'ABERTO' | 'EM_ANDAMENTO' | 'RESOLVIDO' | 'FECHADO';
 
@@ -141,6 +149,10 @@ export interface Chamado {
   status: StatusChamado;
   solicitanteId: string;
   solicitanteNome: string;
+  /** Setor de quem abriu (servidor antigo não manda: vem undefined) */
+  solicitanteSetor?: string | null;
+  /** Aberto por alguém do TI: chamado de teste */
+  teste?: boolean;
   computadorId: string | null;
   responsavelId: string | null;
   responsavelNome: string | null;
@@ -154,8 +166,20 @@ export interface ChamadoResumo extends Chamado {
   totalMensagens: number;
 }
 
+/** Nota interna do TI dentro do chamado (quem abriu não enxerga) */
+export interface ChamadoNota {
+  id: number;
+  chamadoId: string;
+  autorId: string;
+  autorNome: string;
+  conteudo: string;
+  createdAt: string;
+}
+
 export interface ChamadoCompleto extends Chamado {
   mensagens: ChamadoMensagem[];
+  /** Vem sempre vazia para quem abriu o chamado (e de servidor antigo nem vem) */
+  notas: ChamadoNota[];
   midias: { id: string; tipo: 'IMAGEM' | 'VIDEO' | 'ARQUIVO'; nome: string; url: string }[];
   naoLidas: number;
 }
@@ -311,9 +335,11 @@ export const TYPE_LABELS: Record<MessageType, string> = {
 export const CATEGORIAS_CHAMADO: Record<CategoriaChamado, string> = {
   COMPUTADOR: 'Computador',
   IMPRESSORA: 'Impressora',
+  TOTVS: 'TOTVS',
   SISTEMA: 'Sistema / programa',
   REDE: 'Rede / internet',
   ACESSO: 'Acesso e senha',
+  RELATORIO: 'Relatório',
   OUTRO: 'Outro',
 };
 
