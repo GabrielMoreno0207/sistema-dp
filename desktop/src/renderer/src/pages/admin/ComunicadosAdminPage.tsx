@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CampoAgendar, dataPorExtenso, ListaAgendados, paraIso } from '../../components/Agendamento';
 import { quando } from '../../components/chamados-comuns';
 import { Icone } from '../../lib/icones';
+import { LeiturasComunicado } from '../../components/LeiturasComunicado';
 import { nomeDeArquivo } from '../../../../shared/arquivo';
 
 type TipoComunicado = 'COMUNICADO' | 'AVISO' | 'INFORMATIVO' | 'URGENTE';
@@ -36,31 +37,6 @@ interface EnviadoResumo {
   recipientCount: number;
 }
 
-/** Quem leu, no formato que a API devolve */
-interface Leitura {
-  type: string;
-  id: string;
-  name: string;
-  /** Usuário, ou o identificador do computador */
-  detail: string | null;
-  sector: string | null;
-  /** Em qual computador a leitura aconteceu */
-  computer: string | null;
-  readAt: string;
-  /** Quando confirmou "li e estou ciente" (null = só abriu) */
-  cienteEm: string | null;
-}
-
-/** Quem ainda não leu (só para destinos com lista conhecida) */
-interface Pendente {
-  type: string;
-  id: string;
-  name: string;
-  detail: string | null;
-  sector: string | null;
-  situation: string;
-}
-
 /** Novo comunicado e histórico de enviados, dentro do aplicativo. */
 export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
   const [aba, setAba] = useState<'novo' | 'agendados' | 'enviados'>('novo');
@@ -69,14 +45,8 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
   const [quandoEnviar, setQuandoEnviar] = useState('');
   const [versaoAgendados, setVersaoAgendados] = useState(0);
   const [enviados, setEnviados] = useState<EnviadoResumo[]>([]);
-  const [leituras, setLeituras] = useState<{
-    id: string;
-    titulo: string;
-    exigeCiencia: boolean;
-    lista: Leitura[];
-    pendentes: Pendente[];
-  } | null>(null);
-  const [avisando, setAvisando] = useState(false);
+  // Comunicado cuja audiência está aberta na janela de leituras
+  const [verLeituras, setVerLeituras] = useState<EnviadoResumo | null>(null);
   const [aviso, setAviso] = useState('');
 
   // formulário
@@ -184,46 +154,6 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
     setQuandoEnviar('');
     setVersaoAgendados((v) => v + 1);
     setAviso(executarEm ? `Comunicado agendado para ${dataPorExtenso(executarEm)}. Veja na aba Agendados.` : 'Comunicado enviado.');
-  }
-
-  async function verLeituras(comunicado: EnviadoResumo) {
-    const resultado = await window.dp.adminApi<{ reads: Leitura[]; pending: Pendente[] | null }>(
-      'GET',
-      `/api/messages/${encodeURIComponent(comunicado.id)}/reads`,
-    );
-    if (!resultado.ok || !resultado.dados) {
-      setAviso(resultado.message);
-      return;
-    }
-    setLeituras({
-      id: comunicado.id,
-      titulo: comunicado.title,
-      exigeCiencia: comunicado.exigeCiencia,
-      lista: resultado.dados.reads ?? [],
-      pendentes: resultado.dados.pending ?? [],
-    });
-  }
-
-  /** Faz o alerta do comunicado voltar à tela de quem ainda não leu. */
-  async function avisarPendentes(): Promise<void> {
-    if (!leituras) return;
-    setAvisando(true);
-    const resultado = await window.dp.adminApi<{ avisados: number }>(
-      'POST',
-      `/api/messages/${encodeURIComponent(leituras.id)}/avisar-pendentes`,
-    );
-    setAvisando(false);
-    if (!resultado.ok || !resultado.dados) {
-      setAviso(resultado.message);
-      return;
-    }
-    const total = resultado.dados.avisados;
-    setAviso(
-      total === 0
-        ? 'Ninguém para lembrar: todo mundo já leu (e confirmou, quando o comunicado pede).'
-        : `Lembrete enviado para ${total} ${total === 1 ? 'pessoa' : 'pessoas'}. O alerta volta à tela de quem estiver com o aplicativo aberto.`,
-    );
-    setLeituras(null);
   }
 
   /** Apagar comunicado é função da conta do TI. */
@@ -418,7 +348,7 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
                     </td>
                     <td>{quando(comunicado.createdAt)}</td>
                     <td>
-                      <button className="link-btn" onClick={() => void verLeituras(comunicado)}>
+                      <button className="link-btn" onClick={() => setVerLeituras(comunicado)}>
                         {comunicado.readCount} de {comunicado.recipientCount}
                       </button>
                     </td>
@@ -437,73 +367,21 @@ export function ComunicadosAdminPage({ ehTi }: { ehTi: boolean }) {
         </div>
       )}
 
-      {leituras && (
-        <div className="modal" role="dialog" aria-modal="true" onClick={() => setLeituras(null)}>
-          <div className="modal__caixa" onClick={(evento) => evento.stopPropagation()}>
-            <h2 className="modal__titulo">{leituras.titulo}</h2>
-
-            <h3 className="leituras__titulo">Já leram ({leituras.lista.length})</h3>
-            {leituras.lista.length === 0 ? (
-              <p className="page__subtitle">Ninguém leu ainda.</p>
-            ) : (
-              <div className="leituras">
-                {leituras.lista.map((leitura) => (
-                  <div key={leitura.id} className="leituras__item">
-                    <strong>{leitura.name}</strong>
-                    <span className="page__subtitle">
-                      {[
-                        leitura.detail,
-                        leitura.sector,
-                        leitura.computer ? `no ${leitura.computer}` : null,
-                        quando(leitura.readAt),
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                    {leituras.exigeCiencia && (
-                      <span className={`etiqueta ${leitura.cienteEm ? 'etiqueta--ok' : 'etiqueta--aviso'}`}>
-                        {leitura.cienteEm ? `ciente em ${quando(leitura.cienteEm)}` : 'sem confirmação'}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {leituras.pendentes.length > 0 && (
-              <>
-                <h3 className="leituras__titulo">Ainda não leram ({leituras.pendentes.length})</h3>
-                <div className="leituras">
-                  {leituras.pendentes.map((pendente) => (
-                    <div key={pendente.id} className="leituras__item leituras__item--pendente">
-                      <strong>{pendente.name}</strong>
-                      <span className="page__subtitle">
-                        {[pendente.detail, pendente.sector, pendente.situation].filter(Boolean).join(' · ')}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <footer className="modal__rodape">
-              <span className="modal__espaco" />
-            {(() => {
-              const semCiencia = leituras.exigeCiencia && leituras.lista.some((l) => !l.cienteEm);
-              if (leituras.pendentes.length === 0 && !semCiencia) return null;
-              return (
-                <button className="botao" onClick={() => void avisarPendentes()} disabled={avisando}>
-                  <Icone nome="sino" tamanho={14} />{' '}
-                  {avisando ? 'Avisando…' : semCiencia ? 'Avisar quem falta confirmar' : 'Avisar quem não leu'}
-                </button>
-              );
-            })()}
-              <button className="botao" onClick={() => setLeituras(null)}>
-                Fechar
-              </button>
-            </footer>
-          </div>
-        </div>
+      {verLeituras && (
+        <LeiturasComunicado
+          comunicado={verLeituras}
+          tipoLabel={TIPOS.find((t) => t.valor === verLeituras.type)?.label ?? verLeituras.type}
+          destino={
+            (DESTINOS.find((d) => d.valor === verLeituras.target)?.label ?? verLeituras.target) +
+            (verLeituras.targetId ? `: ${verLeituras.targetId}` : '')
+          }
+          onFechar={() => {
+            setVerLeituras(null);
+            // Os números da tabela podem ter mudado enquanto a janela ficou aberta
+            void carregarEnviados();
+          }}
+          onAviso={setAviso}
+        />
       )}
     </div>
   );

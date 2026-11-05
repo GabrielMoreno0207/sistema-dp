@@ -116,6 +116,8 @@ export const ICONES = {
   minimizar: LuMinus,
   maximizar: LuSquare,
   restaurar: LuCopy,
+  // Mesmo desenho do restaurar, com o nome do que ele faz nas listas
+  copiar: LuCopy,
   robo: LuBot,
   claro: LuSun,
   escuro: LuMoon,
